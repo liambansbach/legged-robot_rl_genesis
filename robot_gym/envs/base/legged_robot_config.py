@@ -127,12 +127,16 @@ class LeggedRobotCfg(BaseConfig):
             "joint_b": 0.}
 
     class control:
-        control_type = 'P' # P: position, V: velocity, T: torques
+        control_type = 'P' # P: position, V: velocity, T: torques. Can also be a per-joint dict.
         # PD Drive parameters:
         stiffness = {'joint_a': 10.0, 'joint_b': 15.}  # [N*m/rad]
         damping = {'joint_a': 1.0, 'joint_b': 1.5}     # [N*m*s/rad]
         dof_vel_limits = {'joint_a': 6.0, 'joint_b': 6.0}   # [rad/s]
-        # action scale: target angle = actionScale * action + defaultAngle
+        # action scale:
+        # P: target angle = action_scale * action + default angle
+        # V: target velocity = action_scale * action
+        # T: target torque = action_scale * action
+        # Can also be a per-joint dict.
         action_scale = 0.5
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 4

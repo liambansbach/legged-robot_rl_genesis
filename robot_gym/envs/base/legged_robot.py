@@ -76,7 +76,7 @@ class LeggedRobot(BaseTask):
         if self.privileged_obs_buf is not None:
             self.privileged_obs_buf = torch.clip(self.privileged_obs_buf, -clip_obs, clip_obs)
             
-        return self.get_observations(), self.rew_buf, self.reset_buf, self.extras
+        return self.obs_buf, self.rew_buf, self.reset_buf, self.extras
 
     def post_physics_step(self):
         """ check terminations, compute observations and rewards
@@ -196,11 +196,12 @@ class LeggedRobot(BaseTask):
     def compute_observations(self):
         """ Computes observations
         """
+        dof_pos_obs = (self.dof_pos - self.default_dof_pos) * self.dof_pos_obs_mask
         self.obs_buf = torch.cat((  self.base_lin_vel * self.obs_scales.lin_vel,
                                     self.base_ang_vel  * self.obs_scales.ang_vel,
                                     self.projected_gravity,
                                     self.commands[:, :3] * self.commands_scale,
-                                    (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
+                                    dof_pos_obs * self.obs_scales.dof_pos,
                                     self.dof_vel * self.obs_scales.dof_vel,
                                     self.actions
                                     ),dim=-1)
@@ -409,20 +410,19 @@ class LeggedRobot(BaseTask):
             actions (torch.Tensor): Actions
         """
         #pd controller
-        actions_scaled = actions * self.cfg.control.action_scale
-        control_type = self.cfg.control.control_type
+        actions_scaled = actions * self.action_scale
 
-        if control_type=="P":
-            targets = actions_scaled + self.default_dof_pos
-            self.robot.control_dofs_position(targets, self.joint_dof_idx)
-        elif control_type=="V":
-            targets = actions_scaled + self.dof_vel #TODO has to be changed if you want to use velocity control
-            self.robot.control_dofs_velocity(targets, self.joint_dof_idx)
-        elif control_type=="T":
-            torques = actions_scaled #TODO has to be changed if yo want to use force control
-            self.robot.control_dofs_force(torques, self.joint_dof_idx)
-        else:
-            raise NameError(f"Unknown controller type: {control_type}")
+        if self.p_control_dof_idx:
+            targets = actions_scaled[:, self.p_control_mask] + self.default_dof_pos[:, self.p_control_mask]
+            self.robot.control_dofs_position(targets, self.p_control_dof_idx)
+
+        if self.v_control_dof_idx:
+            targets = actions_scaled[:, self.v_control_mask]
+            self.robot.control_dofs_velocity(targets, self.v_control_dof_idx)
+
+        if self.t_control_dof_idx:
+            torques = actions_scaled[:, self.t_control_mask]
+            self.robot.control_dofs_force(torques, self.t_control_dof_idx)
 
     def _reset_dofs(self, env_ids):
         """ Resets DOF position and velocities of selected environmments
@@ -538,7 +538,17 @@ class LeggedRobot(BaseTask):
         noise_vec[3:6] = noise_scales.ang_vel * noise_level * self.obs_scales.ang_vel
         noise_vec[6:9] = noise_scales.gravity * noise_level
         noise_vec[9:12] = 0. # commands
-        noise_vec[12:12+self.num_actions] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
+        dof_pos_noise_mask = getattr(
+            self,
+            "dof_pos_obs_mask",
+            torch.ones((1, self.num_actions), device=self.device),
+        ).squeeze(0)
+        noise_vec[12:12+self.num_actions] = (
+            noise_scales.dof_pos
+            * noise_level
+            * self.obs_scales.dof_pos
+            * dof_pos_noise_mask
+        )
         noise_vec[12+self.num_actions:12+2*self.num_actions] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
         noise_vec[12+2*self.num_actions:12+3*self.num_actions] = 0. # previous actions
 
@@ -559,7 +569,6 @@ class LeggedRobot(BaseTask):
 
         self.common_step_counter = 0
         self.extras = {"observations": {}}
-        self.noise_scale_vec = self._get_noise_scale_vec(self.cfg)
         self.projected_gravity = torch.zeros((N, 3), device=self.device, requires_grad=False)
         self.global_gravity = torch.tensor([0.0, 0.0, -1.0], device=self.device).repeat(N,1)
         self.actions = torch.zeros((N, A), dtype=torch.float, device=self.device, requires_grad=False)
@@ -589,6 +598,9 @@ class LeggedRobot(BaseTask):
             dtype=torch.float,
             device=self.device,
         ).unsqueeze(0)
+
+        self._build_control_tensors()
+        self.noise_scale_vec = self._get_noise_scale_vec(self.cfg)
 
         # initialize velocity vector visualizer for debugging
         self.velocity_arrow_visualizer = VelocityArrowVisualizer(
@@ -626,6 +638,63 @@ class LeggedRobot(BaseTask):
         missing = [name for name in self.joint_names if name not in self.cfg.control.dof_vel_limits]
         if missing:
             raise KeyError(f"Missing dof_vel_limits values for joints: {missing}")
+
+    def _expand_joint_cfg_value(self, value, cfg_name):
+        """Return one config value per joint while preserving scalar config behavior."""
+        if isinstance(value, dict):
+            missing = [name for name in self.joint_names if name not in value]
+            if missing:
+                raise KeyError(f"Missing {cfg_name} values for joints: {missing}")
+            return [value[name] for name in self.joint_names]
+
+        return [value for _ in self.joint_names]
+
+    def _build_control_tensors(self):
+        control_types = [
+            str(value).upper()
+            for value in self._expand_joint_cfg_value(self.cfg.control.control_type, "control_type")
+        ]
+        invalid = sorted(set(control_types) - {"P", "V", "T"})
+        if invalid:
+            raise NameError(f"Unknown controller type(s): {invalid}")
+
+        self.action_scale = torch.tensor(
+            self._expand_joint_cfg_value(self.cfg.control.action_scale, "action_scale"),
+            dtype=torch.float,
+            device=self.device,
+        ).unsqueeze(0)
+
+        self.p_control_mask = torch.tensor(
+            [control_type == "P" for control_type in control_types],
+            dtype=torch.bool,
+            device=self.device,
+        )
+        self.v_control_mask = torch.tensor(
+            [control_type == "V" for control_type in control_types],
+            dtype=torch.bool,
+            device=self.device,
+        )
+        self.t_control_mask = torch.tensor(
+            [control_type == "T" for control_type in control_types],
+            dtype=torch.bool,
+            device=self.device,
+        )
+
+        self.p_control_dof_idx = [
+            dof_idx for dof_idx, control_type in zip(self.joint_dof_idx, control_types)
+            if control_type == "P"
+        ]
+        self.v_control_dof_idx = [
+            dof_idx for dof_idx, control_type in zip(self.joint_dof_idx, control_types)
+            if control_type == "V"
+        ]
+        self.t_control_dof_idx = [
+            dof_idx for dof_idx, control_type in zip(self.joint_dof_idx, control_types)
+            if control_type == "T"
+        ]
+
+        self.position_control_mask = self.p_control_mask.unsqueeze(0).float()
+        self.dof_pos_obs_mask = self.position_control_mask
         
 
     def _prepare_reward_function(self):
@@ -740,6 +809,11 @@ class LeggedRobot(BaseTask):
         # get number of dofs the robot has according to the urdf file
         self.num_dof = len(self.joint_names)
         self.num_actions = self.num_dof
+        if self.cfg.env.num_actions != self.num_actions:
+            raise ValueError(
+                f"cfg.env.num_actions ({self.cfg.env.num_actions}) must match "
+                f"the number of non-fixed robot joints ({self.num_actions})."
+            )
         
         # get foot link names
         if not self.cfg.asset.foot_link_names:
@@ -992,6 +1066,7 @@ class LeggedRobot(BaseTask):
         # Penalize dof positions too close to the limit
         out_of_limits = -(self.dof_pos - self.dof_pos_limits[:, 0]).clip(max=0.) # lower limit
         out_of_limits += (self.dof_pos - self.dof_pos_limits[:, 1]).clip(min=0.)
+        out_of_limits *= self.position_control_mask
         return torch.sum(out_of_limits, dim=1)
 
     def _reward_dof_vel_limits(self):
@@ -1044,7 +1119,10 @@ class LeggedRobot(BaseTask):
             torch.norm(self.commands[:, :3], dim=1) < 0.1 
         ).float()
 
-        pos_err = torch.sum(torch.abs(self.dof_pos - self.default_dof_pos), dim=1)
+        pos_err = torch.sum(
+            torch.abs(self.dof_pos - self.default_dof_pos) * self.position_control_mask,
+            dim=1,
+        )
         vel_err = torch.sum(torch.abs(self.dof_vel), dim=1)
 
         return (pos_err + 0.1 * vel_err) * stand_mask
