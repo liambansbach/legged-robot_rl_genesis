@@ -1,6 +1,5 @@
 import torch
 import genesis as gs
-from tensordict import TensorDict
 
 from .legged_robot_config import LeggedRobotCfg
 
@@ -63,11 +62,7 @@ class BaseTask:
         self.viewer = None
 
     def get_observations(self):
-        return TensorDict(
-            {"policy": self.obs_buf},
-            batch_size=[self.num_envs],
-            device=self.device,
-        )
+        return self.obs_buf, self.extras
 
     def get_privileged_observations(self):
         return self.privileged_obs_buf

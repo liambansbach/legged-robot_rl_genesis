@@ -217,6 +217,7 @@ class TaskRegistry:
         train_cfg_dict = class_to_dict(train_cfg)
 
         runner_cfg = train_cfg_dict.pop("runner", {})
+        train_cfg_dict = self._adapt_train_cfg_for_rsl_rl(train_cfg_dict)
 
         for key, value in runner_cfg.items():
             train_cfg_dict.setdefault(key, value)
@@ -227,6 +228,9 @@ class TaskRegistry:
         train_cfg_dict.setdefault("logger", "tensorboard")
         train_cfg_dict.setdefault("torch_compile_mode", None)
         train_cfg_dict["run_name"] = effective_run_name
+
+        if str(train_cfg_dict.get("logger", "")).lower() == "wandb":
+            self._patch_wandb_writer_for_base_config()
 
         resume_path = None
 
@@ -282,6 +286,67 @@ class TaskRegistry:
 
 
         return runner, train_cfg
+
+    def _adapt_train_cfg_for_rsl_rl(self, train_cfg_dict: dict) -> dict:
+        """
+        Convert this repo's actor/critic config shape to the ActorCritic
+        policy config expected by the installed rsl-rl OnPolicyRunner.
+        """
+        if "policy" not in train_cfg_dict:
+            actor_cfg = train_cfg_dict.pop("actor", {})
+            critic_cfg = train_cfg_dict.pop("critic", {})
+
+            distribution_cfg = actor_cfg.get("distribution_cfg", {})
+
+            train_cfg_dict["policy"] = {
+                "class_name": "ActorCritic",
+                "actor_hidden_dims": actor_cfg.get("hidden_dims", [512, 256, 128]),
+                "critic_hidden_dims": critic_cfg.get(
+                    "hidden_dims",
+                    actor_cfg.get("hidden_dims", [512, 256, 128]),
+                ),
+                "activation": actor_cfg.get(
+                    "activation",
+                    critic_cfg.get("activation", "elu"),
+                ),
+                "init_noise_std": distribution_cfg.get("init_std", 1.0),
+                "noise_std_type": distribution_cfg.get("std_type", "scalar"),
+            }
+
+        algorithm_cfg = train_cfg_dict.get("algorithm", {})
+        # Some config keys are used by newer/custom policy builders but are not
+        # accepted by rsl-rl 5.x PPO directly.
+        algorithm_cfg.pop("share_cnn_encoders", None)
+
+        return train_cfg_dict
+
+    def _patch_wandb_writer_for_base_config(self):
+        """
+        rsl-rl 5.x serializes env_cfg with dataclasses.asdict(), but this repo
+        uses BaseConfig-style class configs. Patch only the config logging hook
+        so wandb works without modifying the installed rsl-rl package.
+        """
+        from rsl_rl.utils import wandb_utils
+
+        if getattr(wandb_utils.WandbSummaryWriter, "_robot_gym_config_patch", False):
+            return
+
+        original_init = wandb_utils.WandbSummaryWriter.__init__
+
+        def __init__(writer, log_dir: str, flush_secs: int, cfg):
+            original_init(writer, log_dir, flush_secs, cfg)
+            if wandb_utils.wandb.run is not None:
+                wandb_utils.wandb.run.name = os.path.basename(log_dir)
+
+        def store_config(writer, env_cfg, runner_cfg, alg_cfg, policy_cfg):
+            wandb_utils.wandb.config.update({"runner_cfg": runner_cfg})
+            wandb_utils.wandb.config.update({"policy_cfg": policy_cfg})
+            wandb_utils.wandb.config.update({"alg_cfg": alg_cfg})
+            wandb_utils.wandb.config.update({"env_cfg": class_to_dict(env_cfg)})
+
+        wandb_utils.WandbSummaryWriter.__init__ = __init__
+        wandb_utils.WandbSummaryWriter.store_config = store_config
+        wandb_utils.WandbSummaryWriter._robot_gym_config_patch = True
     
     def _make_yaml_safe(self, obj):
         if isinstance(obj, dict):

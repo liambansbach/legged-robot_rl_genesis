@@ -1,0 +1,1630 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by
+Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="go2w_description">
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="0.021112 0 -0.005366"
+        rpy="0 0 0" />
+      <mass
+        value="6.921" />
+      <inertia
+        ixx="0.02448"
+        ixy="0.00012166"
+        ixz="0.0014849"
+        iyy="0.098077"
+        iyz="-3.12E-05"
+        izz="0.107" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../dae/base.dae" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <geometry>
+        <box size="0.3762 0.0935 0.114" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="Head_upper">
+    <inertial>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <mass
+        value="0.001" />
+      <inertia
+        ixx="9.6e-06"
+        ixy="0"
+        ixz="0"
+        iyy="9.6e-06"
+        iyz="0"
+        izz="9.6e-06" />
+    </inertial>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.06" length="0.09" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="Head_upper_joint"
+    type="fixed" dont_collapse="true">
+    <origin
+      xyz="0.285 0 0.01"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="Head_upper" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="Head_lower">
+    <inertial>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <mass
+        value="0.001" />
+      <inertia
+        ixx="9.6e-06"
+        ixy="0"
+        ixz="0"
+        iyy="9.6e-06"
+        iyz="0"
+        izz="9.6e-06" />
+    </inertial>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <sphere radius="0.06" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="Head_lower_joint"
+    type="fixed" dont_collapse="true">
+    <origin
+      xyz="0.008 0 -0.07"
+      rpy="0 0 0" />
+    <parent
+      link="Head_upper" />
+    <child
+      link="Head_lower" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="FL_hip">
+    <inertial>
+      <origin
+        xyz="-0.0054 0.00194 -0.000105"
+        rpy="0 0 0" />
+      <mass
+        value="0.678" />
+      <inertia
+        ixx="0.00048"
+        ixy="-3.01E-06"
+        ixz="1.11E-06"
+        iyy="0.000884"
+        iyz="-1.42E-06"
+        izz="0.000596" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../dae/hip.dae" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="1.5707963267948966 0 0" xyz="0 0.08 0" />
+      <geometry>
+        <cylinder length="0.04" radius="0.046" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="FL_hip_joint"
+    type="revolute">
+    <origin
+      xyz="0.1934 0.0465 0"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="FL_hip" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="-1.0472"
+      upper="1.0472"
+      effort="23.7"
+      velocity="30.1" />
+  </joint>
+  <link
+    name="FL_thigh">
+    <inertial>
+      <origin
+        xyz="-0.00374 -0.0223 -0.0327"
+        rpy="0 0 0" />
+      <mass
+        value="1.152" />
+      <inertia
+        ixx="0.00584"
+        ixy="8.72E-05"
+        ixz="-0.000289"
+        iyy="0.0058"
+        iyz="0.000808"
+        izz="0.00103" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../dae/thigh.dae" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 1.5707963267948966 0" xyz="0 0 -0.1065" />
+      <geometry>
+        <box size="0.11 0.0245 0.034" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="FL_thigh_joint"
+    type="revolute">
+    <origin
+      xyz="0 0.0955 0"
+      rpy="0 0 0" />
+    <parent
+      link="FL_hip" />
+    <child
+      link="FL_thigh" />
+    <axis
+      xyz="0 1 0" />
+    <limit
+      lower="-1.5707963267948966"
+      upper="3.4907"
+      effort="23.7"
+      velocity="30.1" />
+  </joint>
+  <link
+    name="FL_calf">
+    <inertial>
+      <origin
+        xyz="0.00548 -0.000975 -0.115"
+        rpy="0 0 0" />
+      <mass
+        value="0.154" />
+      <inertia
+        ixx="0.00108"
+        ixy="3.4E-07"
+        ixz="1.72E-05"
+        iyy="0.0011"
+        iyz="8.28E-06"
+        izz="3.29E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../dae/calf.stl" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 -0.21 0" xyz="0.008 0 -0.06" />
+      <geometry>
+        <cylinder length="0.12" radius="0.012" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="FL_calf_joint"
+    type="revolute">
+    <origin
+      xyz="0 0 -0.213"
+      rpy="0 0 0" />
+    <parent
+      link="FL_thigh" />
+    <child
+      link="FL_calf" />
+    <axis
+      xyz="0 1 0" />
+    <limit
+      lower="-2.7227"
+      upper="-0.83776"
+      effort="35.55"
+      velocity="20.07" />
+  </joint>
+  <link
+    name="FL_calflower">
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <geometry>
+        <cylinder length="0.065" radius="0.011" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="FL_calflower_joint"
+    type="fixed">
+    <origin
+      xyz="0.020 0 -0.148"
+      rpy="0 0.05 0" />
+    <parent
+      link="FL_calf" />
+    <child
+      link="FL_calflower" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="FL_calflower1">
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <geometry>
+        <cylinder length="0.03" radius="0.0155" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="FL_calflower1_joint"
+    type="fixed">
+    <origin
+      xyz="-0.01 0 -0.04"
+      rpy="0 0.48 0" />
+    <parent
+      link="FL_calflower" />
+    <child
+      link="FL_calflower1" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+
+  <link
+    name="FL_foot_motor">
+    <inertial>
+      <origin
+        xyz="0 0.0 0"
+        rpy="0 0 0" />
+      <mass
+        value="0.646" />
+      <inertia
+        ixx="0.001"
+        ixy="0"
+        ixz="0"
+        iyy="0.0016"
+        iyz="0"
+        izz="0.001" />
+    </inertial>
+    <collision>
+      <origin rpy="1.5707963267948966 0 0" xyz="0 0 0" />
+      <geometry>
+        <cylinder length="0.05" radius="0.05" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="FL_foot_motor_joint"
+    type="fixed">
+    <origin
+      xyz="-0.00 0.01 -0.2264"
+      rpy="0 0.0 0" />
+    <parent
+      link="FL_calf" />
+    <child
+      link="FL_foot_motor" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+
+  <link
+    name="FL_foot">
+    <inertial>
+      <origin
+        xyz="0 0.06 0"
+        rpy="0 0 0" />
+      <mass
+        value="0.520" />
+      <inertia
+        ixx="0.0007"
+        ixy="0"
+        ixz="0"
+        iyy="0.0012"
+        iyz="0"
+        izz="0.0007" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh filename="../dae/left_wheel.dae" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0.0 0" />
+      <geometry>
+        <mesh filename="../dae/left_wheel.dae" />
+        <!-- <cylinder length="0.045" radius="0.086" /> -->
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="FL_foot_joint"
+    type="continuous">
+    <origin
+      xyz="0 0 -0.2264"
+      rpy="0 0 0" />
+    <parent
+      link="FL_calf" />
+    <child
+      link="FL_foot" />
+    <axis
+      xyz="0 1 0" />
+      <!-- <dynamics damping="0.01" friction="0.01"/> -->
+      <limit
+      effort="23.7"
+      velocity="30.1" />
+  </joint>
+  
+  <link
+    name="FR_hip">
+    <inertial>
+      <origin
+        xyz="-0.0054 -0.00194 -0.000105"
+        rpy="0 0 0" />
+      <mass
+        value="0.678" />
+      <inertia
+        ixx="0.00048"
+        ixy="3.01E-06"
+        ixz="1.11E-06"
+        iyy="0.000884"
+        iyz="1.42E-06"
+        izz="0.000596" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="3.1415 0 0" />
+      <geometry>
+        <mesh
+          filename="../dae/hip.dae" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="1.5707963267948966 0 0" xyz="0 -0.08 0" />
+      <geometry>
+        <cylinder length="0.04" radius="0.046" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="FR_hip_joint"
+    type="revolute">
+    <origin
+      xyz="0.1934 -0.0465 0"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="FR_hip" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="-1.0472"
+      upper="1.0472"
+      effort="23.7"
+      velocity="30.1" />
+  </joint>
+  <link
+    name="FR_thigh">
+    <inertial>
+      <origin
+        xyz="-0.00374 0.0223 -0.0327"
+        rpy="0 0 0" />
+      <mass
+        value="1.152" />
+      <inertia
+        ixx="0.00584"
+        ixy="-8.72E-05"
+        ixz="-0.000289"
+        iyy="0.0058"
+        iyz="-0.000808"
+        izz="0.00103" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../dae/thigh_mirror.dae" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 1.5707963267948966 0" xyz="0 0 -0.1065" />
+      <geometry>
+        <box size="0.11 0.0245 0.034" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="FR_thigh_joint"
+    type="revolute">
+    <origin
+      xyz="0 -0.0955 0"
+      rpy="0 0 0" />
+    <parent
+      link="FR_hip" />
+    <child
+      link="FR_thigh" />
+    <axis
+      xyz="0 1 0" />
+    <limit
+      lower="-1.5707963267948966"
+      upper="3.4907"
+      effort="23.7"
+      velocity="30.1" />
+  </joint>
+  <link
+    name="FR_calf">
+    <inertial>
+      <origin
+        xyz="0.00548 0.000975 -0.115"
+        rpy="0 0 0" />
+      <mass
+        value="0.154" />
+      <inertia
+        ixx="0.00108"
+        ixy="-3.4E-07"
+        ixz="1.72E-05"
+        iyy="0.0011"
+        iyz="-8.28E-06"
+        izz="3.29E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../dae/calf_mirror.stl" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 -0.2 0" xyz="0.01 0 -0.06" />
+      <geometry>
+        <cylinder length="0.12" radius="0.013" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="FR_calf_joint"
+    type="revolute">
+    <origin
+      xyz="0 0 -0.213"
+      rpy="0 0 0" />
+    <parent
+      link="FR_thigh" />
+    <child
+      link="FR_calf" />
+    <axis
+      xyz="0 1 0" />
+    <limit
+      lower="-2.7227"
+      upper="-0.83776"
+      effort="35.55"
+      velocity="20.07" />
+  </joint>
+  <link
+    name="FR_calflower">
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <geometry>
+        <cylinder length="0.065" radius="0.011" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="FR_calflower_joint"
+    type="fixed">
+    <origin
+      xyz="0.020 0 -0.148"
+      rpy="0 0.05 0" />
+    <parent
+      link="FR_calf" />
+    <child
+      link="FR_calflower" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="FR_calflower1">
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <geometry>
+        <cylinder length="0.03" radius="0.0155" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="FR_calflower1_joint"
+    type="fixed">
+    <origin
+      xyz="-0.01 0 -0.04"
+      rpy="0 0.48 0" />
+    <parent
+      link="FR_calflower" />
+    <child
+      link="FR_calflower1" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+
+  <link
+    name="FR_foot_motor">
+    <inertial>
+      <origin
+        xyz="0 0.0 0"
+        rpy="0 0 0" />
+      <mass
+        value="0.646" />
+      <inertia
+        ixx="0.001"
+        ixy="0"
+        ixz="0"
+        iyy="0.0016"
+        iyz="0"
+        izz="0.001" />
+    </inertial>
+    <collision>
+      <origin rpy="1.5707963267948966 0 0" xyz="0 0 0" />
+      <geometry>
+        <cylinder length="0.05" radius="0.05" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="FR_foot_motor_joint"
+    type="fixed">
+    <origin
+      xyz="0.0 -0.01 -0.2264"
+      rpy="0 0.0 0" />
+    <parent
+      link="FR_calf" />
+    <child
+      link="FR_foot_motor" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+
+  <link
+    name="FR_foot">
+    <inertial>
+      <origin
+        xyz="0 -0.06 0"
+        rpy="0 0 0" />
+      <mass
+        value="0.520" />
+      <inertia
+        ixx="0.0007"
+        ixy="0"
+        ixz="0"
+        iyy="0.0012"
+        iyz="0"
+        izz="0.0007" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../dae/right_wheel.dae" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 -0.0 0" />
+      <geometry>
+        <mesh filename="../dae/right_wheel.dae" />
+        <!-- <cylinder length="0.045" radius="0.086" /> -->
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="FR_foot_joint"
+    type="continuous">
+    <origin
+      xyz="0 0 -0.2264"
+      rpy="0 0 0" />
+    <parent
+      link="FR_calf" />
+    <child
+      link="FR_foot" />
+    <axis
+      xyz="0 1 0" />
+      <limit
+      effort="23.7"
+      velocity="30.1" />
+  </joint>
+
+  <link
+    name="RL_hip">
+    <inertial>
+      <origin
+        xyz="0.0054 0.00194 -0.000105"
+        rpy="0 0 0" />
+      <mass
+        value="0.678" />
+      <inertia
+        ixx="0.00048"
+        ixy="3.01E-06"
+        ixz="-1.11E-06"
+        iyy="0.000884"
+        iyz="-1.42E-06"
+        izz="0.000596" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 3.1415 0" />
+      <geometry>
+        <mesh
+          filename="../dae/hip.dae" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="1.5707963267948966 0 0" xyz="0 0.08 0" />
+      <geometry>
+        <cylinder length="0.04" radius="0.046" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="RL_hip_joint"
+    type="revolute">
+    <origin
+      xyz="-0.1934 0.0465 0"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="RL_hip" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="-1.0472"
+      upper="1.0472"
+      effort="23.7"
+      velocity="30.1" />
+  </joint>
+  <link
+    name="RL_thigh">
+    <inertial>
+      <origin
+        xyz="-0.00374 -0.0223 -0.0327"
+        rpy="0 0 0" />
+      <mass
+        value="1.152" />
+      <inertia
+        ixx="0.00584"
+        ixy="8.72E-05"
+        ixz="-0.000289"
+        iyy="0.0058"
+        iyz="0.000808"
+        izz="0.00103" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../dae/thigh.dae" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 1.5707963267948966 0" xyz="0 0 -0.1065" />
+      <geometry>
+        <box size="0.11 0.0245 0.034" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="RL_thigh_joint"
+    type="revolute">
+    <origin
+      xyz="0 0.0955 0"
+      rpy="0 0 0" />
+    <parent
+      link="RL_hip" />
+    <child
+      link="RL_thigh" />
+    <axis
+      xyz="0 1 0" />
+    <limit
+      lower="-0.5236"
+      upper="4.5379"
+      effort="23.7"
+      velocity="30.1" />
+  </joint>
+  <link
+    name="RL_calf">
+    <inertial>
+      <origin
+        xyz="0.00548 -0.000975 -0.115"
+        rpy="0 0 0" />
+      <mass
+        value="0.154" />
+      <inertia
+        ixx="0.00108"
+        ixy="3.4E-07"
+        ixz="1.72E-05"
+        iyy="0.0011"
+        iyz="8.28E-06"
+        izz="3.29E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../dae/calf.stl" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 -0.2 0" xyz="0.01 0 -0.06" />
+      <geometry>
+        <cylinder length="0.12" radius="0.013" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="RL_calf_joint"
+    type="revolute">
+    <origin
+      xyz="0 0 -0.213"
+      rpy="0 0 0" />
+    <parent
+      link="RL_thigh" />
+    <child
+      link="RL_calf" />
+    <axis
+      xyz="0 1 0" />
+    <limit
+      lower="-2.7227"
+      upper="-0.83776"
+      effort="35.55"
+      velocity="20.07" />
+  </joint>
+  <link
+    name="RL_calflower">
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <geometry>
+        <cylinder length="0.065" radius="0.011" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="RL_calflower_joint"
+    type="fixed">
+    <origin
+      xyz="0.020 0 -0.148"
+      rpy="0 0.05 0" />
+    <parent
+      link="RL_calf" />
+    <child
+      link="RL_calflower" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="RL_calflower1">
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <geometry>
+        <cylinder length="0.03" radius="0.0155" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="RL_calflower1_joint"
+    type="fixed">
+    <origin
+      xyz="-0.01 0 -0.04"
+      rpy="0 0.48 0" />
+    <parent
+      link="RL_calflower" />
+    <child
+      link="RL_calflower1" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+
+  <link
+  name="RL_foot_motor">
+  <inertial>
+    <origin
+      xyz="0 0.0 0"
+      rpy="0 0 0" />
+    <mass
+      value="0.646" />
+    <inertia
+      ixx="0.001"
+      ixy="0"
+      ixz="0"
+      iyy="0.0016"
+      iyz="0"
+      izz="0.001" />
+  </inertial>
+  <collision>
+    <origin rpy="1.5707963267948966 0 0" xyz="0 0 0" />
+    <geometry>
+      <cylinder length="0.05" radius="0.05" />
+    </geometry>
+  </collision>
+</link>
+
+<joint
+  name="RL_foot_motor_joint"
+  type="fixed">
+  <origin
+    xyz="0.00 0.01 -0.2264"
+    rpy="0 0.0 0" />
+  <parent
+    link="RL_calf" />
+  <child
+    link="RL_foot_motor" />
+  <axis
+    xyz="0 0 0" />
+</joint>
+
+
+  <link
+    name="RL_foot">
+    <inertial>
+      <origin
+        xyz="0 0.06 0"
+        rpy="0 0 0" />
+      <mass
+        value="0.520" />
+      <inertia
+        ixx="0.0007"
+        ixy="0"
+        ixz="0"
+        iyy="0.0012"
+        iyz="0"
+        izz="0.0007" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../dae/left_wheel.dae" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0.0 0" />
+      <geometry>
+        <mesh filename="../dae/left_wheel.dae" />
+        <!-- <cylinder length="0.045" radius="0.086" /> -->
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="RL_foot_joint"
+    type="continuous">
+    <origin
+      xyz="0.0 0 -0.2264"
+      rpy="0 0 0" />
+    <parent
+      link="RL_calf" />
+    <child
+      link="RL_foot" />
+    <axis
+      xyz="0 1 0" />
+      <limit
+      effort="23.7"
+      velocity="30.1" />
+  </joint>
+
+  <link
+    name="RR_hip">
+    <inertial>
+      <origin
+        xyz="0.0054 -0.00194 -0.000105"
+        rpy="0 0 0" />
+      <mass
+        value="0.678" />
+      <inertia
+        ixx="0.00048"
+        ixy="-3.01E-06"
+        ixz="-1.11E-06"
+        iyy="0.000884"
+        iyz="1.42E-06"
+        izz="0.000596" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="3.1415 3.1415 0" />
+      <geometry>
+        <mesh
+          filename="../dae/hip.dae" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="1.5707963267948966 0 0" xyz="0 -0.08 0" />
+      <geometry>
+        <cylinder length="0.04" radius="0.046" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="RR_hip_joint"
+    type="revolute">
+    <origin
+      xyz="-0.1934 -0.0465 0"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="RR_hip" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="-1.0472"
+      upper="1.0472"
+      effort="23.7"
+      velocity="30.1" />
+  </joint>
+  <link
+    name="RR_thigh">
+    <inertial>
+      <origin
+        xyz="-0.00374 0.0223 -0.0327"
+        rpy="0 0 0" />
+      <mass
+        value="1.152" />
+      <inertia
+        ixx="0.00584"
+        ixy="-8.72E-05"
+        ixz="-0.000289"
+        iyy="0.0058"
+        iyz="-0.000808"
+        izz="0.00103" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../dae/thigh_mirror.dae" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 1.5707963267948966 0" xyz="0 0 -0.1065" />
+      <geometry>
+        <box size="0.11 0.0245 0.034" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="RR_thigh_joint"
+    type="revolute">
+    <origin
+      xyz="0 -0.0955 0"
+      rpy="0 0 0" />
+    <parent
+      link="RR_hip" />
+    <child
+      link="RR_thigh" />
+    <axis
+      xyz="0 1 0" />
+    <limit
+      lower="-0.5236"
+      upper="4.5379"
+      effort="23.7"
+      velocity="30.1" />
+  </joint>
+  <link
+    name="RR_calf">
+    <inertial>
+      <origin
+        xyz="0.00548 0.000975 -0.115"
+        rpy="0 0 0" />
+      <mass
+        value="0.154" />
+      <inertia
+        ixx="0.00108"
+        ixy="-3.4E-07"
+        ixz="1.72E-05"
+        iyy="0.0011"
+        iyz="-8.28E-06"
+        izz="3.29E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../dae/calf_mirror.stl" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 -0.2 0" xyz="0.01 0 -0.06" />
+      <geometry>
+        <cylinder length="0.12" radius="0.013" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="RR_calf_joint"
+    type="revolute">
+    <origin
+      xyz="0 0 -0.213"
+      rpy="0 0 0" />
+    <parent
+      link="RR_thigh" />
+    <child
+      link="RR_calf" />
+    <axis
+      xyz="0 1 0" />
+    <limit
+      lower="-2.7227"
+      upper="-0.83776"
+      effort="35.55"
+      velocity="20.07" />
+  </joint>
+  <link
+    name="RR_calflower">
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <geometry>
+        <cylinder length="0.065" radius="0.011" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="RR_calflower_joint"
+    type="fixed">
+    <origin
+      xyz="0.020 0 -0.148"
+      rpy="0 0.05 0" />
+    <parent
+      link="RR_calf" />
+    <child
+      link="RR_calflower" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="RR_calflower1">
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <geometry>
+        <cylinder length="0.03" radius="0.0155" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="RR_calflower1_joint"
+    type="fixed">
+    <origin
+      xyz="-0.01 0 -0.04"
+      rpy="0 0.48 0" />
+    <parent
+      link="RR_calflower" />
+    <child
+      link="RR_calflower1" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+
+  <link
+  name="RR_foot_motor">
+  <inertial>
+    <origin
+      xyz="0 0.0 0"
+      rpy="0 0 0" />
+    <mass
+      value="0.646" />
+    <inertia
+      ixx="0.001"
+      ixy="0"
+      ixz="0"
+      iyy="0.0016"
+      iyz="0"
+      izz="0.001" />
+  </inertial>
+  <collision>
+    <origin rpy="1.5707963267948966 0 0" xyz="0 0 0" />
+    <geometry>
+      <cylinder length="0.05" radius="0.05" />
+    </geometry>
+  </collision>
+</link>
+
+<joint
+  name="RR_foot_motor_joint"
+  type="fixed">
+  <origin
+    xyz="0.00 -0.01 -0.2264"
+    rpy="0 0.0 0" />
+  <parent
+    link="RR_calf" />
+  <child
+    link="RR_foot_motor" />
+  <axis
+    xyz="0 0 0" />
+</joint>
+
+  <link
+    name="RR_foot">
+    <inertial>
+      <origin
+        xyz="0 -0.06 0"
+        rpy="0 0 0" />
+      <mass
+        value="0.520" />
+      <inertia
+        ixx="0.0007"
+        ixy="0"
+        ixz="0"
+        iyy="0.0012"
+        iyz="0"
+        izz="0.0007" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../dae/right_wheel.dae" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 -0.0 0" />
+      <geometry>
+        <mesh filename="../dae/right_wheel.dae" />
+        <!-- <cylinder length="0.045" radius="0.086" /> -->
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="RR_foot_joint"
+    type="continuous">
+    <origin
+      xyz="-0.0 0 -0.2264"
+      rpy="0 0 0" />
+    <parent
+      link="RR_calf" />
+    <child
+      link="RR_foot" />
+    <axis
+      xyz="0 1 0" />
+      <limit
+      effort="23.7"
+      velocity="30.1" />
+  </joint>
+
+  <link
+    name="imu">
+    <inertial>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <mass
+        value="0" />
+      <inertia
+        ixx="0"
+        ixy="0"
+        ixz="0"
+        iyy="0"
+        iyz="0"
+        izz="0" />
+    </inertial>
+  </link>
+  <joint
+    name="imu_joint"
+    type="fixed">
+    <origin
+      xyz="-0.02557 0 0.04232"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="imu" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="radar">
+    <inertial>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <mass
+        value="0" />
+      <inertia
+        ixx="0"
+        ixy="0"
+        ixz="0"
+        iyy="0"
+        iyz="0"
+        izz="0" />
+    </inertial>
+  </link>
+  <joint
+    name="radar_joint"
+    type="fixed">
+    <!-- Copied from the original Unitree Go2-W URDF. Keep base_link->radar exact. -->
+    <origin
+      xyz="0.28945 0 -0.046825"
+      rpy="0 2.8782 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="radar" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+<!-- ===================================================================== -->
+  <!-- Front RealSense camera mount assembly                                 -->
+  <!--                                                                       -->
+  <!-- The original Go2-W URDF above this point is left unchanged.           -->
+  <!-- The complete mount pose and the hole-aligned offsets are based on     -->
+  <!-- the ...wr stands for "With Realsense".                                -->
+  <!--                                                                       -->
+  <!-- The TF frame names describe the physical thesis front RealSense mount, -->
+  <!-- not the currently installed camera model. The D456 STL below is kept   -->
+  <!-- only as a visual representation of the hardware installed now; the     -->
+  <!-- frame front_realsense can also represent a D435i or another            -->
+  <!-- RealSense on the same physical mount.                                 -->
+  <!--                                                                       -->
+  <!-- Do not name this thesis camera frame camera_link: vendor/MyBotShop     -->
+  <!-- Domain 10 TF may already publish base_link -> camera_link for a        -->
+  <!-- generic/vendor camera. RealSense optical frames should normally come   -->
+  <!-- from the RealSense driver configured for the selected camera name, not -->
+  <!-- from guessed URDF optical frames.                                      -->
+  <!--                                                                       -->
+  <!-- TODO: If future mounts are added, keep the same pattern, e.g.          -->
+  <!-- rear_realsense_mount, left_realsense_mount, and                        -->
+  <!-- right_realsense_mount.                                                -->
+  <!--                                                                       -->
+  <!-- Link frames below use the normal ROS body convention at the nominal    -->
+  <!-- pose: x forward, y left, z up.                                        -->
+  <!-- CAD/STL coordinate-system corrections are kept inside visual origins, -->
+  <!-- so the fixed joints mostly contain only physical offsets.             -->
+  <!--                                                                       -->
+  <!-- STL files were exported in millimetres, so every mesh uses            -->
+  <!-- scale="0.001 0.001 0.001".                                            -->
+  <!-- ===================================================================== -->
+
+  <link name="front_realsense_base">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0" />
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
+    </inertial>
+    <visual>
+      <!-- CAD: x right, y up, z back -> ROS visual pose. -->
+      <origin xyz="0 0 0" rpy="1.57079632679 0 -1.57079632679" />
+      <geometry>
+        <mesh
+          filename="../dae/rs_base.stl"
+          scale="0.001 0.001 0.001" />
+      </geometry>
+      <material name="front_realsense_base_material">
+        <color rgba="0.25 0.25 0.25 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0.0 0 0.022" />
+      <geometry>
+        <box size="0.029 0.05 0.055" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="front_realsense_base_joint" type="fixed">
+    <!-- Pose of the printed base/adapter relative to the robot base. -->
+    <origin xyz="0.295 0 0.075" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="front_realsense_base" />
+    <axis xyz="0 0 0" />
+  </joint>
+
+  <link name="front_realsense_tilt_axis">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0" />
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
+    </inertial>
+  </link>
+
+  <joint name="front_realsense_tilt_axis_joint" type="fixed">
+    <!-- Mechanical pitch/hinge axis through the flanges. Keep this fixed;
+         tune camera pitch only in front_realsense_pitch_joint below. -->
+    <origin xyz="0.005 0 0.032" rpy="0 0 0" />
+    <parent link="front_realsense_base" />
+    <child link="front_realsense_tilt_axis" />
+    <axis xyz="0 0 0" />
+  </joint>
+
+  <link name="front_realsense_flange_right">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0" />
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
+    </inertial>
+    <visual>
+      <!-- Right side when looking in the Go2-W forward direction. -->
+      <origin xyz="0.005 0 -0.004" rpy="1.57079632679 0 -1.57079632679" />
+      <geometry>
+        <mesh
+          filename="../dae/rs_flange.stl"
+          scale="0.001 0.001 0.001" />
+      </geometry>
+      <material name="front_realsense_flange_material">
+        <color rgba="0.25 0.25 0.25 1" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="front_realsense_flange_right_joint" type="fixed">
+    <origin xyz="0 -0.02 -0.028" rpy="0 0 0" />
+    <parent link="front_realsense_tilt_axis" />
+    <child link="front_realsense_flange_right" />
+    <axis xyz="0 0 0" />
+  </joint>
+
+  <link name="front_realsense_flange_left">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0" />
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
+    </inertial>
+    <visual>
+      <!-- Left side when looking in the Go2-W forward direction. -->
+      <origin xyz="0.005 0 -0.004" rpy="1.57079632679 0 -1.57079632679" />
+      <geometry>
+        <mesh
+          filename="../dae/rs_flange_mirror.stl"
+          scale="0.001 0.001 0.001" />
+      </geometry>
+      <material name="front_realsense_flange_material">
+        <color rgba="0.25 0.25 0.25 1" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="front_realsense_flange_left_joint" type="fixed">
+    <origin xyz="0 0.02 -0.028" rpy="0 0 0" />
+    <parent link="front_realsense_tilt_axis" />
+    <child link="front_realsense_flange_left" />
+    <axis xyz="0 0 0" />
+  </joint>
+
+  <link name="front_realsense_mount">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0" />
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
+    </inertial>
+    <visual>
+      <!-- CAD: x right, y back, z down -> ROS visual pose. -->
+      <origin xyz="0.02 0 0" rpy="3.14159265359 0 -1.57079632679" />
+      <geometry>
+        <mesh
+          filename="../dae/rs_mount.stl"
+          scale="0.001 0.001 0.001" />
+      </geometry>
+      <material name="front_realsense_mount_material">
+        <color rgba="0.2 0.2 0.2 1" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="front_realsense_pitch_joint" type="fixed">
+    <!-- Mechanical pitch joint. At rpy="0 0 0" the geometry matches the
+         current accepted alignment. Adjust only the middle RPY value for
+         camera pitch, e.g. rpy="0 -0.10 0". -->
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <parent link="front_realsense_tilt_axis" />
+    <child link="front_realsense_mount" />
+    <axis xyz="0 1 0" />
+  </joint>
+
+  <link name="front_realsense_body">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0" />
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
+    </inertial>
+    <visual>
+      <!-- D456-specific body/rear-face visual helper. Update this mesh and
+           front_realsense_body -> front_realsense offset before installing a
+           D435i or another RealSense model. -->
+      <origin xyz="0 -0.063 -0.0145" rpy="1.57079632679 0 1.57079632679" />
+      <geometry>
+        <mesh
+          filename="../dae/rs_D456_Solid.STL"
+          scale="0.001 0.001 0.001" />
+      </geometry>
+      <material name="front_realsense_d456_visual_material">
+        <color rgba="0.05 0.05 0.05 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.012 0 0" rpy="1.57079632679 0 0" />
+      <geometry>
+        <cylinder length="0.13" radius="0.018"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="front_realsense_body_joint" type="fixed">
+    <!-- Currently installed camera body/rear-face helper frame. -->
+    <origin xyz="0.02 0 0" rpy="0 0 0" />
+    <parent link="front_realsense_mount" />
+    <child link="front_realsense_body" />
+    <axis xyz="0 0 0" />
+  </joint>
+
+  <link name="front_realsense">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0" />
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
+    </inertial>
+  </link>
+
+  <joint name="front_realsense_sensor_joint" type="fixed">
+    <!-- front_realsense is the RealSense depth origin / left imager center,
+         equivalent in meaning to the old WR3 camera_link but renamed to avoid
+         collision with vendor/default RealSense frames.
+
+         D456 approximation from the visual STL and D400 datasheet:
+         - front_realsense_body is at the center of the rear camera face.
+         - camera body depth in the STL is about 26 mm.
+         - D455/D456 depth start point is 4.55 mm behind the front glass,
+           giving x = 21.45 mm forward from the rear face.
+         - the left imager is 47.5 mm from the 1/4-20 centerline,
+           giving y = +47.5 mm to camera/robot left.
+         - z is unchanged on the depth module centerline.
+
+         If a D435i or another RealSense is installed later, update this
+         D456-specific offset and the front_realsense_body visual, not the
+         pipeline frame names. The RealSense driver should publish sensor and
+         optical frames below front_realsense. -->
+    <origin xyz="0.02145 0.04750 0" rpy="0 0 0" />
+    <parent link="front_realsense_body" />
+    <child link="front_realsense" />
+    <axis xyz="0 0 0" />
+  </joint>
+
+</robot>

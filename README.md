@@ -65,6 +65,7 @@ robot_gym/
 │ ├── base/
 │ ├── dodo/
 │ ├── go2/
+│ ├── go2w/
 │
 ├── scripts/
 │ ├── train.py
@@ -115,6 +116,12 @@ conda activate rl-genesis
 
 ```bash
 python -m robot_gym.scripts.train --task dodo --experiment_name dodo_walking_test --num_envs 4096 --max_iterations 1000
+```
+
+Go2W first visual sanity check:
+
+```bash
+python -m robot_gym.scripts.train --task go2w --experiment_name go2w_first_visual --run_name go2w_spawn_check --num_envs 16 --max_iterations 50
 ```
 
 Training pipeline:
@@ -197,6 +204,20 @@ You can easily use your own URDF robot file for training your own locomotion pol
 - reward breakdown
 - training metrics
 
+When using the default Weights & Biases logger, authenticate once and set the
+entity name expected by `rsl_rl`:
+
+```powershell
+wandb login
+$env:WANDB_USERNAME="YOUR_WANDB_ENTITY"
+```
+
+To make the entity persistent for future PowerShell sessions:
+
+```powershell
+[Environment]::SetEnvironmentVariable("WANDB_USERNAME", "YOUR_WANDB_ENTITY", "User")
+```
+
 ---
 
 ## Example Commands
@@ -206,6 +227,8 @@ You can easily use your own URDF robot file for training your own locomotion pol
 python -m robot_gym.scripts.train --task=dodo --num_envs 4096
 # Debug run
 python -m robot_gym.scripts.train --task=dodo --num_envs 512 --max_iterations 50
+# Go2W visual smoke test
+python -m robot_gym.scripts.train --task=go2w --experiment_name go2w_first_visual --run_name go2w_spawn_check --num_envs 16 --max_iterations 50
 # Play model
 python -m robot_gym.scripts.play --task=dodo
 ```
