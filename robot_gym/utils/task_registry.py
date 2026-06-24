@@ -317,10 +317,8 @@ class TaskRegistry:
             if wandb_utils.wandb.run is not None:
                 wandb_utils.wandb.run.name = os.path.basename(log_dir)
 
-        def store_config(writer, env_cfg, runner_cfg, alg_cfg, policy_cfg):
-            wandb_utils.wandb.config.update({"runner_cfg": runner_cfg})
-            wandb_utils.wandb.config.update({"policy_cfg": policy_cfg})
-            wandb_utils.wandb.config.update({"alg_cfg": alg_cfg})
+        def store_config(writer, env_cfg, train_cfg):
+            wandb_utils.wandb.config.update({"train_cfg": train_cfg})
             wandb_utils.wandb.config.update({"env_cfg": class_to_dict(env_cfg)})
 
         wandb_utils.WandbSummaryWriter.__init__ = __init__
