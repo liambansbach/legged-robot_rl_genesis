@@ -46,6 +46,11 @@ def get_load_path(root, load_run=-1, checkpoint=-1):
     if not os.path.isdir(root):
         raise ValueError(f"No runs in this directory: {root}")
 
+    if str(load_run) == "-1":
+        load_run = -1
+    if str(checkpoint) == "-1":
+        checkpoint = -1
+
     # ------------------------------------------------------------------
     # Select run directory
     # ------------------------------------------------------------------

@@ -8,14 +8,22 @@ from robot_gym.utils import get_args, task_registry
 """
 Example play command (command line call) with all arguments specified:
 
-    python -m robot_gym.scripts.play \
-        --task dodo \                              -> Task name defined in task_registry envs/__init__.py
-        --experiment_name daimao_walking \         -> Name of the experiment (used to locate logs directory).
-        --run_name run_01 \                        -> Name of the run. Overrides config file if provided.
-        --load_run daimao_walking \                -> Name of the run to load. If -1: will load the last run. Overrides config file if provided.
-        --checkpoint -1 \                          -> Saved model checkpoint number. If -1: will load the last checkpoint.
-        --rl_device cuda:0 \                       -> Device used for inference (cpu, cuda, cuda:0, etc..)
-        --headless                                 -> Force display off (no rendering). Usually disabled for visualization.
+    PowerShell:
+    python -m robot_gym.scripts.play `
+        --task dodo `
+        --experiment_name daimao_walking `
+        --run_name run_01 `
+        --load_run -1 `
+        --checkpoint -1 `
+        --rl_device cuda:0
+
+    --task: Task name defined in task_registry envs/__init__.py
+    --experiment_name: Name of the experiment (used to locate logs directory).
+    --run_name: Name of the current play run. Overrides config file if provided.
+    --load_run: Name of the training run to load. If -1: load the latest run.
+    --checkpoint: Saved model checkpoint number. If -1: load the latest checkpoint.
+    --rl_device: Device used for inference (cpu, cuda, cuda:0, etc.).
+    --headless: Force display off (no rendering). Usually disabled for visualization.
 
 Not all arguments are required. A simple call could look like this:
     python -m robot_gym.scripts.play --task dodo --experiment_name dodo_walking_test
