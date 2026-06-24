@@ -60,6 +60,7 @@ class GO2WCfg(GO2Cfg):
     class commands(GO2Cfg.commands):
         curriculum = True
         max_curriculum = 1.5
+        stand_command_probability = 0.20
 
         class ranges(GO2Cfg.commands.ranges):
             lin_vel_x = [-0.8, 0.8]
@@ -95,7 +96,7 @@ class GO2WCfg(GO2Cfg):
         }
 
         action_scale = {
-            **{name: 0.25 for name in LEG_JOINTS},
+            **{name: 0.2 for name in LEG_JOINTS},
             **{name: 12.0 for name in WHEEL_JOINTS},
         }
 
@@ -115,28 +116,36 @@ class GO2WCfg(GO2Cfg):
 
     class rewards(GO2Cfg.rewards):
         base_height_target = 0.39
-        clearance_target = 0.035
+        clearance_target = 0.03
+        clearance_sigma = 0.015
         contact_force_threshold = 8.0
+        wheeled_forward_activation_vel = 0.25
+        lateral_step_activation_vel = 0.15
+        yaw_step_activation_vel = 0.45
 
         class scales(GO2Cfg.rewards.scales):
             tracking_lin_vel = 1.0
-            tracking_ang_vel = 0.8
+            tracking_ang_vel = 0.6
             lin_vel_z = -0.1
-            ang_vel_xy = -0.0
+            ang_vel_xy = -0.05
             orientation = -0.5
-            base_height = -1.0
+            base_height = -5.0
             torques = -0.0002
             dof_vel = -0.0
             dof_acc = -2.5e-7
             action_rate = -0.01
-            termination = -20.0
+            termination = -10.0
             dof_pos_limits = -2.0
             dof_vel_limits = -0.0
-            torque_limits = -1.0
+            torque_limits = -0.5
             feet_air_time = 0.0
-            stand_still = -5.0
-            foot_swing_clearance = 0.0
-            survive = 0.01
+            stand_still = 0.5
+            feet_slide = 0.0
+            foot_swing_clearance = 0.08
+            leg_motion = -0.08
+            wheel_contact = 0.2
+            unnecessary_wheel_air = -0.4
+            survive = 0.05
             collision = 0.0
             feet_stumble = 0.0
 
@@ -145,7 +154,7 @@ class GO2WCfgPPO(GO2CfgPPO):
     class actor(GO2CfgPPO.actor):
         distribution_cfg = {
             "class_name": "GaussianDistribution",
-            "init_std": 0.8,
+            "init_std": 0.75,
             "std_type": "scalar",
         }
 
