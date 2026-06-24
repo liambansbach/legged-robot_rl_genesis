@@ -4,25 +4,25 @@ This repository provides a **modular reinforcement learning pipeline** for train
 
 It is inspired by the structure of Unitree RL pipelines but fully adapted to:
 
-- ⚡ **Genesis (GPU accelerated physics)**
-- 🤖 **Custom robots (URDF / MJCF)**
-- 🧠 **PPO (rsl-rl)**
+- **Genesis (GPU accelerated physics)**
+- **Custom robots (URDF / MJCF)**
+- **PPO (rsl-rl)**
 
 ---
 
-## 🚀 Features
+## Features
 
-- ⚡ GPU-accelerated RL training with **Genesis**
-- 🧠 PPO implementation via **rsl-rl**
-- 🏗️ Clean **task + config + registry system**
-- 🤖 Automatic **URDF parsing (joints + feet)**
-- 🔁 Supports **Train → Play → Export → Deployment**
-- 📊 Integrated logging via **Weights & Biases**
-- 🌍 Multiple environments (flat + uneven terrain)
-- 🔄 TorchScript (JIT) or ONNX export for deployment
+- GPU-accelerated RL training with **Genesis**
+- PPO implementation via **rsl-rl**
+- Clean **task + config + registry system**
+- Automatic **URDF parsing (joints + feet)**
+- Supports **Train → Play → Export → Deployment**
+- Integrated logging via **Weights & Biases**
+- Multiple environments (flat + uneven terrain)
+- TorchScript (JIT) or ONNX export for deployment
 
 ---
-## Results 👀
+## Results 
 
 Following Results were achieved using this setup:
 - Intel Core i5-13600K (14 cores, 20 threads)
@@ -48,7 +48,7 @@ https://github.com/user-attachments/assets/afaef573-847f-4afc-a96d-eb92982bcb41
 
 ---
 
-## 🔁 Pipeline Overview
+## Pipeline Overview
 
 - **Train**: Learn policy using PPO in simulation  
 - **Play**: Visualize trained policy
@@ -56,7 +56,7 @@ https://github.com/user-attachments/assets/afaef573-847f-4afc-a96d-eb92982bcb41
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```text
 robot_gym/
@@ -89,15 +89,15 @@ logs/
 
 ---
 
-## ⚙️ Installation
+## Installation
 
 ### 1. Clone
 
 SSH example:
 
 ```bash
-git clone git@github.com:liambansbach/bipedal_robot_sim.git
-cd bipedal_robot_sim
+git clone git@github.com:liambansbach/legged-robot_rl_genesis.git
+cd legged-robot_rl_genesis
 ```
 
 ### 2. Setup environment
@@ -109,9 +109,9 @@ conda activate rl-genesis
 
 ---
 
-## 🛠️ Usage
+## Usage
 
-### 🏋️ Training
+### Training
 
 ```bash
 python -m robot_gym.scripts.train --task dodo --experiment_name dodo_walking_test --num_envs 4096 --max_iterations 1000
@@ -124,7 +124,7 @@ Training pipeline:
 - config-driven setup via TaskRegistry
   - If you want to train your own robot, simply add your URDF file to "ressources/robots/", create a new config and env file in "robot_gym/envs" and also register the new task in "envs/__init__.py".
 
-### 👀 Play (Evaluation)
+### Play (Evaluation)
 
 ```bash
 python -m robot_gym.scripts.play --task=dodo
@@ -134,7 +134,7 @@ python -m robot_gym.scripts.play --task=dodo
 - runs inference policy
 - exports JIT automatically
 
-### 💾 Export Policy
+### Export Policy
 
 Saved automatically to:
 
@@ -142,7 +142,7 @@ Saved automatically to:
 logs/<experiment>/exported/policies/policy_1.pt
 ```
 
-### 🧠 Observations
+### Observations
 
 Typical observation vector:
 
@@ -154,7 +154,7 @@ Typical observation vector:
 - joint velocities
 - previous actions
 
-### 🎯 Reward System
+### Reward System
 
 Modular reward design:
 
@@ -172,7 +172,7 @@ Modular reward design:
 
 Implemented in LeggedRobot env and robot specific env (e.g.: DodoEnv)
 
-### ⚙️ Configuration System
+### Configuration System
 
 Hierarchical config system:
 
@@ -182,7 +182,7 @@ Hierarchical config system:
 
 Configs auto-instantiate recursively
 
-### 🤖 Automatic Robot Parsing
+### Automatic Robot Parsing
 
 - extracts joint names
 - resolves paths automatically
@@ -191,7 +191,7 @@ Implemented via URDFReader
 
 You can easily use your own URDF robot file for training your own locomotion policy. Just make sure that its consistent with the provided pipeline and that the URDF is optimized. Optimizing can include "simplifying collisions", by using collision-boxes or cylinders instead of the actual meshes. This will reduce training time by a lot.
 
-### 📊 Logging
+### Logging
 
 - Weights & Biases integration OR Tensorboard (as given by RSL-RL)
 - reward breakdown
@@ -199,7 +199,7 @@ You can easily use your own URDF robot file for training your own locomotion pol
 
 ---
 
-## 🧪 Example Commands
+## Example Commands
 
 ```bash
 # Full training
@@ -212,7 +212,7 @@ python -m robot_gym.scripts.play --task=dodo
 
 ---
 
-## 🔮 Future Work
+## Future Work
 
 This pipeline is still at an early stage and will be extended from time to time with the following functionalities:
 
