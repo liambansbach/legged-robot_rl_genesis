@@ -66,10 +66,12 @@ class Go2WEnv(Go2Env):
         leg_mask = self.position_control_mask
         num_leg_dof = leg_mask.sum(dim=1).clamp(min=1.0)
 
-        pos_err = torch.sum(
-            torch.square(self.dof_pos - self.default_dof_pos) * leg_mask,
-            dim=1,
-        ) / num_leg_dof
+        pos_delta = torch.where(
+            leg_mask.bool(),
+            self.dof_pos - self.default_dof_pos,
+            torch.zeros_like(self.dof_pos),
+        )
+        pos_err = torch.sum(torch.square(pos_delta), dim=1) / num_leg_dof
         vel_err = torch.sum(torch.square(self.dof_vel) * leg_mask, dim=1) / num_leg_dof
         action_err = torch.sum(torch.square(self.actions) * leg_mask, dim=1) / num_leg_dof
 

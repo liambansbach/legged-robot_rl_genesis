@@ -204,26 +204,35 @@ class LeggedRobot(BaseTask):
         self.rew_buf[:] = 0.
         for i in range(len(self.reward_functions)):
             name = self.reward_names[i]
-            rew = self.reward_functions[i]() * self.reward_scales[name]
+            rew = self.reward_functions[i]()
+            rew = torch.nan_to_num(rew, nan=0.0, posinf=0.0, neginf=0.0)
+            rew = rew * self.reward_scales[name]
             self.rew_buf += rew
             self.episode_sums[name] += rew
         if self.cfg.rewards.only_positive_rewards:
             self.rew_buf[:] = torch.clip(self.rew_buf[:], min=0.)
         # add termination reward after clipping
         if "termination" in self.reward_scales:
-            rew = self._reward_termination() * self.reward_scales["termination"]
+            rew = self._reward_termination()
+            rew = torch.nan_to_num(rew, nan=0.0, posinf=0.0, neginf=0.0)
+            rew = rew * self.reward_scales["termination"]
             self.rew_buf += rew
             self.episode_sums["termination"] += rew
+        self.rew_buf[:] = torch.nan_to_num(self.rew_buf, nan=0.0, posinf=0.0, neginf=0.0)
     
     def compute_observations(self):
         """ Computes observations
         """
-        dof_pos_obs = (self.dof_pos - self.default_dof_pos) * self.dof_pos_obs_mask
+        dof_pos_err = torch.where(
+            self.dof_pos_obs_mask.bool(),
+            self.dof_pos - self.default_dof_pos,
+            torch.zeros_like(self.dof_pos),
+        )
         self.obs_buf = torch.cat((  self.base_lin_vel * self.obs_scales.lin_vel,
                                     self.base_ang_vel  * self.obs_scales.ang_vel,
                                     self.projected_gravity,
                                     self.commands[:, :3] * self.commands_scale,
-                                    dof_pos_obs * self.obs_scales.dof_pos,
+                                    dof_pos_err * self.obs_scales.dof_pos,
                                     self.dof_vel * self.obs_scales.dof_vel,
                                     self.actions
                                     ),dim=-1)
@@ -493,11 +502,17 @@ class LeggedRobot(BaseTask):
             (len(env_ids), self.num_dof),
             device=self.device,
         )
-        self.dof_pos[env_ids] = self.default_dof_pos + pos_noise
-        # stay safely inside hard limits
+        reset_pos = self.default_dof_pos + pos_noise * self.position_control_mask
+
+        # Stay safely inside finite hard limits for position-controlled joints.
         lower = self.dof_pos_limits[:, 0].unsqueeze(0) + 0.02
         upper = self.dof_pos_limits[:, 1].unsqueeze(0) - 0.02
-        self.dof_pos[env_ids] = torch.max(torch.min(self.dof_pos[env_ids], upper), lower)
+        finite_limits = torch.isfinite(lower) & torch.isfinite(upper)
+        clamp_mask = self.position_control_mask.bool() & finite_limits
+        clamped_pos = torch.max(torch.min(reset_pos, upper), lower)
+        reset_pos = torch.where(clamp_mask, clamped_pos, reset_pos)
+
+        self.dof_pos[env_ids] = reset_pos
         
         self.dof_vel[env_ids] = 0.0
 
@@ -1212,8 +1227,18 @@ class LeggedRobot(BaseTask):
         - 0 penalty inside 90% of the URDF joint range
         - linear penalty only in the last 10% before the hard lower/upper limit
         """
-        lower = self.dof_pos_limits[:, 0]
-        upper = self.dof_pos_limits[:, 1]
+        controlled = self.position_control_mask.bool()
+        lower = torch.where(
+            controlled.squeeze(0),
+            self.dof_pos_limits[:, 0],
+            self.default_dof_pos.squeeze(0),
+        )
+        upper = torch.where(
+            controlled.squeeze(0),
+            self.dof_pos_limits[:, 1],
+            self.default_dof_pos.squeeze(0),
+        )
+        finite_limits = torch.isfinite(lower) & torch.isfinite(upper)
 
         mid = 0.5 * (lower + upper)
         half_range = 0.5 * (upper - lower)
@@ -1223,8 +1248,11 @@ class LeggedRobot(BaseTask):
         dist_from_mid = torch.abs(self.dof_pos - mid)
         allowed_dist = soft * half_range
 
-        violation = (dist_from_mid - allowed_dist).clip(min=0.0)
-        violation *= self.position_control_mask
+        violation = torch.where(
+            finite_limits.unsqueeze(0) & controlled,
+            (dist_from_mid - allowed_dist).clip(min=0.0),
+            torch.zeros_like(self.dof_pos),
+        )
 
         return torch.sum(violation, dim=1)
 
@@ -1288,7 +1316,12 @@ class LeggedRobot(BaseTask):
 
         pos_mask = self.position_control_mask
         num_pos_dof = pos_mask.sum(dim=1).clamp(min=1.0)
-        q_err = torch.sum(torch.square(self.dof_pos - self.default_dof_pos) * pos_mask, dim=1) / num_pos_dof
+        q_delta = torch.where(
+            pos_mask.bool(),
+            self.dof_pos - self.default_dof_pos,
+            torch.zeros_like(self.dof_pos),
+        )
+        q_err = torch.sum(torch.square(q_delta), dim=1) / num_pos_dof
         dq_err = torch.mean(torch.square(self.dof_vel), dim=1)
         action_err = torch.mean(torch.square(self.actions), dim=1)
 
