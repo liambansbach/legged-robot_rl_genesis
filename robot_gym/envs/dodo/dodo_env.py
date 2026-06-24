@@ -81,6 +81,7 @@ class DodoEnv(LeggedRobot):
             self.current_ankle_heights - self.cfg.asset.contact_height,
             min=0.0,
         )
+        #print("clearance:", clearance)
 
         target = self.cfg.rewards.clearance_target
         sigma = self.cfg.rewards.clearance_sigma
@@ -99,15 +100,21 @@ class DodoEnv(LeggedRobot):
 
     def _reward_flat_feet(self):
         """
-        Reward feet staying parallel to the ground.
+        Reward feet staying parallel to the ground. 
+        Only applied to feet in contact with the ground.
         Uses roll/pitch of both feet, ignores yaw.
         """
-        # self.foot_euler: (N, num_feet, 3)
+        # self.foot_euler: (N, num_feet, 3) 
         roll_pitch = self.foot_euler[:, :, :2]
-        err = torch.sum(torch.square(roll_pitch), dim=(1, 2))
+        err_per_foot = torch.sum(torch.square(roll_pitch), dim=2)
 
         sigma = self.cfg.rewards.flat_foot_sigma
-        return torch.exp(-err / (2.0 * sigma**2 + 1e-8))
+        rew_per_foot = torch.exp(-err_per_foot / (2.0 * sigma**2 + 1e-8))
+
+        stance_mask = self.foot_contacts.float()
+        denom = stance_mask.sum(dim=1).clamp(min=1.0)
+
+        return torch.sum(rew_per_foot * stance_mask, dim=1) / denom
 
     def _reward_hip_abduction_penalty(self):
         """

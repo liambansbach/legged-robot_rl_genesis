@@ -62,10 +62,31 @@ class LeggedRobot(BaseTask):
 
         clip_actions = self.cfg.normalization.clip_actions
         self.actions = torch.clip(actions, -clip_actions, clip_actions).to(self.device)
+
+        # newest policy action at index 0, older actions shifted back
+        self.action_history = torch.roll(self.action_history, shifts=1, dims=1)
+        self.action_history[:, 0, :] = self.actions
+
+        env_ids = torch.arange(self.num_envs, device=self.device)
+        self.applied_actions = self.action_history[
+            env_ids,
+            self.action_delay_steps,
+        ]
         # step physics and render each frame
     
+        # sample push torques for random pushes once per policy step
+        if self.cfg.domain_rand.push_robots:
+            self._sample_push_torques()
+        else:
+            self.push_mask[:] = False
+
+        # actual physics stepping
         for _ in range(self.cfg.control.decimation):
-            self._control_dofs(self.actions) # control the robot based on the actions
+            self._control_dofs(self.applied_actions)
+
+            if self.cfg.domain_rand.push_robots:
+                self._apply_push_torques() 
+
             self.sim.step()
 
         self.post_physics_step()
@@ -88,23 +109,19 @@ class LeggedRobot(BaseTask):
         self.common_step_counter += 1
 
         self._update_robot_state()
-
         self._post_physics_step_callback()
 
-        # compute observations, rewards, resets, ...
         self.check_termination()
-        env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
-        self.reset_idx(env_ids)
 
         if not getattr(self.cfg.env, "play_mode", False):
             self.compute_reward()
 
-        if self.cfg.domain_rand.push_robots:
-            self._push_robots()
+        env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
+        self.reset_idx(env_ids)
 
-        self.compute_observations() # in some cases a simulation step might be required to refresh some obs (for example body positions)
+        self.compute_observations()
 
-        if self.common_step_counter % 1 == 0: # change this value to reduce the frequency of debug visualization updates (can be performance heavy)
+        if self.common_step_counter % 1 == 0:
             self.velocity_arrow_visualizer.update(
                 base_pos=self.base_pos,
                 base_quat=self.base_quat,
@@ -163,6 +180,11 @@ class LeggedRobot(BaseTask):
         self.episode_length_buf[env_ids] = 0
         self.reset_buf[env_ids] = 1
         self.prev_foot_contacts[env_ids] = False
+        self.applied_actions[env_ids] = 0.
+        self.action_history[env_ids] = 0.
+        self.push_torques[env_ids] = 0.0
+        self.push_mask[env_ids] = False
+        self._sample_action_delay(env_ids)
         # fill extras
         self.extras["episode"] = {}
         for key in self.episode_sums.keys():
@@ -261,6 +283,11 @@ class LeggedRobot(BaseTask):
             self.current_ankle_heights[:] = torch.stack(
                 [link.get_pos()[:, 2] for link in self.ankle_links], 
                 dim=1
+            )
+
+            self.foot_lin_vel[:] = torch.stack(
+                [link.get_vel() for link in self.ankle_links],
+                dim=1,
             )
 
             #Real foot-ground contacts
@@ -387,6 +414,7 @@ class LeggedRobot(BaseTask):
         Args:
             env_ids (List[int]): Environments ids for which new commands are needed
         """
+        # Normal resampling
         self.commands[env_ids, 0] = gs_rand_float(self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids), 1), device=self.device).squeeze(1)
         self.commands[env_ids, 1] = gs_rand_float(self.command_ranges["lin_vel_y"][0], self.command_ranges["lin_vel_y"][1], (len(env_ids), 1), device=self.device).squeeze(1)
         self.commands[env_ids, 2] = gs_rand_float(self.command_ranges["ang_vel_yaw"][0], self.command_ranges["ang_vel_yaw"][1], (len(env_ids), 1), device=self.device).squeeze(1)
@@ -397,8 +425,19 @@ class LeggedRobot(BaseTask):
         ).unsqueeze(1)
 
         self.commands[env_ids, 2] *= (
-            torch.abs(self.commands[env_ids, 2]) > 0.1
+            torch.abs(self.commands[env_ids, 2]) > 0.1 
         )
+
+        # optionally replace some commands with "stand still" commands (all zeros) -> better standing behavior
+        stand_prob = float(getattr(self.cfg.commands, "stand_command_probability", 0.0))
+
+        if stand_prob > 0.0 and len(env_ids) > 0:
+            stand_env_mask = torch.rand(len(env_ids), device=self.device) < stand_prob
+            stand_env_ids = env_ids[stand_env_mask]
+
+            self.commands[stand_env_ids, 0] = 0.0
+            self.commands[stand_env_ids, 1] = 0.0
+            self.commands[stand_env_ids, 2] = 0.0
 
     def _control_dofs(self, actions):
         """ Compute target from actions.
@@ -445,10 +484,21 @@ class LeggedRobot(BaseTask):
         else:
             env_ids = env_ids.to(device=self.device, dtype=torch.long)
 
-        env_ids_np = env_ids.detach().cpu().numpy()
+        env_ids_np = env_ids.detach().cpu().numpy() 
 
-        rand_scale = torch.empty((len(env_ids), self.num_dof), device=self.device).uniform_(0.9, 1.1)
-        self.dof_pos[env_ids] = self.default_dof_pos * rand_scale
+        # randomize initial positions a bit on spawn.
+        pos_noise = gs_rand_float(
+            -0.05,
+            0.05,
+            (len(env_ids), self.num_dof),
+            device=self.device,
+        )
+        self.dof_pos[env_ids] = self.default_dof_pos + pos_noise
+        # stay safely inside hard limits
+        lower = self.dof_pos_limits[:, 0].unsqueeze(0) + 0.02
+        upper = self.dof_pos_limits[:, 1].unsqueeze(0) - 0.02
+        self.dof_pos[env_ids] = torch.max(torch.min(self.dof_pos[env_ids], upper), lower)
+        
         self.dof_vel[env_ids] = 0.0
 
         self.robot.set_dofs_position(
@@ -458,10 +508,14 @@ class LeggedRobot(BaseTask):
             zero_velocity=True,
         )
 
-    def _push_robots(self):
+    
+    def _sample_push_torques(self):
         """
-        Apply a short random disturbance as a torque pulse on all controlled joints.
-        Generic version that works for arbitrary robots.
+        Sample one random joint-torque disturbance per policy step.
+
+        The sampled torques are stored in self.push_torques and can then be
+        applied unchanged for all decimation substeps. This avoids random torques
+        cancelling each other within one policy step.
         """
         env_ids = torch.arange(self.num_envs, device=self.device)
 
@@ -473,38 +527,52 @@ class LeggedRobot(BaseTask):
             & (self.episode_length_buf[env_ids] % interval_steps == 0)
         ]
 
+        # Clear previous push command every policy step.
+        self.push_torques[:] = 0.0
+        self.push_mask[:] = False
+
         if len(push_env_ids) == 0:
             return
 
-        max_push = float(self.cfg.domain_rand.max_push_vel_xy)
+        push_scale = float(self.cfg.domain_rand.push_torque_scale)
 
-        if hasattr(self, "dof_torque_limits"): 
-            torque_limits = self.dof_torque_limits.view(1, -1)  # (1, num_dof)
-            amp = 0.10 * max_push * torque_limits              # (1, num_dof)
+        torque_limits = self.torque_limits.to(self.device)
 
-            push_torques = (
-                2.0 * torch.rand(
-                    (len(push_env_ids), self.num_actions),
-                    device=self.device,
-                ) - 1.0
-            ) * amp
-
-            push_torques = torch.clip(
-                push_torques,
-                -torque_limits,
-                torque_limits,
-            )
+        if torque_limits.ndim == 1:
+            torque_limits = torque_limits.unsqueeze(0).expand(len(push_env_ids), -1)
+        elif torque_limits.ndim == 2:
+            torque_limits = torque_limits[push_env_ids]
         else:
-            torque_scale = 2.0 * max_push
-            push_torques = torch.empty(
-                (len(push_env_ids), self.num_actions),
+            raise RuntimeError(f"Unexpected torque_limits shape: {torque_limits.shape}")
+
+        amp = 0.10 * push_scale * torque_limits
+
+        push_torques = (
+            2.0 * torch.rand(
+                (len(push_env_ids), self.num_dof),
                 device=self.device,
-            ).uniform_(-torque_scale, torque_scale)
+            ) - 1.0
+        ) * amp
+
+        self.push_torques[push_env_ids] = push_torques
+        self.push_mask[push_env_ids] = True
+
+    def _apply_push_torques(self):
+        """
+        Apply the already sampled push torques.
+
+        This is called inside the decimation loop, so the same disturbance is
+        applied for all sim substeps of one policy step.
+        """
+        push_env_ids = self.push_mask.nonzero(as_tuple=False).flatten() 
+
+        if len(push_env_ids) == 0:
+            return
 
         self.robot.control_dofs_force(
-            force=push_torques,
+            force=self.push_torques[push_env_ids],
             dofs_idx_local=self.joint_dof_idx,
-            envs_idx=push_env_ids.detach().cpu().numpy(),
+            envs_idx=push_env_ids.detach().cpu().numpy(), 
         )
 
    
@@ -557,7 +625,7 @@ class LeggedRobot(BaseTask):
         self.base_quat = torch.zeros((N,4), device=self.device, requires_grad=False)
         self.rpy = torch.zeros((N,3), device=self.device, requires_grad=False) # roll, pitch, yaw (in euler angles)
 
-        self.common_step_counter = 0
+        self.common_step_counter = 0 
         self.extras = {"observations": {}}
         self.noise_scale_vec = self._get_noise_scale_vec(self.cfg)
         self.projected_gravity = torch.zeros((N, 3), device=self.device, requires_grad=False)
@@ -567,9 +635,28 @@ class LeggedRobot(BaseTask):
         self.dof_pos = torch.zeros_like(self.actions)
         self.dof_vel = torch.zeros_like(self.actions)
         self.last_dof_vel = torch.zeros_like(self.dof_vel)
-        self.torques = torch.zeros((N,A), dtype=torch.float, device=self.device, requires_grad=False)
         self.p_gains = torch.zeros((A,), dtype=torch.float, device=self.device, requires_grad=False)
         self.d_gains = torch.zeros((A,), dtype=torch.float, device=self.device, requires_grad=False)
+        self.torques = torch.zeros((N,A), dtype=torch.float, device=self.device, requires_grad=False)
+        # push disturbance buffers
+        self.push_torques = torch.zeros((N, D), dtype=torch.float, device=self.device, requires_grad=False)
+        self.push_mask = torch.zeros((N,), dtype=torch.bool, device=self.device, requires_grad=False)
+
+        # action delay buffers
+        max_delay = int(getattr(self.cfg.domain_rand, "action_delay_steps_range", [0, 0])[1])
+        self.applied_actions = torch.zeros_like(self.actions)
+        self.action_delay_steps = torch.zeros(
+            (N,),
+            dtype=torch.long,
+            device=self.device,
+            requires_grad=False,
+        )
+        self.action_history = torch.zeros(
+            (N, max_delay + 1, A),
+            dtype=torch.float,
+            device=self.device,
+            requires_grad=False,
+        )
         
         self.commands = torch.zeros((N, C), dtype=torch.float, device=self.device, requires_grad=False)
         self.commands_scale = torch.tensor([self.obs_scales.lin_vel, self.obs_scales.lin_vel, self.obs_scales.ang_vel], device=self.device, requires_grad=False)
@@ -580,6 +667,7 @@ class LeggedRobot(BaseTask):
         self.prev_foot_contacts = torch.zeros((N, num_feet), dtype=torch.bool, device=self.device, requires_grad=False)
         self.feet_air_time = torch.zeros((N, num_feet), device=self.device, requires_grad=False)
         self.foot_euler = torch.zeros((N, num_feet, 3), device=self.device, requires_grad=False)
+        self.foot_lin_vel = torch.zeros((N, num_feet, 3), device=self.device, requires_grad=False)
 
         self._check_config_joint_names()
         
@@ -758,14 +846,46 @@ class LeggedRobot(BaseTask):
             )        
 
         # get joint limits
-        lower_lim, upper_lim = self.robot.get_dofs_limit(dofs_idx_local=self.joint_dof_idx)
+        lower_lim, upper_lim = self.robot.get_dofs_limit(
+            dofs_idx_local=self.joint_dof_idx
+        )
+
+        lower_lim = lower_lim.to(self.device)
+        upper_lim = upper_lim.to(self.device)
+
+        # If batch_dofs_info=True, Genesis may return shape (num_envs, num_dof).
+        # Joint limits are not randomized per env, so keep one canonical per-DOF copy.
+        if lower_lim.ndim == 2:
+            lower_lim = lower_lim[0]
+            upper_lim = upper_lim[0]
+
+        if lower_lim.ndim != 1:
+            raise RuntimeError(
+                f"Unexpected joint limit shape: lower={lower_lim.shape}, upper={upper_lim.shape}"
+            )
+
         logging.info(f"joint limits: lower: {lower_lim}, upper: {upper_lim}")
-        self.dof_pos_limits = torch.stack([lower_lim, upper_lim], dim=1).to(self.device)
+        self.dof_pos_limits = torch.stack([lower_lim, upper_lim], dim=1)
+
 
         # get force limits
-        lower_lim, upper_lim = self.robot.get_dofs_force_range(dofs_idx_local=self.joint_dof_idx)
-        logging.info(f"force limits: lower: {lower_lim}, upper: {upper_lim}")
-        self.torque_limits = upper_lim.to(self.device)
+        force_lower_lim, force_upper_lim = self.robot.get_dofs_force_range(
+            dofs_idx_local=self.joint_dof_idx
+        )
+
+        force_upper_lim = force_upper_lim.to(self.device)
+
+        # Same idea: torque limits are static per DOF.
+        if force_upper_lim.ndim == 2:
+            force_upper_lim = force_upper_lim[0] 
+
+        if force_upper_lim.ndim != 1:
+            raise RuntimeError(
+                f"Unexpected torque limit shape: upper={force_upper_lim.shape}"
+            )
+
+        logging.info(f"force limits: upper: {force_upper_lim}")
+        self.torque_limits = force_upper_lim
 
         # velocity limits from config - Genesis has no direct getter for that :(
         self.dof_vel_limits = torch.tensor(
@@ -852,6 +972,23 @@ class LeggedRobot(BaseTask):
             kv=d,
             dofs_idx_local=self.joint_dof_idx,
             envs_idx=env_ids.detach().cpu().numpy(),
+        )
+
+    def _sample_action_delay(self, env_ids):
+        if len(env_ids) == 0:
+            return
+
+        if not getattr(self.cfg.domain_rand, "randomize_action_delay", False):
+            self.action_delay_steps[env_ids] = 0
+            return
+
+        low, high = self.cfg.domain_rand.action_delay_steps_range
+        self.action_delay_steps[env_ids] = torch.randint(
+            low=int(low),
+            high=int(high) + 1,
+            size=(len(env_ids),),
+            device=self.device,
+            dtype=torch.long,
         )
 
     def _randomize_rigid_body_properties(self):
@@ -950,6 +1087,10 @@ class LeggedRobot(BaseTask):
         self.max_episode_length = np.ceil(self.max_episode_length_s / self.dt) 
 
 
+    def _stand_mask(self):
+        return (torch.norm(self.commands[:, :3], dim=1) < 0.1).float()
+
+
     #------------ reward functions----------------
     def _reward_lin_vel_z(self):
         # Penalize z axis base linear velocity
@@ -966,6 +1107,7 @@ class LeggedRobot(BaseTask):
     def _reward_base_height(self):
         # Penalize base height away from target
         base_height = self.base_pos[:, 2]
+        #print("base_height:", base_height) 
         return torch.square(base_height - self.cfg.rewards.base_height_target)
     
     def _reward_torques(self): 
@@ -986,13 +1128,30 @@ class LeggedRobot(BaseTask):
     
     def _reward_termination(self):
         # Terminal reward / penalty
-        return self.reset_buf * ~self.time_out_buf
+        return self.reset_buf * ~self.time_out_buf 
     
     def _reward_dof_pos_limits(self):
-        # Penalize dof positions too close to the limit
-        out_of_limits = -(self.dof_pos - self.dof_pos_limits[:, 0]).clip(max=0.) # lower limit
-        out_of_limits += (self.dof_pos - self.dof_pos_limits[:, 1]).clip(min=0.)
-        return torch.sum(out_of_limits, dim=1)
+        """
+        Penalize joint positions only when they enter the outer soft-limit zone.
+
+        soft_dof_pos_limit = 0.9 means:
+        - 0 penalty inside 90% of the URDF joint range
+        - linear penalty only in the last 10% before the hard lower/upper limit
+        """
+        lower = self.dof_pos_limits[:, 0]
+        upper = self.dof_pos_limits[:, 1]
+
+        mid = 0.5 * (lower + upper)
+        half_range = 0.5 * (upper - lower)
+
+        soft = float(self.cfg.rewards.soft_dof_pos_limit)
+
+        dist_from_mid = torch.abs(self.dof_pos - mid)
+        allowed_dist = soft * half_range
+
+        violation = (dist_from_mid - allowed_dist).clip(min=0.0)
+
+        return torch.sum(violation, dim=1)
 
     def _reward_dof_vel_limits(self):
         # Penalize dof velocities too close to the limit
@@ -1039,12 +1198,48 @@ class LeggedRobot(BaseTask):
         return rew_air_time
          
     def _reward_stand_still(self):
-        # Penalize joint motion only for true zero-command standing.
-        stand_mask = (
-            torch.norm(self.commands[:, :3], dim=1) < 0.1 
-        ).float()
+        """
+        Positive standing reward for true zero commands.
 
-        pos_err = torch.sum(torch.abs(self.dof_pos - self.default_dof_pos), dim=1)
-        vel_err = torch.sum(torch.abs(self.dof_vel), dim=1)
+        Rewards:
+        - low base xy velocity
+        - low yaw velocity
+        - joints near default pose
+        - low joint velocity
+        - low action magnitude
+        - both feet in contact
+        """
+        stand_mask = self._stand_mask()
 
-        return (pos_err + 0.1 * vel_err) * stand_mask
+        q_err = torch.mean(torch.square(self.dof_pos - self.default_dof_pos), dim=1)
+        dq_err = torch.mean(torch.square(self.dof_vel), dim=1)
+        action_err = torch.mean(torch.square(self.actions), dim=1)
+
+        base_xy_err = torch.sum(torch.square(self.base_lin_vel[:, :2]), dim=1)
+        yaw_err = torch.square(self.base_ang_vel[:, 2])
+
+        #print("foot contacts:", self.foot_contacts)
+
+        both_feet_contact = torch.all(self.foot_contacts, dim=1).float()
+
+        score = torch.exp(
+            -8.0 * q_err
+            -0.05 * dq_err
+            -2.0 * base_xy_err
+            -1.0 * yaw_err
+            -0.25 * action_err
+        )
+
+        # Still give some reward if posture is good, but full reward only with both feet down.
+        contact_factor = 0.5 + 0.5 * both_feet_contact
+
+        return stand_mask * contact_factor * score
+
+
+    def _reward_feet_slide(self):
+        """
+        Penalize horizontal foot sliding while feet are in contact.
+        Useful for sim2sim because foot slip differs strongly between Genesis and Isaac/PhysX.
+        """
+        foot_xy_vel = torch.norm(self.foot_lin_vel[:, :, :2], dim=2)
+        return torch.sum(foot_xy_vel * self.foot_contacts.float(), dim=1)

@@ -36,7 +36,7 @@ def play(args):
     env_cfg.env.play_mode = True # skips reward computation and other training overhead for faster simulation during play mode 
 
     # disable curriculum for play mode
-    env_cfg.terrain.curriculum = False 
+    env_cfg.terrain.curriculum = False
     #env_cfg.terrain.mode = "plane"
 
     # noise settings for eval
@@ -48,19 +48,20 @@ def play(args):
     env_cfg.domain_rand.randomize_kp = False
     env_cfg.domain_rand.randomize_kd = False
     env_cfg.domain_rand.randomize_base_mass = False
-    env_cfg.domain_rand.randomize_com = False
+    env_cfg.domain_rand.randomize_com = False 
+    env_cfg.domain_rand.randomize_action_delay = False
 
     #hardcode velocity to test tracking performance in play mode (optional)
     # env_cfg.commands.ranges.lin_vel_x = [0.0, 0.0]
     # env_cfg.commands.ranges.lin_vel_y = [0.0, 0.0]
-    # env_cfg.commands.ranges.ang_vel_yaw = [0.0, 0.0]
+    # env_cfg.commands.ranges.ang_vel_yaw = [0.0, 0.0] 
     
     # Optional viewer/debug settings for play mode
     env_cfg.sim.performance_mode = False # genesis performance mode should be used for training only.
     env_cfg.viewer.visualize_foot_contacts = False
     env_cfg.viewer.visualize_velocity_arrows = True 
-    env_cfg.viewer.ref_env = list(range(envs_to_visualize))
-    env_cfg.viewer.print_debug_velocities = False 
+    env_cfg.viewer.ref_env = list(range(envs_to_visualize)) 
+    env_cfg.viewer.print_debug_velocities = False
 
     # ----------------------------------------------------------------------
     # Prepare environment

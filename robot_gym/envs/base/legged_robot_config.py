@@ -6,7 +6,7 @@ class LeggedRobotCfg(BaseConfig):
         num_observations = 36
         num_actions = 8
         send_timeouts = True # send time out information to the algorithm
-        episode_length_s = 15 # episode length in seconds
+        episode_length_s = 20 # episode length in seconds
         num_privileged_obs = None 
         play_mode = False # For training a policy this should always be False because it skips the reward computation and other overhead. For testing or visualization in "play.py" set play_mode = True to speed up the simulation by skipping reward computation and other training overhead.
 
@@ -114,6 +114,7 @@ class LeggedRobotCfg(BaseConfig):
         max_curriculum = 1.
         num_commands = 3 # default: lin_vel_x, lin_vel_y, ang_vel_yaw,
         resampling_time = 5. # time before command are changed[s]
+        stand_command_probability = 0.25 # probability of sampling a "stand still" command (0 velocity) instead of a random command
         class ranges:
             lin_vel_x = [0.0, 1.0] # min max [m/s]
             lin_vel_y = [-0.3, 0.3]   # min max [m/s]
@@ -133,7 +134,7 @@ class LeggedRobotCfg(BaseConfig):
         damping = {'joint_a': 1.0, 'joint_b': 1.5}     # [N*m*s/rad]
         dof_vel_limits = {'joint_a': 6.0, 'joint_b': 6.0}   # [rad/s]
         # action scale: target angle = actionScale * action + defaultAngle
-        action_scale = 0.5
+        action_scale = 0.25
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 4
 
@@ -154,17 +155,17 @@ class LeggedRobotCfg(BaseConfig):
 
     class domain_rand:
         randomize_friction = False
-        friction_range = [0.6, 1.4]
+        friction_range = [0.7, 1.3]
 
         randomize_base_mass = False
-        added_mass_range = [-0.5, 0.5]
+        added_mass_range = [-0.2, 0.3]
 
         randomize_com = False
-        com_shift_range = [-0.03, 0.03]
+        com_shift_range = [-0.015, 0.015]
 
         push_robots = False
-        push_interval_s = 15
-        max_push_vel_xy = 1.0
+        push_interval_s = 10
+        push_torque_scale = 2.0
 
         randomize_kp = False
         kp_scale_range = [0.8, 1.2]
@@ -172,12 +173,15 @@ class LeggedRobotCfg(BaseConfig):
         randomize_kd = False
         kd_scale_range = [0.8, 1.2]
 
+        randomize_action_delay = False
+        action_delay_steps_range = [0, 2]  # policy steps, not sim substeps
+
     class rewards:
         class scales:
             termination = -0.0
             tracking_lin_vel = 1.0
             tracking_ang_vel = 0.5
-            lin_vel_z = -2.0
+            lin_vel_z = -1.0
             ang_vel_xy = -0.05
             orientation = -0.
             torques = -0.00001
@@ -188,13 +192,15 @@ class LeggedRobotCfg(BaseConfig):
             collision = 0.0
             feet_stumble = 0.0 
             action_rate = -0.01
-            stand_still = -0.
+            stand_still = 0.25
+            feet_slide = -0.0
 
         only_positive_rewards = True # if true negative total rewards are clipped at zero (avoids early termination problems)
         tracking_sigma = 0.25 # tracking reward = exp(-error^2/sigma)
-        soft_dof_pos_limit = 1. # percentage of urdf limits, values above this limit are penalized
         soft_dof_vel_limit = 1.
-        soft_torque_limit = 1.
+        soft_torque_limit = 0.9
+        soft_dof_pos_limit = 0.9 # [%] percentage of urdf limits, values above this limit are penalized
+
         base_height_target = 1.
         max_contact_force = 100. # forces above this value are penalized#
         contact_force_threshold = 7. # [Nm] forces above this value are counted as a contact for stumble and air time rewards
@@ -206,11 +212,11 @@ class LeggedRobotCfg(BaseConfig):
 
     class normalization:
         class obs_scales:
-            lin_vel = 2.0 
-            ang_vel = 0.25
+            lin_vel = 1.0
+            ang_vel = 1.0
             dof_pos = 1.0
-            dof_vel = 0.05
-            height_measurements = 5.0
+            dof_vel = 1.0
+            height_measurements = 1.0
         clip_observations = 100.
         clip_actions = 10.
 
@@ -218,8 +224,8 @@ class LeggedRobotCfg(BaseConfig):
         add_noise = True
         noise_level = 1.0 # scales other values  
         class noise_scales:
-            dof_pos = 0.01
-            dof_vel = 1.5
+            dof_pos = 0.015
+            dof_vel = 1.25
             lin_vel = 0.1
             ang_vel = 0.2
             gravity = 0.05
@@ -243,7 +249,7 @@ class LeggedRobotCfg(BaseConfig):
 
     class sim:
         dt =  0.005
-        substeps = 2
+        substeps = 1
         gravity = (0., 0. , -9.81)  # [m/s^2]
         up_axis = 1  # 0 is y, 1 is z
         enable_collision = True
@@ -267,7 +273,7 @@ class LeggedRobotCfgPPO(BaseConfig):
         obs_normalization = True
         distribution_cfg = {
             "class_name": "GaussianDistribution",
-            "init_std": 1.0,
+            "init_std": 0.75,
             "std_type": "scalar",
         }
 
@@ -285,7 +291,7 @@ class LeggedRobotCfgPPO(BaseConfig):
         entropy_coef = 0.01
         num_learning_epochs = 5
         num_mini_batches = 4
-        learning_rate = 1.e-3
+        learning_rate = 8.0e-4
         schedule = "adaptive"
         gamma = 0.99
         lam = 0.95

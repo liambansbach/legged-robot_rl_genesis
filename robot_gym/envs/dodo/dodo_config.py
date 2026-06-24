@@ -71,7 +71,7 @@ class DodoCfg(LeggedRobotCfg):
         resampling_time = 10.0
 
         class ranges(LeggedRobotCfg.commands.ranges):
-            lin_vel_x = [-0.3, 1.0]
+            lin_vel_x = [-0.2, 1.0]
             lin_vel_y = [-0.3, 0.3]
             ang_vel_yaw = [-1.0, 1.0]
 
@@ -82,24 +82,24 @@ class DodoCfg(LeggedRobotCfg):
         # Keys must match exact URDF joint names.
         stiffness = {
             "hip_right": 20.0,
-            "upper_leg_right": 20.0,
+            "upper_leg_right": 22.0,
             "lower_leg_right": 12.0,
-            "foot_right": 12.0,
+            "foot_right": 8.0,
             "hip_left": 20.0,
-            "upper_leg_left": 20.0,
+            "upper_leg_left": 22.0,
             "lower_leg_left": 12.0,
-            "foot_left": 12.0,
+            "foot_left": 8.0,
         }
 
         damping = {
-            "hip_right": 0.15 * np.sqrt(20.0),
-            "upper_leg_right": 0.15 * np.sqrt(20.0),
-            "lower_leg_right": 0.15 * np.sqrt(12.0),
-            "foot_right": 0.15 * np.sqrt(12.0),
-            "hip_left": 0.15 * np.sqrt(20.0),
-            "upper_leg_left": 0.15 * np.sqrt(20.0),
-            "lower_leg_left": 0.15 * np.sqrt(12.0),
-            "foot_left": 0.15 * np.sqrt(12.0),
+            "hip_right": 0.8,          # = 0.18 * sqrt(18.0)
+            "upper_leg_right": 0.9,    # = 0.19 * sqrt(24.0)
+            "lower_leg_right": 0.45,   # = 0.13 * sqrt(12.0)
+            "foot_right": 0.3,         # = 0.1 * sqrt(8.0)
+            "hip_left": 0.8,           # = 0.18 * sqrt(18.0)
+            "upper_leg_left": 0.9,     # = 0.19 * sqrt(24.0)
+            "lower_leg_left": 0.45,    # = 0.13 * sqrt(12.0)
+            "foot_left": 0.3,          # = 0.1 * sqrt(8.0)
         }
 
         dof_vel_limits = {
@@ -113,97 +113,101 @@ class DodoCfg(LeggedRobotCfg):
             "foot_left": 6.0,
         }
 
-        action_scale = 0.25
+        action_scale = 0.2
         decimation = 4
 
     class asset(LeggedRobotCfg.asset):
-        robot_file = "dodo_daimao.urdf"
+        robot_file = "dodo_daimao2.urdf"
         name = "dodo"
         robot_name = "dodo_daimao"
         file_format = "urdf"
 
         # Define foot link names for contact detection and foot clearance reward.
-        foot_link_names = ["foot_left", "foot_right"]
+        foot_link_names = ["foot_sole_right", "foot_sole_left"]
 
-        # used by DodoEnv
-        contact_height = 0.048
+        # used by DodoEnv for foot clearance reward: clearance=link_height - contact_height
+        contact_height = 0.022
 
         # Define the hip abduction joint indices for the hip abduction penalty reward. They have to match the order in the URDF.
         hip_abduction_indices = [0, 4]
 
     class domain_rand(LeggedRobotCfg.domain_rand):
         randomize_friction = True
-        friction_range = [0.6, 1.4]
+        friction_range = [0.8, 1.2]
 
         randomize_base_mass = True
-        added_mass_range = [-0.2, 0.3]
+        added_mass_range = [-0.1, 0.2] 
 
         randomize_com = True
-        com_shift_range = [-0.02, 0.02]
+        com_shift_range = [-0.01, 0.01] 
 
         push_robots = True
-        push_interval_s = 10.0
-        max_push_vel_xy = 0.5
+        push_interval_s = 5.0
+        push_torque_scale = 2.0
 
         randomize_kp = True
-        kp_scale_range = [0.8, 1.2]
+        kp_scale_range = [0.8, 1.2] 
 
         randomize_kd = True
-        kd_scale_range = [0.8, 1.2]
+        kd_scale_range = [0.8, 1.2] 
+
+        randomize_action_delay = True
+        action_delay_steps_range = [0, 1]
 
     class rewards(LeggedRobotCfg.rewards):
         only_positive_rewards = True
 
         # base reward hyperparameters
-        tracking_sigma = 0.2
-        soft_dof_pos_limit = 1.0
-        soft_dof_vel_limit = 1.0
-        soft_torque_limit = 1.0
+        tracking_sigma = 0.25
+        soft_dof_pos_limit = 0.9
+        soft_dof_vel_limit = 1.0 
+        soft_torque_limit = 0.9
         base_height_target = 0.39 # m
-        contact_force_threshold = 8.0 # [Nm]
+        contact_force_threshold = 6.0 # [Nm]
 
         # dodo-specific reward hyperparameters
-        clearance_target = 0.025 # m, target foot clearance during swing phase
-        clearance_sigma = 0.01
+        clearance_target = 0.02 # m, target foot clearance during swing phase
+        clearance_sigma = 0.015
 
-        pitch_target = 0.08
-        pitch_sigma = 0.05
+        pitch_target = 0.06
+        pitch_sigma = 0.06
 
-        flat_foot_sigma = 0.20
+        flat_foot_sigma = 0.15
 
         class scales(LeggedRobotCfg.rewards.scales):
             # --- tracking ---
-            tracking_lin_vel = 1.0
-            tracking_ang_vel = 0.8
+            tracking_lin_vel = 1.0 
+            tracking_ang_vel = 0.6
 
             # --- general stability penalties from base ---
-            lin_vel_z = -0.1
-            ang_vel_xy = -0.0
-            orientation = -0.7
-            base_height = -5.0
+            lin_vel_z = -0.5
+            ang_vel_xy = -0.05
+            orientation = -1.0
+            base_height = -8.0
 
             # --- smoothness / effort ---
-            torques = -0.00001
-            dof_vel = -0.0
+            torques = -2.0e-5
+            dof_vel = -2.0e-4
             dof_acc = -2.5e-7
             action_rate = -0.01
 
             # --- limits / termination ---
-            termination = -30.0
-            dof_pos_limits = -1.0
+            termination = -20.0
+            dof_pos_limits = -2.0
             dof_vel_limits = -0.0
-            torque_limits = -0.8
+            torque_limits = -0.5
 
             # --- gait / base rewards ---
             feet_air_time = 0.0
-            stand_still = -4.0
+            stand_still = 1.0
+            feet_slide = -0.15
 
-            # --- dodo-specific rewards from DodoEnv ---
-            forward_torso_pitch = 0.2
-            foot_swing_clearance = 0.3
-            flat_feet = 0.2
+            # --- dodo-specific rewards from DodoEnv --- 
+            forward_torso_pitch = 0.0
+            foot_swing_clearance = 0.2
+            flat_feet = 0.1
             hip_abduction_penalty = -0.5
-            survive = 0.01
+            survive = 0.05
 
             # keep unsupported / unused base reward names disabled
             collision = 0.0
@@ -216,10 +220,10 @@ class DodoCfg(LeggedRobotCfg):
 
     class normalization(LeggedRobotCfg.normalization):
         class obs_scales(LeggedRobotCfg.normalization.obs_scales):
-            lin_vel = 2.0
-            ang_vel = 0.25
-            dof_pos = 1.0
-            dof_vel = 0.05
+            lin_vel = 1.0 # 2.0
+            ang_vel = 1.0 # 0.25
+            dof_pos = 1.0 # 1.0
+            dof_vel = 1.0 # 0.05
 
         clip_observations = 100.0
         clip_actions = 10.0
@@ -229,15 +233,15 @@ class DodoCfg(LeggedRobotCfg):
         noise_level = 1.0
 
         class noise_scales(LeggedRobotCfg.noise.noise_scales):
-            dof_pos = 0.01
-            dof_vel = 1.5
+            dof_pos = 0.015
+            dof_vel = 1.0
             lin_vel = 0.1
-            ang_vel = 0.2
+            ang_vel = 0.15
             gravity = 0.05
 
     class sim(LeggedRobotCfg.sim):
         dt = 0.005
-        substeps = 2
+        substeps = 1
         gravity = (0.0, 0.0, -9.81)
         up_axis = 1
         enable_collision = True
@@ -270,14 +274,14 @@ class DodoCfgPPO(LeggedRobotCfgPPO):
         value_loss_coef = 1.0
         use_clipped_value_loss = True
         clip_param = 0.2
-        entropy_coef = 0.008
+        entropy_coef = 0.01
         num_learning_epochs = 5
         num_mini_batches = 8
-        learning_rate = 5.0e-4
+        learning_rate = 6.0e-4 
         schedule = "adaptive"
         gamma = 0.99
         lam = 0.95
-        desired_kl = 0.01
+        desired_kl = 0.01 
         max_grad_norm = 1.0
 
     class runner(LeggedRobotCfgPPO.runner):
@@ -290,7 +294,7 @@ class DodoCfgPPO(LeggedRobotCfgPPO):
 
         resume = False
         load_run = -1
-        checkpoint = -1
+        checkpoint = -1 
 
         # wandb logging
         log_wandb = True
