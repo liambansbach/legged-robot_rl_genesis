@@ -289,30 +289,9 @@ class TaskRegistry:
 
     def _adapt_train_cfg_for_rsl_rl(self, train_cfg_dict: dict) -> dict:
         """
-        Convert this repo's actor/critic config shape to the ActorCritic
-        policy config expected by the installed rsl-rl OnPolicyRunner.
+        Keep this repo's actor/critic config shape compatible with the
+        installed rsl-rl 5.x OnPolicyRunner.
         """
-        if "policy" not in train_cfg_dict:
-            actor_cfg = train_cfg_dict.pop("actor", {})
-            critic_cfg = train_cfg_dict.pop("critic", {})
-
-            distribution_cfg = actor_cfg.get("distribution_cfg", {})
-
-            train_cfg_dict["policy"] = {
-                "class_name": "ActorCritic",
-                "actor_hidden_dims": actor_cfg.get("hidden_dims", [512, 256, 128]),
-                "critic_hidden_dims": critic_cfg.get(
-                    "hidden_dims",
-                    actor_cfg.get("hidden_dims", [512, 256, 128]),
-                ),
-                "activation": actor_cfg.get(
-                    "activation",
-                    critic_cfg.get("activation", "elu"),
-                ),
-                "init_noise_std": distribution_cfg.get("init_std", 1.0),
-                "noise_std_type": distribution_cfg.get("std_type", "scalar"),
-            }
-
         algorithm_cfg = train_cfg_dict.get("algorithm", {})
         # Some config keys are used by newer/custom policy builders but are not
         # accepted by rsl-rl 5.x PPO directly.

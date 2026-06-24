@@ -151,14 +151,48 @@ class GO2WCfg(GO2Cfg):
 
 
 class GO2WCfgPPO(GO2CfgPPO):
+    seed = 1
+
     class actor(GO2CfgPPO.actor):
+        class_name = "MLPModel"
+        hidden_dims = [512, 256, 128]
+        activation = "elu"
+        obs_normalization = True
         distribution_cfg = {
             "class_name": "GaussianDistribution",
             "init_std": 0.75,
             "std_type": "scalar",
         }
 
+    class critic(GO2CfgPPO.critic):
+        class_name = "MLPModel"
+        hidden_dims = [512, 256, 128]
+        activation = "elu"
+        obs_normalization = True
+
+    class algorithm(GO2CfgPPO.algorithm):
+        class_name = "PPO"
+        value_loss_coef = 1.0
+        use_clipped_value_loss = True
+        clip_param = 0.2
+        entropy_coef = 0.01
+        num_learning_epochs = 5
+        num_mini_batches = 8
+        learning_rate = 8.0e-4
+        schedule = "adaptive"
+        gamma = 0.99
+        lam = 0.95
+        desired_kl = 0.01
+        max_grad_norm = 1.0
+
     class runner(GO2CfgPPO.runner):
+        num_steps_per_env = 48
+        max_iterations = 2000
+        save_interval = 50
         experiment_name = "go2w"
         run_name = ""
+        resume = False
+        load_run = -1
+        checkpoint = -1
+        log_wandb = True
         wandb_project = "go2w-locomotion"
