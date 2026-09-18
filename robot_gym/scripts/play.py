@@ -45,14 +45,14 @@ def play(args):
 
     # disable curriculum for play mode
     env_cfg.terrain.curriculum = False
-    #env_cfg.terrain.mode = "plane"
+    env_cfg.terrain.mode = "random_uniform_terrain"
 
     # noise settings for eval
     env_cfg.noise.add_noise = False
 
     # Domain randomization settings for eval
     env_cfg.domain_rand.randomize_friction = False
-    env_cfg.domain_rand.push_robots = True
+    env_cfg.domain_rand.push_robots = False
     env_cfg.domain_rand.randomize_kp = False
     env_cfg.domain_rand.randomize_kd = False
     env_cfg.domain_rand.randomize_base_mass = False
@@ -60,7 +60,7 @@ def play(args):
     env_cfg.domain_rand.randomize_action_delay = False
 
     #hardcode velocity to test tracking performance in play mode (optional)
-    # env_cfg.commands.ranges.lin_vel_x = [0.0, 0.0]
+    # env_cfg.commands.ranges.lin_vel_x = [-1.0, 1.0]
     # env_cfg.commands.ranges.lin_vel_y = [0.0, 0.0]
     # env_cfg.commands.ranges.ang_vel_yaw = [0.0, 0.0] 
     

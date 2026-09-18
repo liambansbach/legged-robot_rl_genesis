@@ -1,4 +1,5 @@
 import torch
+from genesis.utils.geom import inv_quat, transform_by_quat
 
 from robot_gym.envs.go2.go2_env import Go2Env
 
@@ -55,8 +56,41 @@ class Go2WEnv(Go2Env):
 
         return forward_gate * (1.0 - self._gait_gate())
 
+    def _pose_hold_gate(self):
+        """
+        Keep the default leg pose important for standing and slow commands.
+        """
+        planar_cmd = torch.norm(self.commands[:, :2], dim=1)
+        yaw_cmd = torch.abs(self.commands[:, 2])
+        cmd_mag = torch.maximum(planar_cmd, 0.35 * yaw_cmd)
+
+        return 1.0 - self._ramp(
+            cmd_mag,
+            deadzone=self.cfg.rewards.pose_hold_full_cmd,
+            full_activation_at=self.cfg.rewards.pose_hold_fade_cmd,
+        )
+
     def _quiet_leg_gate(self):
-        return torch.maximum(self._stand_mask(), self._wheel_drive_gate())
+        return torch.maximum(
+            torch.maximum(self._stand_mask(), self._wheel_drive_gate()),
+            0.35 * self._pose_hold_gate(),
+        )
+
+    def _reward_default_pose(self):
+        """
+        Penalize leg deviation from the new neutral pose, strongest at standstill.
+        """
+        leg_mask = self.position_control_mask
+        num_leg_dof = leg_mask.sum(dim=1).clamp(min=1.0)
+        pos_delta = torch.where(
+            leg_mask.bool(),
+            self.dof_pos - self.default_dof_pos,
+            torch.zeros_like(self.dof_pos),
+        )
+        pos_err = torch.sum(torch.square(pos_delta), dim=1) / num_leg_dof
+
+        gate = torch.maximum(self._stand_mask(), 0.4 * self._pose_hold_gate())
+        return gate * pos_err
 
     def _reward_leg_motion(self):
         """
@@ -76,6 +110,40 @@ class Go2WEnv(Go2Env):
         action_err = torch.sum(torch.square(self.actions) * leg_mask, dim=1) / num_leg_dof
 
         return self._quiet_leg_gate() * (pos_err + 0.02 * vel_err + 0.1 * action_err)
+
+    def _feet_in_base_frame(self):
+        inv_q = inv_quat(self.base_quat)
+        return torch.stack(
+            [
+                transform_by_quat(self.foot_pos[:, i, :] - self.base_pos, inv_q)
+                for i in range(self.foot_pos.shape[1])
+            ],
+            dim=1,
+        )
+
+    def _reward_wheel_crossover(self):
+        """
+        Penalize left/right wheels crossing the body centerline or collapsing laterally.
+        """
+        foot_pos_body = self._feet_in_base_frame()
+        y = foot_pos_body[:, :, 1]
+
+        min_side = self.cfg.rewards.min_wheel_side_clearance
+        min_sep = self.cfg.rewards.min_lateral_wheel_separation
+
+        left_y = torch.stack((y[:, 0], y[:, 2]), dim=1)
+        right_y = torch.stack((y[:, 1], y[:, 3]), dim=1)
+
+        left_cross = torch.relu(min_side - left_y)
+        right_cross = torch.relu(right_y + min_side)
+        narrow = torch.relu(min_sep - (left_y - right_y))
+
+        return torch.sum(
+            torch.square(left_cross)
+            + torch.square(right_cross)
+            + 0.5 * torch.square(narrow),
+            dim=1,
+        )
 
     def _reward_wheel_contact(self):
         """

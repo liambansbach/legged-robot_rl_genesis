@@ -295,6 +295,11 @@ class LeggedRobot(BaseTask):
                 dim=1
             )
 
+            self.foot_pos[:] = torch.stack(
+                [link.get_pos() for link in self.ankle_links],
+                dim=1,
+            )
+
             self.foot_lin_vel[:] = torch.stack(
                 [link.get_vel() for link in self.ankle_links],
                 dim=1,
@@ -691,6 +696,7 @@ class LeggedRobot(BaseTask):
         self.prev_foot_contacts = torch.zeros((N, num_feet), dtype=torch.bool, device=self.device, requires_grad=False)
         self.feet_air_time = torch.zeros((N, num_feet), device=self.device, requires_grad=False)
         self.foot_euler = torch.zeros((N, num_feet, 3), device=self.device, requires_grad=False)
+        self.foot_pos = torch.zeros((N, num_feet, 3), device=self.device, requires_grad=False)
         self.foot_lin_vel = torch.zeros((N, num_feet, 3), device=self.device, requires_grad=False)
 
         self._check_config_joint_names()

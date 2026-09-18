@@ -28,23 +28,23 @@ WHEEL_JOINTS = [
 
 class GO2WCfg(GO2Cfg):
     class init_state(GO2Cfg.init_state):
-        pos = (0.0, 0.0, 0.42)
+        pos = (0.0, 0.0, 0.45)
         default_joint_angles = {
-            "FL_hip_joint": 0.1,
-            "FL_thigh_joint": 0.8,
-            "FL_calf_joint": -1.5,
+            "FL_hip_joint": 0.0,
+            "FL_thigh_joint": 0.70,
+            "FL_calf_joint": -1.33,
             "FL_foot_joint": 0.0,
-            "FR_hip_joint": -0.1,
-            "FR_thigh_joint": 0.8,
-            "FR_calf_joint": -1.5,
+            "FR_hip_joint": 0.0,
+            "FR_thigh_joint": 0.70,
+            "FR_calf_joint": -1.33,
             "FR_foot_joint": 0.0,
-            "RL_hip_joint": 0.1,
-            "RL_thigh_joint": 1.0,
-            "RL_calf_joint": -1.5,
+            "RL_hip_joint": 0.0,
+            "RL_thigh_joint": 0.75,
+            "RL_calf_joint": -1.31,
             "RL_foot_joint": 0.0,
-            "RR_hip_joint": -0.1,
-            "RR_thigh_joint": 1.0,
-            "RR_calf_joint": -1.5,
+            "RR_hip_joint": 0.0,
+            "RR_thigh_joint": 0.75,
+            "RR_calf_joint": -1.31,
             "RR_foot_joint": 0.0,
         }
 
@@ -56,16 +56,17 @@ class GO2WCfg(GO2Cfg):
 
     class terrain(GO2Cfg.terrain):
         name = "go2w_training_terrain"
+        mode = "random_uniform_terrain"
 
     class commands(GO2Cfg.commands):
         curriculum = True
-        max_curriculum = 1.5
+        max_curriculum = 1.8
         stand_command_probability = 0.20
 
         class ranges(GO2Cfg.commands.ranges):
-            lin_vel_x = [-0.8, 0.8]
-            lin_vel_y = [-0.3, 0.3]
-            ang_vel_yaw = [-1.0, 1.0]
+            lin_vel_x = [-1.1, 1.1]
+            lin_vel_y = [-0.45, 0.45]
+            ang_vel_yaw = [-1.4, 1.4]
 
     class control(GO2Cfg.control):
         control_type = {
@@ -101,9 +102,9 @@ class GO2WCfg(GO2Cfg):
         }
 
     class termination(GO2Cfg.termination):
-        base_height_threshold = 0.29
-        roll_threshold = 35.0 * np.pi / 180.0
-        pitch_threshold = 35.0 * np.pi / 180.0
+        base_height_threshold = 0.33
+        roll_threshold = 30.0 * np.pi / 180.0
+        pitch_threshold = 30.0 * np.pi / 180.0
 
     class asset(GO2Cfg.asset):
         robot_file = "go2w_description.urdf"
@@ -115,21 +116,25 @@ class GO2WCfg(GO2Cfg):
         hip_abduction_indices = [0, 4, 8, 12]
 
     class rewards(GO2Cfg.rewards):
-        base_height_target = 0.39
+        base_height_target = 0.433
         clearance_target = 0.03
         clearance_sigma = 0.015
         contact_force_threshold = 8.0
         wheeled_forward_activation_vel = 0.25
-        lateral_step_activation_vel = 0.15
-        yaw_step_activation_vel = 0.45
+        lateral_step_activation_vel = 0.10
+        yaw_step_activation_vel = 0.30
+        pose_hold_full_cmd = 0.10
+        pose_hold_fade_cmd = 0.55
+        min_wheel_side_clearance = 0.045
+        min_lateral_wheel_separation = 0.14
 
         class scales(GO2Cfg.rewards.scales):
             tracking_lin_vel = 1.0
             tracking_ang_vel = 0.6
-            lin_vel_z = -0.1
-            ang_vel_xy = -0.05
-            orientation = -0.5
-            base_height = -5.0
+            lin_vel_z = -0.15
+            ang_vel_xy = -0.12
+            orientation = -1.2
+            base_height = -8.0
             torques = -0.0002
             dof_vel = -0.0
             dof_acc = -2.5e-7
@@ -139,15 +144,20 @@ class GO2WCfg(GO2Cfg):
             dof_vel_limits = -0.0
             torque_limits = -0.5
             feet_air_time = 0.0
-            stand_still = 0.5
+            stand_still = 0.8
             feet_slide = 0.0
-            foot_swing_clearance = 0.08
-            leg_motion = -0.08
-            wheel_contact = 0.2
-            unnecessary_wheel_air = -0.4
+            foot_swing_clearance = 0.14
+            default_pose = -1.2
+            leg_motion = -0.12
+            wheel_contact = 0.12
+            unnecessary_wheel_air = -0.25
+            wheel_crossover = -2.0
             survive = 0.05
             collision = 0.0
             feet_stumble = 0.0
+
+    class sim(GO2Cfg.sim):
+        enable_self_collision = True
 
 
 class GO2WCfgPPO(GO2CfgPPO):
