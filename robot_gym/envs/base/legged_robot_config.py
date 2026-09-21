@@ -2,6 +2,7 @@ from .base_config import BaseConfig
 
 class LeggedRobotCfg(BaseConfig):
     class env:
+        capture_transitions = False  # opt-in deterministic evaluation traces
         num_envs = 4096
         num_observations = 36
         num_actions = 8
@@ -113,6 +114,10 @@ class LeggedRobotCfg(BaseConfig):
         curriculum = False
         max_curriculum = 1.
         num_commands = 3 # default: lin_vel_x, lin_vel_y, ang_vel_yaw,
+        resampling_time_range = None
+        linear_deadzone = 0.1
+        yaw_deadzone = 0.1
+        stand_threshold = 0.1
         resampling_time = 5. # time before command are changed[s]
         stand_command_probability = 0.25 # probability of sampling a "stand still" command (0 velocity) instead of a random command
         class ranges:
@@ -123,6 +128,11 @@ class LeggedRobotCfg(BaseConfig):
     class init_state:
         pos = (0.0, 0.0, 0.415) # x,y,z [m]
         rot = (1.0, 0.0, 0.0, 0.0) # w,x,y,z [quat]
+        joint_position_noise = 0.05
+        joint_velocity_noise = 0.0
+        orientation_noise = (0.0, 0.0, 0.0)
+        linear_velocity_noise = 0.0
+        angular_velocity_noise = 0.0
         default_joint_angles = { # target angles when action = 0.0
             "joint_a": 0., 
             "joint_b": 0.}
@@ -168,8 +178,11 @@ class LeggedRobotCfg(BaseConfig):
         com_shift_range = [-0.015, 0.015]
 
         push_robots = False
-        push_interval_s = 10
-        push_torque_scale = 2.0
+        push_interval_range_s = [5.0, 9.0]
+        push_duration_range_s = [0.08, 0.16]
+        push_force_range = [5.0, 15.0]  # N, horizontal world-frame force at base COM
+        push_torque_range = [0.0, 0.0]  # Nm, independent world-frame components
+        friction_links = None  # None applies one floor condition to all robot links
 
         randomize_kp = False
         kp_scale_range = [0.8, 1.2]
@@ -252,6 +265,7 @@ class LeggedRobotCfg(BaseConfig):
         velocity_arrow_radius = 0.03
 
     class sim:
+        deterministic = False
         dt =  0.005
         substeps = 1
         gravity = (0., 0. , -9.81)  # [m/s^2]
@@ -259,7 +273,19 @@ class LeggedRobotCfg(BaseConfig):
         enable_collision = True
         enable_joint_limit = True
         enable_self_collision = False
-        performance_mode = True #  When performance_mode=True, Genesis bakes static tensor shapes into compiled kernels, yielding roughly 30% faster simulation. The trade-off is that kernels must be recompiled whenever the scene changes, which can take several minutes. With performance mode off (the default), kernels are shape-generic and only compiled once — rebuilds take just a few seconds once cached. In short, keep it off during research, fast iteration, debugging, and interactive data inspection; turn it on for policy training and production deployment.
+        performance_mode = True  # Specialize training kernels; disable for short interactive runs.
+
+        iterations = 50
+        ls_iterations = 50
+        friction_cone = "pyramidal"
+        contact_resolution = "convex"
+        constraint_timeconst = 0.01
+        enable_multi_contact = True
+        enable_rolling_friction = False
+        enable_torsional_friction = False
+        friction_rolling = 0.0
+        friction_torsional = 0.0
+        ground_friction = 0.1  # max-pair rule: must not mask low robot friction
 
         # dont manually set these! They will automatically set if domain randomization needs it.
         batch_links_info = False
@@ -304,7 +330,7 @@ class LeggedRobotCfgPPO(BaseConfig):
         normalize_advantage_per_mini_batch = False
         rnd_cfg = None
         symmetry_cfg = None
-        share_cnn_encoders = False
+        use_mixed_precision = False
 
     class runner:
         num_steps_per_env = 24

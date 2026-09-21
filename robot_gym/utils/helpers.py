@@ -13,6 +13,8 @@ def class_to_dict(obj) -> dict:
             continue
         element = []
         val = getattr(obj, key)
+        if callable(val):
+            continue
         if isinstance(val, list):
             for item in val:
                 element.append(class_to_dict(item))
@@ -118,6 +120,8 @@ def update_cfg_from_args(env_cfg, cfg_train, args):
     if cfg_train is not None:
         if args.seed is not None:
             cfg_train.seed = args.seed
+        if getattr(args, "logger", None):
+            cfg_train.runner.logger = args.logger
         # alg runner parameters
         if args.max_iterations is not None:
             cfg_train.runner.max_iterations = args.max_iterations
@@ -138,6 +142,9 @@ def get_args():
     parser = argparse.ArgumentParser(description="RL Policy")
 
     custom_parameters = [
+        {"name": "--output", "default": "evaluation/go2w", "help": "Evaluation output directory"},
+        {"name": "--logger", "choices": ["tensorboard", "wandb"], "help": "Override training logger"},
+        {"name": "--steps", "type": int, "default": 1000, "help": "Number of play steps"},
         {"name": "--task", "type": str, "default": "dodo", "help": "Resume training or start testing from a checkpoint. Overrides config file if provided."},
         {"name": "--resume", "action": "store_true", "default": False, "help": "Resume training from a checkpoint"},
         {"name": "--experiment_name", "type": str, "help": "Name of the experiment to run or load. Overrides config file if provided."},

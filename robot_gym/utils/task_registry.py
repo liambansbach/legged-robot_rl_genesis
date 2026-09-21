@@ -124,9 +124,14 @@ class TaskRegistry:
         # Apply CLI overrides
         env_cfg, train_cfg = update_cfg_from_args(env_cfg, train_cfg, args)
 
+        if getattr(args, "seed", None) is not None:
+            env_cfg.seed = args.seed
+
         # Seed handling
         seed = None
-        if train_cfg is not None and hasattr(train_cfg, "seed"):
+        if getattr(args, "seed", None) is not None:
+            seed = args.seed
+        elif train_cfg is not None and hasattr(train_cfg, "seed"):
             seed = train_cfg.seed
         elif hasattr(env_cfg, "seed"):
             seed = env_cfg.seed
@@ -144,6 +149,7 @@ class TaskRegistry:
             headless=args.headless,
         )
 
+        env.reset()
         return env, env_cfg
 
     # --------------------------------------------------------------------------
@@ -217,20 +223,18 @@ class TaskRegistry:
         train_cfg_dict = class_to_dict(train_cfg)
 
         runner_cfg = train_cfg_dict.pop("runner", {})
-        train_cfg_dict = self._adapt_train_cfg_for_rsl_rl(train_cfg_dict)
 
         for key, value in runner_cfg.items():
             train_cfg_dict.setdefault(key, value)
 
         train_cfg_dict.setdefault("obs_groups", {"actor": ["policy"], "critic": ["policy"]})
-        train_cfg_dict.setdefault("empirical_normalization", True)
         train_cfg_dict.setdefault("multi_gpu", False)
         train_cfg_dict.setdefault("logger", "tensorboard")
         train_cfg_dict.setdefault("torch_compile_mode", None)
         train_cfg_dict["run_name"] = effective_run_name
 
         if str(train_cfg_dict.get("logger", "")).lower() == "wandb":
-            self._patch_wandb_writer_for_base_config()
+            train_cfg_dict["logger"] = {"class_name": "WandbLogWriter", "project_name": train_cfg.runner.wandb_project}
 
         resume_path = None
 
@@ -251,8 +255,9 @@ class TaskRegistry:
             device=args.rl_device,
         )
 
-        runner.log_dir = log_dir
+        runner.add_git_repo_to_log(__file__)
 
+        runner.checkpoint_path = resume_path
         if resume_path is not None: 
             print(f"Loading model from: {resume_path}")
             runner.load(resume_path)
@@ -287,44 +292,6 @@ class TaskRegistry:
 
         return runner, train_cfg
 
-    def _adapt_train_cfg_for_rsl_rl(self, train_cfg_dict: dict) -> dict:
-        """
-        Keep this repo's actor/critic config shape compatible with the
-        installed rsl-rl 5.x OnPolicyRunner.
-        """
-        algorithm_cfg = train_cfg_dict.get("algorithm", {})
-        # Some config keys are used by newer/custom policy builders but are not
-        # accepted by rsl-rl 5.x PPO directly.
-        algorithm_cfg.pop("share_cnn_encoders", None)
-
-        return train_cfg_dict
-
-    def _patch_wandb_writer_for_base_config(self):
-        """
-        rsl-rl 5.x serializes env_cfg with dataclasses.asdict(), but this repo
-        uses BaseConfig-style class configs. Patch only the config logging hook
-        so wandb works without modifying the installed rsl-rl package.
-        """
-        from rsl_rl.utils import wandb_utils
-
-        if getattr(wandb_utils.WandbSummaryWriter, "_robot_gym_config_patch", False):
-            return
-
-        original_init = wandb_utils.WandbSummaryWriter.__init__
-
-        def __init__(writer, log_dir: str, flush_secs: int, cfg):
-            original_init(writer, log_dir, flush_secs, cfg)
-            if wandb_utils.wandb.run is not None:
-                wandb_utils.wandb.run.name = os.path.basename(log_dir)
-
-        def store_config(writer, env_cfg, train_cfg):
-            wandb_utils.wandb.config.update({"train_cfg": train_cfg})
-            wandb_utils.wandb.config.update({"env_cfg": class_to_dict(env_cfg)})
-
-        wandb_utils.WandbSummaryWriter.__init__ = __init__
-        wandb_utils.WandbSummaryWriter.store_config = store_config
-        wandb_utils.WandbSummaryWriter._robot_gym_config_patch = True
-    
     def _make_yaml_safe(self, obj):
         if isinstance(obj, dict):
             return {str(k): self._make_yaml_safe(v) for k, v in obj.items()}

@@ -1,3 +1,5 @@
+"""Flat Go2-W: rolling-first rewards and a navigation-oriented command mixture."""
+
 import torch
 from genesis.utils.geom import inv_quat, transform_by_quat
 
@@ -5,156 +7,175 @@ from robot_gym.envs.go2.go2_env import Go2Env
 
 
 class Go2WEnv(Go2Env):
-    """
-    Go2W locomotion environment.
+    def _build_control_tensors(self):
+        super()._build_control_tensors()
+        self.leg_action_indices = [
+            i
+            for i, n in enumerate(self.joint_names)
+            if self.cfg.control.control_type[n] == "P"
+        ]
+        self.wheel_action_indices = [
+            i
+            for i, n in enumerate(self.joint_names)
+            if self.cfg.control.control_type[n] == "V"
+        ]
+        probabilities = [
+            self.cfg.commands.stand_command_probability,
+            *self.cfg.commands.moving_mixture_probabilities,
+        ]
+        if (
+            len(probabilities) != 7
+            or min(probabilities) < 0
+            or abs(sum(probabilities) - 1) > 1e-6
+        ):
+            raise ValueError(
+                "Go2-W command mixture requires seven nonnegative probabilities summing to one"
+            )
+        self.command_mixture = torch.tensor(probabilities, device=self.device)
 
-    The wheels should handle ordinary forward/backward locomotion. Leg swing is
-    only encouraged for lateral/yaw-heavy commands where rolling alone is weak.
-    """
+    def _resample_commands(self, env_ids):
+        self._reset_command_timer(env_ids)
+        n = len(env_ids)
+        if not n:
+            return
+        families = torch.multinomial(self.command_mixture, n, replacement=True)
+        cmd = torch.rand((n, 3), device=self.device)
+        for axis, name in enumerate(("lin_vel_x", "lin_vel_y", "ang_vel_yaw")):
+            low, high = self.command_ranges[name]
+            cmd[:, axis] = low + (high - low) * cmd[:, axis]
+        # Most commands use wheels and yaw. Lateral demand is explicit and uncommon.
+        cmd[:, 1] *= families >= 5
+        cmd[:, 2] *= (families != 1) & (families != 5)
+        cmd[:, 0] *= (families != 3) & (families != 5)
+        precision = families == 4
+        cmd[precision, 0] *= 0.18
+        cmd[precision, 2] *= 0.2
+        cmd[families == 0] = 0
+        cmd[:, :2] *= (
+            torch.linalg.vector_norm(cmd[:, :2], dim=1)
+            > self.cfg.commands.linear_deadzone
+        ).unsqueeze(1)
+        cmd[:, 2] *= cmd[:, 2].abs() > self.cfg.commands.yaw_deadzone
+        self.commands[env_ids] = cmd
 
-    def __init__(self, cfg, sim_params, sim_device, headless):
-        super().__init__(cfg, sim_params, sim_device, headless)
-
-    def _ramp(self, x, deadzone, full_activation_at):
-        return torch.clamp(
-            (x - deadzone) / (full_activation_at - deadzone + 1e-8),
-            0.0,
-            1.0,
+    def compute_observations(self):
+        # Keep this construction explicit so simulator velocity can later be replaced by an estimate.
+        self.obs_buf = torch.cat(
+            (
+                self.base_lin_vel * self.obs_scales.lin_vel,
+                self.base_ang_vel * self.obs_scales.ang_vel,
+                self.projected_gravity,
+                self.commands * self.commands_scale,
+                (self.dof_pos - self.default_dof_pos)[:, self.leg_action_indices]
+                * self.obs_scales.dof_pos,
+                self.dof_vel * self.obs_scales.dof_vel,
+                self.actions,
+            ),
+            dim=-1,
         )
+        if self.add_noise:
+            self.obs_buf += (
+                2 * torch.rand_like(self.obs_buf) - 1
+            ) * self.noise_scale_vec
+
+    def _get_noise_scale_vec(self, cfg):
+        self.add_noise = cfg.noise.add_noise
+        n = cfg.noise.noise_scales
+        scale = torch.zeros(self.num_obs, device=self.device)
+        scale[:3] = n.lin_vel * self.obs_scales.lin_vel
+        scale[3:6] = n.ang_vel * self.obs_scales.ang_vel
+        scale[6:9] = n.gravity
+        scale[12:24] = n.dof_pos * self.obs_scales.dof_pos
+        scale[24:40] = n.dof_vel * self.obs_scales.dof_vel
+        scale[24 + torch.tensor(self.wheel_action_indices, device=self.device)] = (
+            n.wheel_vel * self.obs_scales.dof_vel
+        )
+        return scale * cfg.noise.noise_level
+
+    def _compute_fallen_mask(self):
+        return super()._compute_fallen_mask() | self.base_contact
 
     def _gait_gate(self):
-        """
-        Activate swing-foot rewards only for commands that likely need stepping.
-        Pure x velocity should be solved by wheel velocity control.
-        """
-        vy = torch.abs(self.commands[:, 1])
-        wz = torch.abs(self.commands[:, 2])
-
-        lateral_gate = self._ramp(
-            vy,
-            deadzone=0.03,
-            full_activation_at=self.cfg.rewards.lateral_step_activation_vel,
-        )
-        yaw_gate = self._ramp(
-            wz,
-            deadzone=0.08,
-            full_activation_at=self.cfg.rewards.yaw_step_activation_vel,
-        )
-
-        return torch.maximum(lateral_gate, yaw_gate)
-
-    def _wheel_drive_gate(self):
-        """
-        Gate for commands where the robot should mainly roll with quiet legs.
-        """
-        vx = torch.abs(self.commands[:, 0])
-        forward_gate = self._ramp(
-            vx,
-            deadzone=0.03,
-            full_activation_at=self.cfg.rewards.wheeled_forward_activation_vel,
-        )
-
-        return forward_gate * (1.0 - self._gait_gate())
-
-    def _pose_hold_gate(self):
-        """
-        Keep the default leg pose important for standing and slow commands.
-        """
-        planar_cmd = torch.norm(self.commands[:, :2], dim=1)
-        yaw_cmd = torch.abs(self.commands[:, 2])
-        cmd_mag = torch.maximum(planar_cmd, 0.35 * yaw_cmd)
-
-        return 1.0 - self._ramp(
-            cmd_mag,
-            deadzone=self.cfg.rewards.pose_hold_full_cmd,
-            full_activation_at=self.cfg.rewards.pose_hold_fade_cmd,
-        )
-
-    def _quiet_leg_gate(self):
-        return torch.maximum(
-            torch.maximum(self._stand_mask(), self._wheel_drive_gate()),
-            0.35 * self._pose_hold_gate(),
-        )
+        # Turning uses skid steering; only lateral motion relaxes rolling posture.
+        return (
+            (self.commands[:, 1].abs() - 0.03)
+            / (self.cfg.rewards.lateral_step_activation_vel - 0.03)
+        ).clamp(0, 1)
 
     def _reward_default_pose(self):
-        """
-        Penalize leg deviation from the new neutral pose, strongest at standstill.
-        """
-        leg_mask = self.position_control_mask
-        num_leg_dof = leg_mask.sum(dim=1).clamp(min=1.0)
-        pos_delta = torch.where(
-            leg_mask.bool(),
-            self.dof_pos - self.default_dof_pos,
-            torch.zeros_like(self.dof_pos),
+        err = (
+            (self.dof_pos - self.default_dof_pos)[:, self.leg_action_indices]
+            .square()
+            .mean(dim=1)
         )
-        pos_err = torch.sum(torch.square(pos_delta), dim=1) / num_leg_dof
-
-        gate = torch.maximum(self._stand_mask(), 0.4 * self._pose_hold_gate())
-        return gate * pos_err
+        return (1 - 0.7 * self._gait_gate()) * err
 
     def _reward_leg_motion(self):
-        """
-        Penalize unnecessary leg motion during stand-still and wheel-drive phases.
-        Wheel joints are excluded through the position-control mask.
-        """
-        leg_mask = self.position_control_mask
-        num_leg_dof = leg_mask.sum(dim=1).clamp(min=1.0)
+        return (1 - 0.7 * self._gait_gate()) * self.dof_vel[
+            :, self.leg_action_indices
+        ].square().mean(dim=1)
 
-        pos_delta = torch.where(
-            leg_mask.bool(),
-            self.dof_pos - self.default_dof_pos,
-            torch.zeros_like(self.dof_pos),
-        )
-        pos_err = torch.sum(torch.square(pos_delta), dim=1) / num_leg_dof
-        vel_err = torch.sum(torch.square(self.dof_vel) * leg_mask, dim=1) / num_leg_dof
-        action_err = torch.sum(torch.square(self.actions) * leg_mask, dim=1) / num_leg_dof
+    def _reward_normalized_effort(self):
+        # Clipped instantaneous P/V control effort; an effort surrogate, not measured mechanical energy.
+        effort = (self.torques / self.torque_limits).square()
+        return effort[:, self.leg_action_indices].mean(dim=1) + effort[
+            :, self.wheel_action_indices
+        ].mean(dim=1)
 
-        return self._quiet_leg_gate() * (pos_err + 0.02 * vel_err + 0.1 * action_err)
-
-    def _feet_in_base_frame(self):
-        inv_q = inv_quat(self.base_quat)
-        return torch.stack(
-            [
-                transform_by_quat(self.foot_pos[:, i, :] - self.base_pos, inv_q)
-                for i in range(self.foot_pos.shape[1])
-            ],
-            dim=1,
+    def _reward_leg_acc(self):
+        return (
+            ((self.dof_vel - self.last_dof_vel)[:, self.leg_action_indices] / self.dt)
+            .square()
+            .sum(dim=1)
         )
 
-    def _reward_wheel_crossover(self):
-        """
-        Penalize left/right wheels crossing the body centerline or collapsing laterally.
-        """
-        foot_pos_body = self._feet_in_base_frame()
-        y = foot_pos_body[:, :, 1]
-
-        min_side = self.cfg.rewards.min_wheel_side_clearance
-        min_sep = self.cfg.rewards.min_lateral_wheel_separation
-
-        left_y = torch.stack((y[:, 0], y[:, 2]), dim=1)
-        right_y = torch.stack((y[:, 1], y[:, 3]), dim=1)
-
-        left_cross = torch.relu(min_side - left_y)
-        right_cross = torch.relu(right_y + min_side)
-        narrow = torch.relu(min_sep - (left_y - right_y))
-
-        return torch.sum(
-            torch.square(left_cross)
-            + torch.square(right_cross)
-            + 0.5 * torch.square(narrow),
-            dim=1,
+    def _reward_wheel_acc(self):
+        return (
+            ((self.dof_vel - self.last_dof_vel)[:, self.wheel_action_indices] / self.dt)
+            .square()
+            .sum(dim=1)
         )
 
-    def _reward_wheel_contact(self):
-        """
-        Reward keeping all wheels grounded while the command can be solved by rolling.
-        """
-        contact_fraction = torch.mean(self.foot_contacts.float(), dim=1)
-        return self._quiet_leg_gate() * contact_fraction
+    def _reward_leg_action_rate(self):
+        return (
+            (self.actions - self.last_actions)[:, self.leg_action_indices]
+            .square()
+            .sum(dim=1)
+        )
+
+    def _reward_wheel_action_rate(self):
+        return (
+            (self.actions - self.last_actions)[:, self.wheel_action_indices]
+            .square()
+            .sum(dim=1)
+        )
+
+    def _reward_stand_still(self):
+        motion = (
+            self.base_lin_vel[:, :2].square().sum(dim=1)
+            + self.base_ang_vel[:, 2].square()
+        )
+        motion += 0.02 * self.dof_vel[:, self.wheel_action_indices].square().mean(dim=1)
+        return self._stand_mask() * motion
+
+    def _reward_collision(self):
+        return self.nonfoot_contact_count.clamp(max=4)
 
     def _reward_unnecessary_wheel_air(self):
-        """
-        Penalize lifted wheels during stand-still and pure rolling commands.
-        """
-        air_fraction = torch.mean((~self.foot_contacts).float(), dim=1)
-        return self._quiet_leg_gate() * air_fraction
+        return (1 - self._gait_gate()) * (~self.foot_contacts).float().mean(dim=1)
+
+    def _reward_wheel_crossover(self):
+        n = self.foot_pos.shape[1]
+        feet = transform_by_quat(
+            (self.foot_pos - self.base_pos[:, None]).reshape(-1, 3),
+            inv_quat(self.base_quat)[:, None].expand(-1, n, -1).reshape(-1, 4),
+        )
+        y = feet.reshape(self.num_envs, n, 3)[:, :, 1]
+        left, right = y[:, [0, 2]], y[:, [1, 3]]
+        side = self.cfg.rewards.min_wheel_side_clearance
+        separation = self.cfg.rewards.min_lateral_wheel_separation
+        return (
+            torch.relu(side - left).square()
+            + torch.relu(right + side).square()
+            + 0.5 * torch.relu(separation - (left - right)).square()
+        ).sum(dim=1)

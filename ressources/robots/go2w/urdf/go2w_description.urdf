@@ -396,11 +396,9 @@ Stephen Brawner (brawner@gmail.com)
       </material>
     </visual>
     <collision>
-      <origin rpy="0 0 0" xyz="0 0.0 0" />
-      <geometry>
-        <mesh filename="../dae/left_wheel.dae" />
-        <!-- <cylinder length="0.045" radius="0.086" /> -->
-      </geometry>
+      <!-- Cylinder matches mesh bounds; canonical Z axis rotated onto the wheel Y axis. -->
+      <origin rpy="1.5707963267948966 0 0" xyz="0 0.0481 0" />
+      <geometry><cylinder length="0.052" radius="0.086" /></geometry>
     </collision>
   </link>
   <joint
@@ -700,11 +698,9 @@ Stephen Brawner (brawner@gmail.com)
       </material>
     </visual>
     <collision>
-      <origin rpy="0 0 0" xyz="0 -0.0 0" />
-      <geometry>
-        <mesh filename="../dae/right_wheel.dae" />
-        <!-- <cylinder length="0.045" radius="0.086" /> -->
-      </geometry>
+      <!-- Cylinder matches mesh bounds; canonical Z axis rotated onto the wheel Y axis. -->
+      <origin rpy="1.5707963267948966 0 0" xyz="0 -0.0481 0" />
+      <geometry><cylinder length="0.052" radius="0.086" /></geometry>
     </collision>
   </link>
   <joint
@@ -1004,11 +1000,9 @@ Stephen Brawner (brawner@gmail.com)
       </material>
     </visual>
     <collision>
-      <origin rpy="0 0 0" xyz="0 0.0 0" />
-      <geometry>
-        <mesh filename="../dae/left_wheel.dae" />
-        <!-- <cylinder length="0.045" radius="0.086" /> -->
-      </geometry>
+      <!-- Cylinder matches mesh bounds; canonical Z axis rotated onto the wheel Y axis. -->
+      <origin rpy="1.5707963267948966 0 0" xyz="0 0.0481 0" />
+      <geometry><cylinder length="0.052" radius="0.086" /></geometry>
     </collision>
   </link>
   <joint
@@ -1307,11 +1301,9 @@ Stephen Brawner (brawner@gmail.com)
       </material>
     </visual>
     <collision>
-      <origin rpy="0 0 0" xyz="0 -0.0 0" />
-      <geometry>
-        <mesh filename="../dae/right_wheel.dae" />
-        <!-- <cylinder length="0.045" radius="0.086" /> -->
-      </geometry>
+      <!-- Cylinder matches mesh bounds; canonical Z axis rotated onto the wheel Y axis. -->
+      <origin rpy="1.5707963267948966 0 0" xyz="0 -0.0481 0" />
+      <geometry><cylinder length="0.052" radius="0.086" /></geometry>
     </collision>
   </link>
   <joint

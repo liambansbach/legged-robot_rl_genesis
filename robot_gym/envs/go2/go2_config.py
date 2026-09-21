@@ -139,8 +139,8 @@ class GO2Cfg( LeggedRobotCfg ):
         com_shift_range = [-0.02, 0.02]
 
         push_robots = True
-        push_interval_s = 5.0
-        push_torque_scale = 3.0
+        push_interval_range_s = [5.0, 9.0]
+        push_force_range = [15.0, 35.0]
 
         randomize_kp = True
         kp_scale_range = [0.75, 1.25]

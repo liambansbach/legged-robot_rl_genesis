@@ -218,3 +218,6 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+# Local environment snapshots and smoke artifacts
+.migration-audit/
+evaluation/

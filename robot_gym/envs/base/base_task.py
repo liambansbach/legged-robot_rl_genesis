@@ -23,6 +23,8 @@ class BaseTask:
             gs.init(
                 backend=backend,
                 performance_mode=cfg.sim.performance_mode,
+                seed=getattr(cfg, "seed", 1),
+                use_deterministic_algorithms=cfg.sim.deterministic,
                 )
             BaseTask._gs_initialized = True
             BaseTask._gs_backend = backend
@@ -39,9 +41,6 @@ class BaseTask:
         self.num_actions = cfg.env.num_actions
         self.num_commands = cfg.commands.num_commands
         self.num_privileged_obs = cfg.env.num_privileged_obs
-
-        torch._C._jit_set_profiling_mode(False)
-        torch._C._jit_set_profiling_executor(False)
 
         N = self.num_envs
         self.obs_buf = torch.zeros((N, self.num_obs), device=self.device, dtype=torch.float)

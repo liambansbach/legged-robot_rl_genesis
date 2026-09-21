@@ -29,6 +29,11 @@ WHEEL_JOINTS = [
 class GO2WCfg(GO2Cfg):
     class init_state(GO2Cfg.init_state):
         pos = (0.0, 0.0, 0.45)
+        joint_position_noise = 0.03
+        joint_velocity_noise = 0.05
+        orientation_noise = (0.02, 0.02, 0.05)
+        linear_velocity_noise = 0.03
+        angular_velocity_noise = 0.03
         default_joint_angles = {
             "FL_hip_joint": 0.0,
             "FL_thigh_joint": 0.70,
@@ -50,22 +55,27 @@ class GO2WCfg(GO2Cfg):
 
     class env(GO2Cfg.env):
         # base_lin_vel(3) + base_ang_vel(3) + projected_gravity(3)
-        # + commands(3) + dof_pos(16) + dof_vel(16) + actions(16) = 60
-        num_observations = 60
+        # + commands(3) + leg_pos(12) + dof_vel(16) + actions(16) = 56
+        num_observations = 56
         num_actions = 16
 
     class terrain(GO2Cfg.terrain):
         name = "go2w_training_terrain"
-        mode = "random_uniform_terrain"
+        mode = "plane"
 
     class commands(GO2Cfg.commands):
-        curriculum = True
-        max_curriculum = 1.8
-        stand_command_probability = 0.20
+        curriculum = False
+        resampling_time_range = [0.5, 1.0]
+        linear_deadzone = 0.01
+        yaw_deadzone = 0.01
+        stand_threshold = 1e-6
+        # Absolute probabilities: straight, arc, yaw, precision, lateral, mixed.
+        moving_mixture_probabilities = [0.25, 0.25, 0.15, 0.10, 0.07, 0.03]
+        stand_command_probability = 0.15
 
         class ranges(GO2Cfg.commands.ranges):
-            lin_vel_x = [-1.1, 1.1]
-            lin_vel_y = [-0.45, 0.45]
+            lin_vel_x = [-0.35, 1.10]
+            lin_vel_y = [-0.30, 0.30]
             ang_vel_yaw = [-1.4, 1.4]
 
     class control(GO2Cfg.control):
@@ -75,14 +85,14 @@ class GO2WCfg(GO2Cfg):
         }
 
         stiffness = {
-            **GO2Cfg.control.stiffness,
+            **{name: 40.0 for name in LEG_JOINTS},
             "FL_foot_joint": 0.0,
             "FR_foot_joint": 0.0,
             "RL_foot_joint": 0.0,
             "RR_foot_joint": 0.0,
         }
         damping = {
-            **GO2Cfg.control.damping,
+            **{name: 1.0 for name in LEG_JOINTS},
             "FL_foot_joint": 1.0,
             "FR_foot_joint": 1.0,
             "RL_foot_joint": 1.0,
@@ -98,8 +108,36 @@ class GO2WCfg(GO2Cfg):
 
         action_scale = {
             **{name: 0.2 for name in LEG_JOINTS},
-            **{name: 12.0 for name in WHEEL_JOINTS},
+            **{name: 18.0 for name in WHEEL_JOINTS},
         }
+
+        wheel_velocity_target_limit = 20.0  # rad/s; URDF limit is 30.1
+
+    class normalization(GO2Cfg.normalization):
+        clip_actions = 1.0
+
+    class domain_rand(GO2Cfg.domain_rand):
+        friction_range = [0.6, 1.2]
+        friction_links = ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
+        added_mass_range = [-0.5, 1.5]
+        com_shift_range = [-0.015, 0.015]
+        kp_scale_range = [0.9, 1.1]
+        kd_scale_range = [0.9, 1.1]
+        action_delay_steps_range = [0, 1]
+        push_robots = True
+        push_interval_range_s = [3.0, 6.0]
+        push_duration_range_s = [0.10, 0.20]
+        push_force_range = [20.0, 50.0]
+        push_torque_range = [0.0, 0.0]
+
+    class noise(GO2Cfg.noise):
+        class noise_scales(GO2Cfg.noise.noise_scales):
+            dof_pos = 0.01
+            dof_vel = 0.2  # leg rad/s
+            wheel_vel = 0.5  # wheel rad/s
+            lin_vel = 0.05
+            ang_vel = 0.08
+            gravity = 0.02
 
     class termination(GO2Cfg.termination):
         base_height_threshold = 0.33
@@ -120,11 +158,7 @@ class GO2WCfg(GO2Cfg):
         clearance_target = 0.03
         clearance_sigma = 0.015
         contact_force_threshold = 8.0
-        wheeled_forward_activation_vel = 0.25
         lateral_step_activation_vel = 0.10
-        yaw_step_activation_vel = 0.30
-        pose_hold_full_cmd = 0.10
-        pose_hold_fade_cmd = 0.55
         min_wheel_side_clearance = 0.045
         min_lateral_wheel_separation = 0.14
 
@@ -135,25 +169,30 @@ class GO2WCfg(GO2Cfg):
             ang_vel_xy = -0.12
             orientation = -1.2
             base_height = -8.0
-            torques = -0.0002
+            torques = 0.0
+            normalized_effort = -0.03
             dof_vel = -0.0
-            dof_acc = -2.5e-7
-            action_rate = -0.01
+            dof_acc = 0.0
+            leg_acc = -2.5e-7
+            wheel_acc = -1.0e-7
+            action_rate = 0.0
+            leg_action_rate = -0.01
+            wheel_action_rate = -0.005
             termination = -10.0
             dof_pos_limits = -2.0
             dof_vel_limits = -0.0
             torque_limits = -0.5
             feet_air_time = 0.0
-            stand_still = 0.8
+            stand_still = -0.5
             feet_slide = 0.0
-            foot_swing_clearance = 0.14
-            default_pose = -1.2
-            leg_motion = -0.12
-            wheel_contact = 0.12
+            foot_swing_clearance = 0.08
+            default_pose = -0.6
+            leg_motion = -0.02
+            wheel_contact = 0.0
             unnecessary_wheel_air = -0.25
             wheel_crossover = -2.0
-            survive = 0.05
-            collision = 0.0
+            survive = 0.0
+            collision = -0.5
             feet_stumble = 0.0
 
     class sim(GO2Cfg.sim):
@@ -170,8 +209,9 @@ class GO2WCfgPPO(GO2CfgPPO):
         obs_normalization = True
         distribution_cfg = {
             "class_name": "GaussianDistribution",
-            "init_std": 0.75,
-            "std_type": "scalar",
+            "init_std": 0.55,
+            "std_type": "log",
+            "std_range": [0.05, 0.8],
         }
 
     class critic(GO2CfgPPO.critic):
@@ -185,7 +225,7 @@ class GO2WCfgPPO(GO2CfgPPO):
         value_loss_coef = 1.0
         use_clipped_value_loss = True
         clip_param = 0.2
-        entropy_coef = 0.01
+        entropy_coef = 0.005
         num_learning_epochs = 5
         num_mini_batches = 8
         learning_rate = 8.0e-4

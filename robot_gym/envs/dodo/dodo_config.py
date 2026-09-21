@@ -142,8 +142,8 @@ class DodoCfg(LeggedRobotCfg):
         com_shift_range = [-0.01, 0.01] 
 
         push_robots = True
-        push_interval_s = 5.0
-        push_torque_scale = 2.0
+        push_interval_range_s = [5.0, 9.0]
+        push_force_range = [3.0, 8.0]
 
         randomize_kp = True
         kp_scale_range = [0.8, 1.2] 

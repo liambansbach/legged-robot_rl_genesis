@@ -1,5 +1,6 @@
 import os
 import torch
+import genesis as gs
 
 from robot_gym import ROBOT_GYM_ROOT_DIR
 from robot_gym.envs import *  # noqa: F401,F403 -> ensures task registration
@@ -45,10 +46,15 @@ def play(args):
 
     # disable curriculum for play mode
     env_cfg.terrain.curriculum = False
-    env_cfg.terrain.mode = "random_uniform_terrain"
+    env_cfg.commands.curriculum = False
 
     # noise settings for eval
     env_cfg.noise.add_noise = False
+    env_cfg.init_state.joint_position_noise = 0.0
+    env_cfg.init_state.joint_velocity_noise = 0.0
+    env_cfg.init_state.orientation_noise = (0.0, 0.0, 0.0)
+    env_cfg.init_state.linear_velocity_noise = 0.0
+    env_cfg.init_state.angular_velocity_noise = 0.0
 
     # Domain randomization settings for eval
     env_cfg.domain_rand.randomize_friction = False
@@ -66,9 +72,10 @@ def play(args):
     
     # Optional viewer/debug settings for play mode
     env_cfg.sim.performance_mode = False # genesis performance mode should be used for training only.
+    env_cfg.sim.deterministic = True
     env_cfg.viewer.visualize_foot_contacts = False
     env_cfg.viewer.visualize_velocity_arrows = True 
-    env_cfg.viewer.ref_env = list(range(envs_to_visualize)) 
+    env_cfg.viewer.ref_env = list(range(args.num_envs or envs_to_visualize))
     env_cfg.viewer.print_debug_velocities = False
 
     # ----------------------------------------------------------------------
@@ -109,10 +116,8 @@ def play(args):
             "policies",
         )
 
-        ppo_runner.export_policy_to_jit(
-            path,
-            filename="policy_1.pt",
-        )
+        from robot_gym.utils.export import export_policy
+        export_policy(ppo_runner, env, path)
 
         print(f"Exported policy as jit script to: {path}")
 
@@ -120,9 +125,10 @@ def play(args):
     # Run policy
     # ----------------------------------------------------------------------
     with torch.no_grad():
-        for _ in range(10 * int(env.max_episode_length)):
+        for _ in range(args.steps):
             actions = policy(obs)
             obs, rews, dones, infos = env.step(actions.detach()) 
+    gs.destroy()
 
 
 if __name__ == "__main__":

@@ -19,7 +19,7 @@ It is inspired by the structure of Unitree RL pipelines but fully adapted to:
 - Supports **Train → Play → Export → Deployment**
 - Integrated logging via **Weights & Biases**
 - Multiple environments (flat + uneven terrain)
-- TorchScript (JIT) or ONNX export for deployment
+- Bounded TorchScript export with embedded observation normalization
 
 ---
 ## Results 
@@ -105,7 +105,7 @@ cd legged-robot_rl_genesis
 
 ```bash
 conda env create -f conda_env.yaml
-conda activate rl-genesis
+conda activate genesis-gpu
 ```
 
 ---
@@ -118,10 +118,15 @@ conda activate rl-genesis
 python -m robot_gym.scripts.train --task dodo --experiment_name dodo_walking_test --num_envs 4096 --max_iterations 1000
 ```
 
-Go2W first visual sanity check:
+Go2-W uses a flat plane, a bounded 16-action mixed P/V interface, and a 56-value
+proprioceptive observation. The tested stack is Python 3.11.14, PyTorch 2.9.0+cu130,
+Genesis 1.4.1, and RSL-RL 5.5.1. See [the migration and training guide](docs/go2w_migration.md)
+for the full physics, rewards, randomization, deployment contract, and validation results.
 
-```bash
-python -m robot_gym.scripts.train --task go2w --experiment_name go2w_first_visual --run_name go2w_spawn_check --num_envs 16 --max_iterations 50
+```powershell
+# Short GPU regression and PPO smoke; no W&B account needed
+conda run --no-capture-output -n genesis-gpu python -m robot_gym.scripts.smoke --task go2w --num_envs 8 --headless
+conda run --no-capture-output -n genesis-gpu python -m robot_gym.scripts.train --task go2w --num_envs 64 --max_iterations 2 --headless --logger tensorboard --experiment_name go2w_smoke
 ```
 
 Training pipeline:
@@ -204,8 +209,8 @@ You can easily use your own URDF robot file for training your own locomotion pol
 - reward breakdown
 - training metrics
 
-When using the default Weights & Biases logger, authenticate once and set the
-entity name expected by `rsl_rl`:
+When using Weights & Biases, authenticate once. `WANDB_USERNAME` is optional
+if your default account entity is appropriate:
 
 ```powershell
 wandb login
