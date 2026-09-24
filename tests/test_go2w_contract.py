@@ -58,11 +58,38 @@ class ContractTests(unittest.TestCase):
         self.assertTrue((c[:, 2].abs() <= 1.4).all())
         self.assertTrue(0.14 < (c == 0).all(dim=1).float().mean() < 0.17)
         self.assertTrue(0.08 < (c[:, 1] != 0).float().mean() < 0.11)
-        self.assertTrue(
-            ((e.command_steps_left >= 25) & (e.command_steps_left <= 50)).all()
-        )
         e.commands[:] = torch.tensor([0.0, 0.0, 0.4])
         self.assertEqual(e._gait_gate().sum(), 0)
+
+    def test_mixed_command_durations(self):
+        torch.manual_seed(5)
+        e = self.make_env(20000)
+        e._resample_commands(torch.arange(e.num_envs))
+        cfg = e.cfg.commands
+        durations = e.command_steps_left
+        short_low, short_high = [
+            round(t / e.dt) for t in cfg.short_command_duration_range
+        ]
+        long_low, long_high = [
+            round(t / e.dt) for t in cfg.sustained_command_duration_range
+        ]
+        short = (durations >= short_low) & (durations <= short_high)
+        sustained = (durations >= long_low) & (durations <= long_high)
+        self.assertTrue(short.any() and sustained.any())
+        self.assertTrue((short | sustained).all())
+        self.assertAlmostEqual(
+            sustained.float().mean().item(),
+            cfg.sustained_command_probability,
+            delta=0.015,
+        )
+        # Stand and lateral commands retain the same prevalence in both duration modes.
+        for mode in (short, sustained):
+            commands = e.commands[mode]
+            self.assertTrue(0.13 < (commands == 0).all(dim=1).float().mean() < 0.18)
+            self.assertTrue(0.08 < (commands[:, 1] != 0).float().mean() < 0.12)
+        untouched = durations[1::2].clone()
+        e._reset_command_timer(torch.arange(0, e.num_envs, 2))
+        torch.testing.assert_close(durations[1::2], untouched)
 
     def test_lateral_tracking_incentive_and_longitudinal_tolerance(self):
         e = self.make_env(5)

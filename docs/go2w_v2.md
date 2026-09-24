@@ -1,6 +1,6 @@
 # Go2-W v2: reward refinement after the 200-update pilot
 
-This is a reward/evaluation patch on `testing`. Physics, P/V control, geometry, DR, pushes, observations, actions, Gaussian distribution, PPO/network settings, commands, episode length, and terrain are unchanged. No long training is started by this task.
+This is a reward/evaluation patch on `testing`, followed by the v2.1 command-duration refinement below. Physics, P/V control, geometry, DR, pushes, observations, actions, Gaussian distribution, PPO/network settings, command values/family probabilities, episode length, and terrain are unchanged. No long training is started by this task.
 
 ## Pilot evidence
 
@@ -21,7 +21,7 @@ TensorBoard first-20 / last-20 update means:
 | Wheel-air penalty | -0.01718 | -0.03447 |
 | Undesired contact penalty | -0.00000067 | 0 |
 
-The aggregate yaw score includes the numerous zero/small-yaw command segments; it does not establish sustained high-yaw performance. Commands last at most one second during training, whereas the fixed evaluations expose sustained behavior. The command sampler remains unchanged as requested.
+The aggregate yaw score includes the numerous zero/small-yaw command segments; it does not establish sustained high-yaw performance. Commands lasted at most one second in the v1 pilot, whereas the fixed evaluations expose sustained behavior. The v2 reward patch initially retained that timing; the subsequent v2.1 change below adds sustained segments.
 
 Yaw diagnosis (rad/s): “late” is seconds 3–6; “final window” is seconds 5–6; “last” is the final sample. All eight deterministic environments follow the same trajectory, so they are not independent trials.
 
@@ -113,16 +113,24 @@ New `.npz` arrays retain the 12 leg errors, four contact flags, four wheel actio
 
 Smoke checkpoint: `logs/go2w_v2_smoke/reward_v2_2026-09-24_13-18-55/model_1.pt`. Local test logs and evaluator smoke outputs are under `.migration-audit/v2-*.txt` and `.migration-audit/evaluation-v2-smoke/`. These checks validate the implementation, not whether v2 has learned better lateral/yaw behavior. That requires the fresh pilot and the same deterministic evaluation. The 400-update run was not started.
 
-From the repository root, start a fresh 400-update run (no `--resume`):
+## v2.1 command durations
+
+Go2-W overrides only `_reset_command_timer`. Whenever a new command is sampled, each selected environment independently chooses a duration mode: **70% short, uniform 0.5–1.0 s**, or **30% sustained, uniform 1.5–3.0 s**. Sampling uses integer policy ticks, inclusive: 25–50 or 75–150 at 50 Hz. The three config fields are `short_command_duration_range`, `sustained_command_duration_range`, and `sustained_command_probability`. Duration selection is independent of family/value selection; Dodo and Go2 keep the generic timer unchanged.
+
+The percentages apply to sampled segments, not elapsed time. Expected sampled duration is 1.2 s. Longer segments expose sustained tracking while short segments remain the majority. Accepted v2 rewards/gait gates and evaluator diagnostics are unchanged. The inexpensive duration test samples 20,000 commands, checks both modes/ranges and the sustained fraction within 1.5 percentage points, checks stand/lateral prevalence in both modes, and checks selective timer resets.
+
+v2.1 validation: all 10 unit/contract tests pass; the eight-environment Go2-W GPU smoke passes with clean exit; the 64-environment, two-iteration PPO smoke passes with finite value losses 0.0164 / 0.0225, checkpoint save, and exit code 0. Checkpoint: `logs/go2w_v2_1_smoke/mixed_duration_2026-09-24_17-38-17/model_1.pt`. Local logs are `.migration-audit/v2_1-{unit,gpu-smoke,ppo-smoke}.txt`. Ruff F/E9 and `git diff --check` pass. The 400-update pilot was not started.
+
+From the repository root, start a fresh 400-update v2.1 run (no `--resume`):
 
 ```powershell
-conda run --no-capture-output -n genesis-gpu python -m robot_gym.scripts.train --task go2w --num_envs 4096 --max_iterations 400 --seed 1 --headless --logger tensorboard --experiment_name go2w_flat_pilot_v2 --run_name gaussian_seed1
+conda run --no-capture-output -n genesis-gpu python -m robot_gym.scripts.train --task go2w --num_envs 4096 --max_iterations 400 --seed 1 --headless --logger tensorboard --experiment_name go2w_flat_pilot_v2_1 --run_name gaussian_seed1
 ```
 
 Then evaluate its final checkpoint under the same 3-second segments:
 
 ```powershell
-conda run --no-capture-output -n genesis-gpu python -m robot_gym.scripts.evaluate --task go2w --experiment_name go2w_flat_pilot_v2 --load_run -1 --checkpoint 399 --num_envs 8 --steps 150 --seed 1 --headless --output evaluation/go2w_flat_pilot_v2
+conda run --no-capture-output -n genesis-gpu python -m robot_gym.scripts.evaluate --task go2w --experiment_name go2w_flat_pilot_v2_1 --load_run -1 --checkpoint 399 --num_envs 8 --steps 150 --seed 1 --headless --output evaluation/go2w_flat_pilot_v2_1
 ```
 
 Compare survival, stand/straight/braking/push performance as well as lateral/yaw tracking and pose/contact diagnostics. The v2 observation/action/model contract remains checkpoint-compatible with v1, but the proposed pilot intentionally trains from scratch.

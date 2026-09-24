@@ -133,7 +133,7 @@ Training ranges: vx [-0.35, 1.10] m/s; vy [-0.30, 0.30] m/s; yaw [-1.4, 1.4] rad
 | Lateral | 7% | vy only |
 | Mixed | 3% | vx + vy + yaw |
 
-Intervals are independently sampled per environment as 25–50 policy ticks inclusive (0.5–1.0 s). Linear deadzone is a 0.01 m/s XY vector norm; yaw deadzone is 0.01 rad/s. Stand detection uses command norm <1e-6. Deadzones add a small number of extra zero commands beyond the explicit 15%. About 90% of commands have zero lateral demand. Independent successive family draws cover stops, reversals, yaw-sign changes, arcs, and precision transitions; evaluation also tests those transitions explicitly. Go2-W velocity curriculum is disabled. The generic optional curriculum is invoked on reset before clearing accumulated rewards, at most once per episode-length interval.
+In v2.1, intervals are sampled independently per environment and independently of command family: 70% use 25–50 policy ticks inclusive (0.5–1.0 s), and 30% use 75–150 ticks inclusive (1.5–3.0 s). Each mode is uniform over its integer tick range. These are probabilities per sampled segment, not fractions of elapsed time. Linear deadzone is a 0.01 m/s XY vector norm; yaw deadzone is 0.01 rad/s. Stand detection uses command norm <1e-6. Deadzones add a small number of extra zero commands beyond the explicit 15%. About 90% of commands have zero lateral demand. Independent successive family draws cover stops, reversals, yaw-sign changes, arcs, and precision transitions; evaluation also tests those transitions explicitly. Go2-W velocity curriculum is disabled. The generic optional curriculum is invoked on reset before clearing accumulated rewards, at most once per episode-length interval.
 
 ## E. Rewards
 

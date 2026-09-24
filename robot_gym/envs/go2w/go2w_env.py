@@ -33,6 +33,23 @@ class Go2WEnv(Go2Env):
             )
         self.command_mixture = torch.tensor(probabilities, device=self.device)
 
+    def _reset_command_timer(self, env_ids):
+        n = len(env_ids)
+        if not n:
+            return
+        cfg = self.cfg.commands
+        short = self._sample_interval_steps(
+            cfg.short_command_duration_range, n, self.dt
+        )
+        sustained = self._sample_interval_steps(
+            cfg.sustained_command_duration_range, n, self.dt
+        )
+        # Duration is independent of command family, balancing fast response with sustained tracking.
+        use_sustained = (
+            torch.rand(n, device=self.device) < cfg.sustained_command_probability
+        )
+        self.command_steps_left[env_ids] = torch.where(use_sustained, sustained, short)
+
     def _resample_commands(self, env_ids):
         self._reset_command_timer(env_ids)
         n = len(env_ids)

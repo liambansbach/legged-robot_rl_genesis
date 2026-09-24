@@ -65,7 +65,9 @@ class GO2WCfg(GO2Cfg):
 
     class commands(GO2Cfg.commands):
         curriculum = False
-        resampling_time_range = [0.5, 1.0]
+        short_command_duration_range = [0.5, 1.0]
+        sustained_command_duration_range = [1.5, 3.0]
+        sustained_command_probability = 0.30
         linear_deadzone = 0.01
         yaw_deadzone = 0.01
         stand_threshold = 1e-6
