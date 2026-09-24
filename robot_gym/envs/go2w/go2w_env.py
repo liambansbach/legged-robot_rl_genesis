@@ -95,12 +95,34 @@ class Go2WEnv(Go2Env):
     def _compute_fallen_mask(self):
         return super()._compute_fallen_mask() | self.base_contact
 
-    def _gait_gate(self):
-        # Turning uses skid steering; only lateral motion relaxes rolling posture.
+    def _reward_tracking_lin_vel(self):
+        error = self.commands[:, :2] - self.base_lin_vel[:, :2]
+        # Missing a small explicit lateral command must cost more than ordinary rolling noise.
+        return torch.exp(
+            -error[:, 0].square() / self.cfg.rewards.tracking_sigma_x
+            - error[:, 1].square() / self.cfg.rewards.tracking_sigma_y
+        )
+
+    def _lateral_gait_gate(self):
+        cfg = self.cfg.rewards
         return (
-            (self.commands[:, 1].abs() - 0.03)
-            / (self.cfg.rewards.lateral_step_activation_vel - 0.03)
+            (self.commands[:, 1].abs() - cfg.lateral_step_start_vel)
+            / (cfg.lateral_step_activation_vel - cfg.lateral_step_start_vel)
         ).clamp(0, 1)
+
+    def _yaw_gait_gate(self):
+        cfg = self.cfg.rewards
+        return (
+            (self.commands[:, 2].abs() - cfg.yaw_step_start)
+            / (cfg.yaw_step_full - cfg.yaw_step_start)
+        ).clamp(0, 1)
+
+    def _gait_gate(self):
+        # Prefer skid steering at low/moderate yaw; allow leg assistance at high yaw.
+        return torch.maximum(
+            self._lateral_gait_gate(),
+            self.cfg.rewards.yaw_gait_weight * self._yaw_gait_gate(),
+        )
 
     def _reward_default_pose(self):
         err = (
@@ -162,7 +184,10 @@ class Go2WEnv(Go2Env):
         return self.nonfoot_contact_count.clamp(max=4)
 
     def _reward_unnecessary_wheel_air(self):
-        return (1 - self._gait_gate()) * (~self.foot_contacts).float().mean(dim=1)
+        # Retain a contact preference even when stepping is allowed.
+        return (1 - 0.75 * self._gait_gate()) * (~self.foot_contacts).float().mean(
+            dim=1
+        )
 
     def _reward_wheel_crossover(self):
         n = self.foot_pos.shape[1]

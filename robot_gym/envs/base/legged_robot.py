@@ -99,7 +99,7 @@ class LeggedRobot(BaseTask):
         if self.cfg.env.capture_transitions:
             self.transition_state = {name: getattr(self, name).clone() for name in (
                 "commands", "base_lin_vel", "base_ang_vel", "rpy", "base_pos", "nonfoot_contact_count",
-                "dof_vel", "torques", "actions",
+                "dof_vel", "torques", "actions", "dof_pos", "foot_contacts", "foot_pos", "base_quat",
             )}
         # Reward the command that generated this transition, then choose the next command.
         self._post_physics_step_callback()

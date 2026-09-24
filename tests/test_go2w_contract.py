@@ -48,7 +48,7 @@ class ContractTests(unittest.TestCase):
         e.robot.control_dofs_force.assert_not_called()
         self.assertEqual(e.wheel_action_indices, [3, 7, 11, 15])
 
-    def test_command_mixture_and_yaw_gate(self):
+    def test_command_mixture_and_low_yaw_gate(self):
         torch.manual_seed(4)
         e = self.make_env(20000)
         e._resample_commands(torch.arange(e.num_envs))
@@ -61,8 +61,55 @@ class ContractTests(unittest.TestCase):
         self.assertTrue(
             ((e.command_steps_left >= 25) & (e.command_steps_left <= 50)).all()
         )
-        e.commands[:] = torch.tensor([0.0, 0.0, 1.4])
+        e.commands[:] = torch.tensor([0.0, 0.0, 0.4])
         self.assertEqual(e._gait_gate().sum(), 0)
+
+    def test_lateral_tracking_incentive_and_longitudinal_tolerance(self):
+        e = self.make_env(5)
+        e.base_lin_vel = torch.zeros(5, 3)
+        e.commands[:, :2] = torch.tensor(
+            [[0.1, 0.0], [0.0, 0.1], [0.0, 0.25], [0.0, 0.02], [0.0, -0.1]]
+        )
+        rewards = e._reward_tracking_lin_vel()
+        torch.testing.assert_close(
+            rewards,
+            torch.tensor([0.9607894, 0.7788008, 0.2096114, 0.9900498, 0.7788008]),
+        )
+
+    def test_gait_allowance_is_smooth_symmetric_and_keeps_regularization(self):
+        e = self.make_env(8)
+        e.commands[:, 1:] = torch.tensor(
+            [
+                [0.0, 0.4],
+                [0.0, -0.6],
+                [0.0, 0.85],
+                [0.0, -1.1],
+                [0.03, 0.0],
+                [0.065, 0.0],
+                [-0.1, 0.0],
+                [0.065, 1.1],
+            ]
+        )
+        torch.testing.assert_close(
+            e._lateral_gait_gate(),
+            torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 1.0, 0.5]),
+        )
+        torch.testing.assert_close(
+            e._yaw_gait_gate(), torch.tensor([0.0, 0.0, 0.5, 1.0, 0.0, 0.0, 0.0, 1.0])
+        )
+        gate = torch.tensor([0.0, 0.0, 0.4, 0.8, 0.0, 0.5, 1.0, 0.8])
+        torch.testing.assert_close(e._gait_gate(), gate)
+        e.default_dof_pos = torch.zeros(1, 16)
+        e.dof_pos = e.dof_vel = torch.ones(8, 16)
+        e.foot_contacts = torch.zeros(8, 4, dtype=torch.bool)
+        e.current_ankle_heights = torch.full(
+            (8, 4), e.cfg.asset.contact_height + e.cfg.rewards.clearance_target
+        )
+        torch.testing.assert_close(e._reward_default_pose(), 1 - 0.7 * gate)
+        torch.testing.assert_close(e._reward_leg_motion(), 1 - 0.7 * gate)
+        torch.testing.assert_close(e._reward_unnecessary_wheel_air(), 1 - 0.75 * gate)
+        torch.testing.assert_close(e._reward_foot_swing_clearance(), gate)
+        self.assertTrue((e._reward_unnecessary_wheel_air() > 0).all())
 
     def test_push_duration_does_not_change_actuator_modes(self):
         e = self.make_env()

@@ -1,5 +1,7 @@
 # Go2-W flat-locomotion migration and training guide
 
+Reward settings below include the small [v2 pilot refinement](go2w_v2.md). Migration and smoke measurements in this document describe the original baseline; the v2 report records the real 200-update pilot diagnosis and subsequent validation.
+
 This implements the preparation milestone on `testing`: a velocity-conditioned, proprioceptive MLP with 16 mixed P/V actuators. The software and short training/inference paths have been exercised locally. **The smoke checkpoint is not a trained locomotion controller.** Full training, checkpoint selection, and IsaacLab integration remain subsequent steps; no full training was started.
 
 ## A. Environment migration
@@ -99,7 +101,7 @@ Action order follows the URDF, **interleaving each wheel with its leg**, rather 
 | 14 | RR_calf_joint | P | 0.2 rad | -1.31 | 35.55 |
 | 15 | RR_foot_joint | V | 18 rad/s | excluded | 23.7 |
 
-Nominal leg Kp/Kd is 40 Nm/rad and 1 Nm·s/rad; wheel Kp/Kv is 0 and 1 Nm·s/rad. Raising leg Kp from 20 reduces static sag so the ±0.2 rad action interval has useful posture authority. Zero-action standing settles around 0.410 m in the nominal pyramidal model. The height reward target remains 0.433 m, allowing the policy to compensate gravity through modest position offsets. Wheels are never position controlled.
+Nominal leg Kp/Kd is 40 Nm/rad and 1 Nm·s/rad; wheel Kp/Kv is 0 and 1 Nm·s/rad. Raising leg Kp from 20 reduces static sag so the ±0.2 rad action interval has useful posture authority. Zero-action standing settles around 0.410 m in the nominal pyramidal model. The v2 height target is 0.415 m, close to that posture and the pilot's stable 0.414 m stand. Wheels are never position controlled.
 
 Wheel-scale derivation: radius r=0.086 m; nominal half-track is 0.0465 + 0.0955 + 0.0481 = 0.1901 m. The training envelope's ideal outside wheel speed is `(1.10 + 1.4*0.1901)/0.086 = 15.89 rad/s`. Scale 18 supplies approximately 13% headroom. The navigation envelope needs about 14.39 rad/s under the same idealization. Skid steering adds slip, so this is a sizing calculation, not a no-slip tracking guarantee.
 
@@ -139,12 +141,12 @@ Coefficients below are the exact config values. As in the existing environments,
 
 | Active term | Coefficient | Meaning |
 |---|---:|---|
-| tracking_lin_vel | 1.0 | exp(-XY squared velocity error / 0.25) |
-| tracking_ang_vel | 0.6 | exp(-yaw-rate squared error / 0.25) |
+| tracking_lin_vel | 1.0 | exp(-vx error² / 0.25 - vy error² / 0.04) |
+| tracking_ang_vel | 0.8 | exp(-yaw-rate squared error / 0.25) |
 | lin_vel_z | -0.15 | squared vertical body velocity |
 | ang_vel_xy | -0.12 | roll/pitch angular velocity squared |
 | orientation | -1.2 | projected gravity XY squared |
-| base_height | -8.0 | (height - 0.433 m)² |
+| base_height | -8.0 | (height - 0.415 m)² |
 | normalized_effort | -0.03 | mean squared normalized leg effort + mean squared normalized wheel effort |
 | leg_acc | -2.5e-7 | summed squared leg acceleration |
 | wheel_acc | -1e-7 | summed squared wheel acceleration |
@@ -154,16 +156,16 @@ Coefficients below are the exact config values. As in the existing environments,
 | dof_pos_limits | -2.0 | leg excursion into outer 10% of finite joint ranges |
 | torque_limits | -0.5 | summed effort above 90% of actuator limits |
 | stand_still | -0.5 | at zero command: XY velocity² + yaw rate² + 0.02*mean wheel velocity² |
-| foot_swing_clearance | 0.08 | lateral-only swing clearance, target 0.03 m, sigma 0.015 m |
-| default_pose | -0.6 | mean squared leg position error |
+| foot_swing_clearance | 0.08 | gait-allowance-weighted clearance, target 0.03 m, sigma 0.015 m |
+| default_pose | -1.0 | mean squared leg position error |
 | leg_motion | -0.02 | mean squared leg joint velocity |
-| unnecessary_wheel_air | -0.25 | wheel air fraction outside lateral stepping |
+| unnecessary_wheel_air | -0.25 | wheel air fraction times (1 - 0.75*gait allowance) |
 | wheel_crossover | -2.0 | side clearance <0.045 m or left/right separation <0.14 m |
 | collision | -0.5 | non-wheel ground-contact slots, capped at four |
 
-The lateral gate ramps from zero at |vy|=0.03 to one at |vy|=0.10. Pose and leg-velocity penalties retain 30% strength at full lateral demand. Yaw never activates stepping. Non-wheel contacts use a vertical-force threshold of 8 N; base contact above this threshold terminates. Base height <0.33 m or roll/pitch >30 degrees also terminates.
+The lateral gate ramps from zero at |vy|=0.03 to one at |vy|=0.10. The yaw gate ramps from zero at |yaw|=0.60 to one at |yaw|=1.10. Combined allowance is max(lateral gate, 0.80*yaw gate). Low/moderate yaw prefers skid steering; high yaw may use posture assistance or stepping. Pose and leg-velocity penalties retain 30% strength at full lateral demand and 44% at full yaw demand. Wheel-air penalties retain 25% and 40%, respectively. Clearance is weighted by the combined allowance. Non-wheel contacts use a vertical-force threshold of 8 N; base contact above this threshold terminates. Base height <0.33 m or roll/pitch >30 degrees also terminates.
 
-Disabled: raw `torques`, generic `dof_vel`, generic `dof_acc`, generic `action_rate`, `dof_vel_limits`, `feet_air_time`, `feet_slide`, positive `wheel_contact`, `survive`, and `feet_stumble`. Removed helper logic: forward-drive gating, yaw stepping, pose-hold fade, and overlapping positive wheel-contact reward. Wheel speed itself is penalized only at standstill. The effort term uses the public clipped instantaneous P/V control-force getter as a controller-effort surrogate, not as measured mechanical energy or hardware power. No additional actuator-strength DR is layered on top of gain uncertainty.
+Disabled: raw `torques`, generic `dof_vel`, generic `dof_acc`, generic `action_rate`, `dof_vel_limits`, `feet_air_time`, `feet_slide`, positive `wheel_contact`, `survive`, and `feet_stumble`. Removed helper logic: forward-drive gating, pose-hold fade, and overlapping positive wheel-contact reward. Wheel speed itself is penalized only at standstill. The effort term uses the public clipped instantaneous P/V control-force getter as a controller-effort surrogate, not as measured mechanical energy or hardware power. No additional actuator-strength DR is layered on top of gain uncertainty.
 
 ## F. Domain randomization and resets
 

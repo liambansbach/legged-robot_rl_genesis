@@ -154,17 +154,23 @@ class GO2WCfg(GO2Cfg):
         hip_abduction_indices = [0, 4, 8, 12]
 
     class rewards(GO2Cfg.rewards):
-        base_height_target = 0.433
+        base_height_target = 0.415
+        tracking_sigma_x = 0.25  # Squared-error denominators, in (m/s)^2.
+        tracking_sigma_y = 0.04
         clearance_target = 0.03
         clearance_sigma = 0.015
         contact_force_threshold = 8.0
+        lateral_step_start_vel = 0.03
         lateral_step_activation_vel = 0.10
+        yaw_step_start = 0.60
+        yaw_step_full = 1.10
+        yaw_gait_weight = 0.80
         min_wheel_side_clearance = 0.045
         min_lateral_wheel_separation = 0.14
 
         class scales(GO2Cfg.rewards.scales):
             tracking_lin_vel = 1.0
-            tracking_ang_vel = 0.6
+            tracking_ang_vel = 0.8
             lin_vel_z = -0.15
             ang_vel_xy = -0.12
             orientation = -1.2
@@ -186,7 +192,7 @@ class GO2WCfg(GO2Cfg):
             stand_still = -0.5
             feet_slide = 0.0
             foot_swing_clearance = 0.08
-            default_pose = -0.6
+            default_pose = -1.0
             leg_motion = -0.02
             wheel_contact = 0.0
             unnecessary_wheel_air = -0.25

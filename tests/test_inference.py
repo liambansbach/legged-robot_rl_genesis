@@ -3,11 +3,55 @@ import torch
 from tensordict import TensorDict
 from rsl_rl.models import MLPModel
 from robot_gym.utils.export import BoundedPolicy
-from robot_gym.scripts.evaluate import response_metrics
+from robot_gym.scripts.evaluate import response_metrics, diagnostic_metrics
 import numpy as np
 
 
 class InferenceTests(unittest.TestCase):
+    def test_diagnostics_windows_contacts_and_failed_episodes(self):
+        data = np.zeros((100, 2, 19))
+        data[:, :, 8] = 0.415
+        data[50:75, 0, 3] = 0.5
+        data[75:, 0, 3] = 1.0
+        data[50:, 0, 15] = 4.0
+        data[:, 1, 3] = 100.0
+        data[60, 1, 9] = 1.0
+        detail = {
+            "leg_position_error": np.full((100, 2, 12), 0.1),
+            "foot_contacts": np.ones((100, 2, 4), dtype=bool),
+            "wheel_velocities": np.tile([1.0, 3.0, 1.0, 3.0], (100, 2, 1)),
+            "wheel_actions": np.tile([0.1, 0.3, 0.1, 0.3], (100, 2, 1)),
+            "foot_positions_body": np.zeros((100, 2, 4, 3)),
+        }
+        detail["foot_contacts"][50:75, 0, 0] = False
+        detail["leg_position_error"][:, :, [0, 3, 6, 9]] = 0.2
+        detail["foot_positions_body"][:, :, :, 1] = [0.2, -0.2, 0.2, -0.2]
+        result = diagnostic_metrics(
+            data, detail, np.array([1.0, 0.0, 0.0]), 0.02, 50, 0.415, [0, 3, 6, 9]
+        )
+        self.assertEqual(result["surviving_environments"], 1)
+        self.assertAlmostEqual(result["final_window"]["mean_velocity"][0], 0.75)
+        self.assertAlmostEqual(
+            result["final_window"]["velocity_rmse"][0], np.sqrt(0.125)
+        )
+        self.assertAlmostEqual(result["final_window"]["mean_base_height_error"], 0.0)
+        post = result["post_transition"]
+        self.assertAlmostEqual(post["leg_position_error_rms"], np.sqrt(0.02))
+        self.assertAlmostEqual(post["hip_abduction_error_rms"], 0.2)
+        self.assertAlmostEqual(post["hip_abduction_error_max_abs"], 0.2)
+        self.assertEqual(post["simultaneous_contacts_count"]["3"], 25)
+        self.assertEqual(post["simultaneous_contacts_fraction"]["4"], 0.5)
+        self.assertEqual(post["wheel_contact_fraction"], [0.5, 1.0, 1.0, 1.0])
+        self.assertAlmostEqual(post["stance_width_mean"], 0.4)
+        self.assertEqual(post["right_minus_left_wheel_speed"], 2.0)
+        self.assertEqual(post["leg_velocity_rms"], 2.0)
+        data[60, 0, 9] = 1.0
+        failed = diagnostic_metrics(
+            data, detail, np.zeros(3), 0.02, 50, 0.415, [0, 3, 6, 9]
+        )
+        self.assertIsNone(failed["final_window"])
+        self.assertIsNone(failed["post_transition"])
+
     def test_normalization_and_bounds_survive_script_export(self):
         torch.manual_seed(2)
         observations = TensorDict({"policy": torch.randn(64, 56) + 3}, batch_size=[64])

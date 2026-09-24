@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import genesis as gs
+from genesis.utils.geom import inv_quat, transform_by_quat
 from robot_gym.envs import *  # noqa: F401,F403
 from robot_gym.utils import task_registry
 from robot_gym.utils.helpers import get_args
@@ -61,6 +62,64 @@ def response_metrics(velocity, target, dt, start):
     return result
 
 
+def diagnostic_metrics(
+    data, detail, target, dt, transition_step, height_target, hip_indices
+):
+    """Use a fixed final one-second window, and exclude environments that fell in this case."""
+    survivors = ~(data[:, :, 9] > 0).any(axis=0)
+    window = min(len(data) - transition_step, max(1, round(1.0 / dt)))
+    result = {
+        "final_window_s": window * dt,
+        "surviving_environments": int(survivors.sum()),
+    }
+    if not survivors.any():
+        return {**result, "final_window": None, "post_transition": None}
+    final = data[-window:, survivors]
+    post = data[transition_step:, survivors]
+    leg_error = detail["leg_position_error"][transition_step:, survivors]
+    hips = leg_error[:, :, hip_indices]
+    contacts = detail["foot_contacts"][transition_step:, survivors]
+    ncontacts = contacts.sum(axis=2)
+    wheels = detail["wheel_velocities"][transition_step:, survivors]
+    actions = detail["wheel_actions"][transition_step:, survivors]
+    y = detail["foot_positions_body"][transition_step:, survivors, :, 1]
+    result["final_window"] = {
+        "mean_velocity": final[:, :, 3:6].mean(axis=(0, 1)).tolist(),
+        "velocity_rmse": np.sqrt(
+            ((final[:, :, 3:6] - target) ** 2).mean(axis=(0, 1))
+        ).tolist(),
+        "velocity_std": final[:, :, 3:6].std(axis=(0, 1)).tolist(),
+        "last_velocity": final[-1, :, 3:6].mean(axis=0).tolist(),
+        "mean_base_height": float(final[:, :, 8].mean()),
+        "mean_base_height_error": float(final[:, :, 8].mean() - height_target),
+    }
+    result["post_transition"] = {
+        "leg_position_error_rms": float(np.sqrt((leg_error**2).mean())),
+        "hip_abduction_error_rms": float(np.sqrt((hips**2).mean())),
+        "hip_abduction_error_max_abs": float(np.abs(hips).max()),
+        "wheel_lateral_positions_body_mean": y.mean(axis=(0, 1)).tolist(),
+        "left_wheel_lateral_position_mean": float(y[:, :, [0, 2]].mean()),
+        "right_wheel_lateral_position_mean": float(y[:, :, [1, 3]].mean()),
+        "stance_width_mean": float((y[:, :, [0, 2]] - y[:, :, [1, 3]]).mean()),
+        "wheel_contact_fraction": contacts.mean(axis=(0, 1)).tolist(),
+        "simultaneous_contacts_count": {
+            str(k): int((ncontacts == k).sum()) for k in range(5)
+        },
+        "simultaneous_contacts_fraction": {
+            str(k): float((ncontacts == k).mean()) for k in range(5)
+        },
+        "any_wheel_airborne_fraction": float((ncontacts < 4).mean()),
+        "wheel_action_mean": actions.mean(axis=(0, 1)).tolist(),
+        "wheel_velocity_mean": wheels.mean(axis=(0, 1)).tolist(),
+        # Positive difference produces positive yaw for the common +Y wheel axes.
+        "right_minus_left_wheel_speed": float(
+            (wheels[:, :, [1, 3]] - wheels[:, :, [0, 2]]).mean()
+        ),
+        "leg_velocity_rms": float(np.sqrt(post[:, :, 15].mean())),
+    }
+    return result
+
+
 def evaluate(args):
     if args.steps < 2:
         raise ValueError("--steps must be at least 2")
@@ -103,7 +162,15 @@ def evaluate(args):
         "seed": args.seed if args.seed is not None else train_cfg.seed,
         "checkpoint": str(runner.checkpoint_path),
         "tests": {},
+        "base_height_target": cfg.rewards.base_height_target,
+        "wheel_order": cfg.asset.foot_link_names,
+        "leg_joint_order": [env.joint_names[i] for i in env.leg_action_indices],
+        "diagnostic_windows": "Final window: last min(1 second, post-transition duration); not an automatic stability test. Post-transition diagnostics exclude any environment that fell during the case.",
+        "foot_position_reference": "Wheel link origins in body frame; contact flag uses configured force threshold, so false may mean unloaded rather than geometrically lifted.",
     }
+    hip_indices = [
+        env.leg_action_indices.index(i) for i in cfg.asset.hip_abduction_indices
+    ]
     with torch.no_grad():
         for name, before, after, push in cases():
             env.reset()
@@ -111,6 +178,18 @@ def evaluate(args):
             env.compute_observations()
             obs = env.get_observations()
             history = []
+            detail_history = {
+                key: []
+                for key in (
+                    "leg_position_error",
+                    "foot_contacts",
+                    "wheel_actions",
+                    "wheel_velocities",
+                    "foot_positions_body",
+                    "wheel_link_height",
+                    "base_rpy",
+                )
+            }
             previous_action = torch.zeros_like(env.actions)
             previous_velocity = env.dof_vel.clone()
             for step in range(2 * args.steps):
@@ -129,6 +208,25 @@ def evaluate(args):
                     [state["base_lin_vel"][:, :2], state["base_ang_vel"][:, 2:3]], dim=1
                 )
                 wheels = env.wheel_action_indices
+                foot_body = transform_by_quat(
+                    (state["foot_pos"] - state["base_pos"][:, None]).reshape(-1, 3),
+                    inv_quat(state["base_quat"])[:, None]
+                    .expand(-1, 4, -1)
+                    .reshape(-1, 4),
+                ).reshape(env.num_envs, 4, 3)
+                detail = {
+                    "leg_position_error": (state["dof_pos"] - env.default_dof_pos)[
+                        :, env.leg_action_indices
+                    ],
+                    "foot_contacts": state["foot_contacts"],
+                    "wheel_actions": state["actions"][:, wheels],
+                    "wheel_velocities": state["dof_vel"][:, wheels],
+                    "foot_positions_body": foot_body,
+                    "wheel_link_height": state["foot_pos"][:, :, 2],
+                    "base_rpy": state["rpy"],
+                }
+                for key, value in detail.items():
+                    detail_history[key].append(value)
                 record = torch.cat(
                     [
                         state["commands"],
@@ -169,8 +267,16 @@ def evaluate(args):
                 previous_action.copy_(state["actions"])
                 previous_velocity.copy_(state["dof_vel"])
             data = torch.stack(history).cpu().numpy()
+            detail = {
+                key: torch.stack(values).cpu().numpy()
+                for key, values in detail_history.items()
+            }
             np.savez_compressed(
-                out / f"{name}.npz", trace=data, dt=env.dt, transition_step=args.steps
+                out / f"{name}.npz",
+                trace=data,
+                dt=env.dt,
+                transition_step=args.steps,
+                **detail,
             )
             # Score only surviving episodes after the transition; retain every pre-reset state in raw traces.
             post = data[args.steps :]
@@ -210,6 +316,15 @@ def evaluate(args):
                 if before != after and not fallen.any()
                 else None,
             }
+            metrics["diagnostics"] = diagnostic_metrics(
+                data,
+                detail,
+                np.asarray(after),
+                env.dt,
+                args.steps,
+                cfg.rewards.base_height_target,
+                hip_indices,
+            )
             if name == "stop" and not fallen.any():
                 speed = np.linalg.norm(post[:, :, 3:5].mean(axis=1), axis=1)
                 outside = np.flatnonzero(speed > 0.05)
