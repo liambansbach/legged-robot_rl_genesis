@@ -3,11 +3,69 @@ import torch
 from tensordict import TensorDict
 from rsl_rl.models import MLPModel
 from robot_gym.utils.export import BoundedPolicy
-from robot_gym.scripts.evaluate import response_metrics, diagnostic_metrics
+from robot_gym.scripts.evaluate import (
+    response_metrics,
+    diagnostic_metrics,
+    mirror_pair_summary,
+    pose_recovery_metrics,
+    cases,
+    MIRROR_PAIRS,
+    POSE_RECOVERY_CASES,
+)
 import numpy as np
 
 
 class InferenceTests(unittest.TestCase):
+    def test_mirror_pairs_and_pose_recovery_cases(self):
+        commands = {name: (before, after) for name, before, after, _ in cases()}
+        self.assertEqual(len(commands), 31)
+        tests = {}
+        for minus, plus in MIRROR_PAIRS:
+            np.testing.assert_allclose(
+                commands[minus][1], np.asarray(commands[plus][1]) * [1, -1, -1]
+            )
+            tests[minus] = {
+                "diagnostics": {"final_window": {"mean_velocity": [0.5, -0.2, -0.8]}}
+            }
+            tests[plus] = {
+                "diagnostics": {"final_window": {"mean_velocity": [0.6, 0.3, 1.0]}}
+            }
+        summary = mirror_pair_summary(tests)
+        self.assertEqual(len(summary), 7)
+        for pair in summary.values():
+            np.testing.assert_allclose(
+                list(pair["absolute_mirror_mismatch"].values()), [0.1, 0.1, 0.2]
+            )
+        tests["yaw_0.4"]["diagnostics"]["final_window"] = None
+        self.assertIsNone(
+            mirror_pair_summary(tests)["yaw_-0.4 / yaw_0.4"]["absolute_mirror_mismatch"]
+        )
+        for name in POSE_RECOVERY_CASES:
+            self.assertEqual(commands[name][1], (0, 0, 0))
+        self.assertEqual(commands["yaw_to_stop"][0], (0, 0, 1.0))
+        self.assertEqual(commands["lateral_positive_to_stop"][0], (0, 0.25, 0))
+        self.assertEqual(commands["lateral_negative_to_stop"][0], (0, -0.25, 0))
+
+    def test_pose_recovery_requires_leg_and_hip_settling_and_valid_reference(self):
+        data = np.zeros((100, 4, 19))
+        detail = {"leg_position_error": np.full((100, 4, 12), 0.1)}
+        detail["leg_position_error"][50:60, 0] = 0.3
+        detail["leg_position_error"][60:70, 0, [0, 3, 6, 9]] = 0.2
+        detail["leg_position_error"][95:, 1] = 0.3  # returns outside: not recovered
+        data[60, 2, 9] = 1  # reset must not produce spurious recovery
+        reference = {
+            "survivors": np.array([True, True, True, False]),
+            "leg_rms": np.full(4, 0.1),
+            "hip_rms": np.full(4, 0.1),
+        }
+        result = pose_recovery_metrics(data, detail, reference, [0, 3, 6, 9], 0.02, 50)
+        self.assertEqual(result["eligible_environments"], 2)
+        self.assertEqual(result["time_s_per_environment"], [0.42, None, None, None])
+        self.assertEqual(result["recovered_fraction"], 0.5)
+        detail["leg_position_error"][50:95, 0] = 0.3
+        result = pose_recovery_metrics(data, detail, reference, [0, 3, 6, 9], 0.02, 50)
+        self.assertIsNone(result["time_s_per_environment"][0])  # <0.25 s at end
+
     def test_diagnostics_windows_contacts_and_failed_episodes(self):
         data = np.zeros((100, 2, 19))
         data[:, :, 8] = 0.415

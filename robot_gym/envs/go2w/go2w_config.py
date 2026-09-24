@@ -230,6 +230,12 @@ class GO2WCfgPPO(GO2CfgPPO):
 
     class algorithm(GO2CfgPPO.algorithm):
         class_name = "PPO"
+        symmetry_cfg = {
+            "data_augmentation_func": "robot_gym.envs.go2w.go2w_symmetry:sagittal_augmentation",
+            "use_data_augmentation": True,
+            "use_mirror_loss": False,
+            "mirror_loss_coeff": 0.0,
+        }
         value_loss_coef = 1.0
         use_clipped_value_loss = True
         clip_param = 0.2

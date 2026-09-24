@@ -11,6 +11,22 @@ from robot_gym.utils import task_registry
 from robot_gym.utils.helpers import get_args
 
 
+POSE_RECOVERY_CASES = {
+    "yaw_to_stop",
+    "lateral_positive_to_stop",
+    "lateral_negative_to_stop",
+}
+MIRROR_PAIRS = [
+    ("yaw_-0.4", "yaw_0.4"),
+    ("yaw_-1.0", "yaw_1.0"),
+    ("yaw_-1.25", "yaw_1.25"),
+    ("vy_-0.1", "vy_0.1"),
+    ("vy_-0.25", "vy_0.25"),
+    ("arc_0.5_-0.8", "arc_0.5_0.8"),
+    ("arc_1.0_-1.0", "arc_1.0_1.0"),
+]
+
+
 def cases():
     fixed = [("stand", (0, 0, 0))]
     fixed += [(f"vx_{x}", (x, 0, 0)) for x in [0.1, 0.5, 1.0, -0.25]]
@@ -30,8 +46,75 @@ def cases():
         ("precision", (0.8, 0, 0), (0.1, 0, 0), False),
         ("push_stand", (0, 0, 0), (0, 0, 0), True),
         ("push_forward", (0.5, 0, 0), (0.5, 0, 0), True),
+        ("yaw_to_stop", (0, 0, 1.0), (0, 0, 0), False),
+        ("lateral_positive_to_stop", (0, 0.25, 0), (0, 0, 0), False),
+        ("lateral_negative_to_stop", (0, -0.25, 0), (0, 0, 0), False),
     ]
     return result
+
+
+def mirror_pair_summary(tests):
+    """Component-wise mismatch in final-window [vx, vy, yaw]; keep physical units."""
+    result = {}
+    for minus, plus in MIRROR_PAIRS:
+        a = tests[minus]["diagnostics"]["final_window"]
+        b = tests[plus]["diagnostics"]["final_window"]
+        mismatch = (
+            None
+            if a is None or b is None
+            else dict(
+                zip(
+                    ("vx_m_s", "vy_m_s", "yaw_rad_s"),
+                    np.abs(
+                        np.asarray(a["mean_velocity"])
+                        - np.asarray(b["mean_velocity"]) * [1, -1, -1]
+                    ).tolist(),
+                )
+            )
+        )
+        result[f"{minus} / {plus}"] = {
+            "minus_mean_velocity": None if a is None else a["mean_velocity"],
+            "mirrored_plus_mean_velocity": None
+            if b is None
+            else (np.asarray(b["mean_velocity"]) * [1, -1, -1]).tolist(),
+            "absolute_mirror_mismatch": mismatch,
+        }
+    return result
+
+
+def pose_recovery_metrics(
+    data, detail, stand_reference, hip_indices, dt, transition_step
+):
+    """Return to stand's final-window RMS + 0.05 rad, held through the end for >=0.25 s.
+
+    Reference and recovery are per environment. Null means fallen, no valid stand
+    reference, or not recovered within the recorded horizon; this is not a reward.
+    """
+    survivors = ~(data[:, :, 9] > 0).any(axis=0) & stand_reference["survivors"]
+    error = detail["leg_position_error"][transition_step:]
+    leg = np.sqrt((error**2).mean(axis=2))
+    hip = np.sqrt((error[:, :, hip_indices] ** 2).mean(axis=2))
+    leg_limit = stand_reference["leg_rms"] + 0.05
+    hip_limit = stand_reference["hip_rms"] + 0.05
+    inside = (leg <= leg_limit) & (hip <= hip_limit)
+    times = []
+    for i, valid in enumerate(survivors):
+        outside = np.flatnonzero(~inside[:, i])
+        start = int(outside[-1] + 1) if len(outside) else 0
+        recovered = valid and len(inside) - start >= max(1, int(np.ceil(0.25 / dt)))
+        times.append(float((start + 1) * dt) if recovered else None)
+    return {
+        "reference": "Per-environment final min(1 s, stand duration) RMS error from nominal",
+        "tolerance_rad": 0.05,
+        "minimum_hold_s": 0.25,
+        "leg_rms_threshold_rad": leg_limit.tolist(),
+        "hip_rms_threshold_rad": hip_limit.tolist(),
+        "eligible_environments": int(survivors.sum()),
+        "time_s_per_environment": times,
+        "recovered_fraction": sum(t is not None for t in times) / int(survivors.sum())
+        if survivors.any()
+        else None,
+    }
 
 
 def response_metrics(velocity, target, dt, start):
@@ -171,6 +254,7 @@ def evaluate(args):
     hip_indices = [
         env.leg_action_indices.index(i) for i in cfg.asset.hip_abduction_indices
     ]
+    stand_reference = None
     with torch.no_grad():
         for name, before, after, push in cases():
             env.reset()
@@ -325,6 +409,20 @@ def evaluate(args):
                 cfg.rewards.base_height_target,
                 hip_indices,
             )
+            if name == "stand":
+                window = min(args.steps, max(1, round(1.0 / env.dt)))
+                error = detail["leg_position_error"][-window:]
+                stand_reference = {
+                    "survivors": ~fallen,
+                    "leg_rms": np.sqrt((error**2).mean(axis=(0, 2))),
+                    "hip_rms": np.sqrt(
+                        (error[:, :, hip_indices] ** 2).mean(axis=(0, 2))
+                    ),
+                }
+            if name in POSE_RECOVERY_CASES:
+                metrics["pose_recovery"] = pose_recovery_metrics(
+                    data, detail, stand_reference, hip_indices, env.dt, args.steps
+                )
             if name == "stop" and not fallen.any():
                 speed = np.linalg.norm(post[:, :, 3:5].mean(axis=1), axis=1)
                 outside = np.flatnonzero(speed > 0.05)
@@ -349,6 +447,8 @@ def evaluate(args):
                 )
             report["tests"][name] = metrics
             print(name, metrics, flush=True)
+    report["mirror_pairs"] = mirror_pair_summary(report["tests"])
+    print("mirror_pairs", report["mirror_pairs"], flush=True)
     report["trace_columns"] = [
         "cmd_vx",
         "cmd_vy",
