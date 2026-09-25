@@ -6,6 +6,7 @@ from robot_gym.utils.export import BoundedPolicy
 from robot_gym.scripts.evaluate import (
     response_metrics,
     diagnostic_metrics,
+    lateral_metrics,
     mirror_pair_summary,
     pose_recovery_metrics,
     cases,
@@ -16,6 +17,48 @@ import numpy as np
 
 
 class InferenceTests(unittest.TestCase):
+    def test_lateral_windows_displacement_clearance_and_contact_transitions(self):
+        data = np.zeros((150, 2, 19))
+        data[:50, 0, 4], data[50:100, 0, 4], data[100:, 0, 4] = 0.2, 0.04, 0.001
+        data[:, 0, 17] = np.linspace(10.001, 10.25, 150)
+        data[:, 1, 4] = 100  # fallen replicas must not pollute metrics
+        data[75, 1, 9] = 1
+        detail = {
+            "foot_contacts": np.ones((150, 2, 4), dtype=bool),
+            "wheel_link_height": np.full((150, 2, 4), 0.086),
+        }
+        detail["foot_contacts"][20:30, 0, 0] = False
+        detail["foot_contacts"][60:70, 0, 0] = False
+        detail["wheel_link_height"][20:30, 0, 0] += 0.02
+        detail["wheel_link_height"][60:70, 0, 0] += 0.04
+        result = lateral_metrics(data, detail, 0.02, 0.086, np.array([10.0, 20.0]))
+        np.testing.assert_allclose(
+            list(result["mean_vy_m_s"].values()), [0.2, 0.04, 0.001]
+        )
+        self.assertEqual(
+            result["window_duration_s"],
+            dict.fromkeys(["first_second", "second_second", "final_second"], 1.0),
+        )
+        self.assertEqual(result["total_lateral_displacement_world_y_m"], 0.25)
+        self.assertEqual(result["displacement_start_s"], 0)
+        self.assertEqual(result["airborne_wheel_samples"], 20)
+        np.testing.assert_allclose(
+            list(result["airborne_wheel_clearance_above_nominal_m"].values()),
+            [0.03, 0.04, 0.04],
+        )
+        self.assertEqual(
+            result["wheel_contact_transition_count_mean_per_environment"], [4, 0, 0, 0]
+        )
+        detail["foot_contacts"][:] = True
+        result = lateral_metrics(data, detail, 0.02, 0.086)
+        self.assertIsNone(result["airborne_wheel_clearance_above_nominal_m"])
+        self.assertEqual(result["displacement_start_s"], 0.02)
+        self.assertAlmostEqual(result["total_lateral_displacement_world_y_m"], 0.249)
+        data[10, 0, 9] = 1
+        result = lateral_metrics(data, detail, 0.02, 0.086)
+        self.assertIsNone(result["total_lateral_displacement_world_y_m"])
+        self.assertTrue(all(v is None for v in result["mean_vy_m_s"].values()))
+
     def test_mirror_pairs_and_pose_recovery_cases(self):
         commands = {name: (before, after) for name, before, after, _ in cases()}
         self.assertEqual(len(commands), 31)

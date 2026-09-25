@@ -117,6 +117,59 @@ def pose_recovery_metrics(
     }
 
 
+def lateral_metrics(data, detail, dt, contact_height, initial_world_y=None):
+    """Full-case lateral diagnostics from raw traces; exclude any environment that fell.
+
+    Clearance is wheel-link height above the nominal contact height, conditioned
+    on the force-based contact flag being false. It is a nominal-height proxy,
+    not the ground gap of a tilted cylinder; unloading alone can clear the flag.
+    """
+    survivors = ~(data[:, :, 9] > 0).any(axis=0)
+    n = max(1, round(1.0 / dt))
+    windows = {
+        "first_second": slice(0, n),
+        "second_second": slice(n, 2 * n),
+        "final_second": slice(-n, None),
+    }
+    result = {
+        "surviving_environments": int(survivors.sum()),
+        "mean_vy_m_s": {},
+        "window_duration_s": {},
+        "displacement_start_s": 0.0 if initial_world_y is not None else dt,
+        "displacement_end_s": len(data) * dt,
+        "total_lateral_displacement_world_y_m": None,
+        "airborne_wheel_clearance_above_nominal_m": None,
+        "airborne_wheel_samples": 0,
+        "wheel_contact_transition_count_mean_per_environment": None,
+        "clearance_definition": "max(0, wheel_link_z - nominal contact height) when contact flag is false; nominal-height proxy, not tilted-cylinder ground gap; false flags can mean unloading",
+    }
+    for name, window in windows.items():
+        velocity = data[window, survivors, 4]
+        result["window_duration_s"][name] = len(velocity) * dt
+        result["mean_vy_m_s"][name] = float(velocity.mean()) if velocity.size else None
+    if not survivors.any():
+        return result
+    start_y = data[0, :, 17] if initial_world_y is None else initial_world_y
+    result["total_lateral_displacement_world_y_m"] = float(
+        (data[-1, survivors, 17] - start_y[survivors]).mean()
+    )
+    contacts = detail["foot_contacts"][:, survivors]
+    clearance = np.maximum(
+        0, detail["wheel_link_height"][:, survivors] - contact_height
+    )[~contacts]
+    result["airborne_wheel_samples"] = int(clearance.size)
+    if clearance.size:
+        result["airborne_wheel_clearance_above_nominal_m"] = {
+            "mean": float(clearance.mean()),
+            "p90": float(np.percentile(clearance, 90)),
+            "maximum": float(clearance.max()),
+        }
+    result["wheel_contact_transition_count_mean_per_environment"] = (
+        (contacts[1:] != contacts[:-1]).sum(axis=0).mean(axis=0).tolist()
+    )
+    return result
+
+
 def response_metrics(velocity, target, dt, start):
     """10–90% rise and 63.2% crossing are descriptive, not a fitted dynamics model."""
     result = {}
@@ -261,6 +314,7 @@ def evaluate(args):
             env.commands[:] = torch.tensor(before, device=env.device)
             env.compute_observations()
             obs = env.get_observations()
+            initial_world_y = env.base_pos[:, 1].cpu().numpy().copy()
             history = []
             detail_history = {
                 key: []
@@ -360,6 +414,7 @@ def evaluate(args):
                 trace=data,
                 dt=env.dt,
                 transition_step=args.steps,
+                initial_world_y=initial_world_y,
                 **detail,
             )
             # Score only surviving episodes after the transition; retain every pre-reset state in raw traces.
@@ -409,6 +464,10 @@ def evaluate(args):
                 cfg.rewards.base_height_target,
                 hip_indices,
             )
+            if name in {"vy_-0.1", "vy_0.1", "vy_-0.25", "vy_0.25"}:
+                metrics["lateral"] = lateral_metrics(
+                    data, detail, env.dt, cfg.asset.contact_height, initial_world_y
+                )
             if name == "stand":
                 window = min(args.steps, max(1, round(1.0 / env.dt)))
                 error = detail["leg_position_error"][-window:]

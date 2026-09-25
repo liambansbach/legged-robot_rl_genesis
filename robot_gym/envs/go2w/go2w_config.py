@@ -72,8 +72,10 @@ class GO2WCfg(GO2Cfg):
         yaw_deadzone = 0.01
         stand_threshold = 1e-6
         # Absolute probabilities: straight, arc, yaw, precision, lateral, mixed.
-        moving_mixture_probabilities = [0.25, 0.25, 0.15, 0.10, 0.07, 0.03]
+        moving_mixture_probabilities = [0.20, 0.20, 0.15, 0.10, 0.13, 0.07]
         stand_command_probability = 0.15
+        # m/s; mixed retains the full signed range.
+        pure_lateral_magnitude_range = [0.10, 0.30]
 
         class ranges(GO2Cfg.commands.ranges):
             lin_vel_x = [-0.35, 1.10]

@@ -32,6 +32,12 @@ class Go2WEnv(Go2Env):
                 "Go2-W command mixture requires seven nonnegative probabilities summing to one"
             )
         self.command_mixture = torch.tensor(probabilities, device=self.device)
+        low, high = self.cfg.commands.pure_lateral_magnitude_range
+        y_min, y_max = self.cfg.commands.ranges.lin_vel_y
+        if not 0 < low <= high <= min(-y_min, y_max):
+            raise ValueError(
+                "Pure-lateral magnitudes must fit both signs of the command range"
+            )
 
     def _reset_command_timer(self, env_ids):
         n = len(env_ids)
@@ -57,9 +63,16 @@ class Go2WEnv(Go2Env):
             return
         families = torch.multinomial(self.command_mixture, n, replacement=True)
         cmd = torch.rand((n, 3), device=self.device)
+        # Reuse the same uniform draw: balanced sign, independent uniform magnitude.
+        lateral_sample = 2 * cmd[:, 1] - 1
         for axis, name in enumerate(("lin_vel_x", "lin_vel_y", "ang_vel_yaw")):
             low, high = self.command_ranges[name]
             cmd[:, axis] = low + (high - low) * cmd[:, axis]
+        low, high = self.cfg.commands.pure_lateral_magnitude_range
+        pure_lateral = (low + (high - low) * lateral_sample.abs()) * torch.where(
+            lateral_sample < 0, -1.0, 1.0
+        )
+        cmd[:, 1] = torch.where(families == 5, pure_lateral, cmd[:, 1])
         # Most commands use wheels and yaw. Lateral demand is explicit and uncommon.
         cmd[:, 1] *= families >= 5
         cmd[:, 2] *= (families != 1) & (families != 5)

@@ -1,7 +1,7 @@
 """Contract tests independent of the GPU solver (python -m unittest discover -s tests)."""
 
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 import torch
 from robot_gym.envs.go2w.go2w_env import Go2WEnv
 from robot_gym.envs.go2w.go2w_config import GO2WCfg
@@ -51,13 +51,24 @@ class ContractTests(unittest.TestCase):
     def test_command_mixture_and_low_yaw_gate(self):
         torch.manual_seed(4)
         e = self.make_env(20000)
+        torch.testing.assert_close(
+            e.command_mixture, torch.tensor([0.15, 0.20, 0.20, 0.15, 0.10, 0.13, 0.07])
+        )
+        self.assertAlmostEqual(e.command_mixture.sum().item(), 1.0)
         e._resample_commands(torch.arange(e.num_envs))
         c = e.commands
         self.assertTrue(((c[:, 0] >= -0.35) & (c[:, 0] <= 1.1)).all())
         self.assertTrue((c[:, 1].abs() <= 0.3).all())
         self.assertTrue((c[:, 2].abs() <= 1.4).all())
         self.assertTrue(0.14 < (c == 0).all(dim=1).float().mean() < 0.17)
-        self.assertTrue(0.08 < (c[:, 1] != 0).float().mean() < 0.11)
+        self.assertTrue(0.19 < (c[:, 1] != 0).float().mean() < 0.21)
+        pure = (c[:, 0] == 0) & (c[:, 2] == 0) & (c[:, 1] != 0)
+        self.assertTrue(0.12 < pure.float().mean() < 0.14)
+        y = c[pure, 1]
+        low, high = e.cfg.commands.pure_lateral_magnitude_range
+        self.assertTrue(((y.abs() >= low) & (y.abs() <= high)).all())
+        self.assertAlmostEqual((y > 0).float().mean().item(), 0.5, delta=0.035)
+        self.assertAlmostEqual(y.abs().mean().item(), (low + high) / 2, delta=0.005)
         e.commands[:] = torch.tensor([0.0, 0.0, 0.4])
         self.assertEqual(e._gait_gate().sum(), 0)
 
@@ -66,6 +77,9 @@ class ContractTests(unittest.TestCase):
         e = self.make_env(20000)
         e._resample_commands(torch.arange(e.num_envs))
         cfg = e.cfg.commands
+        self.assertEqual(cfg.short_command_duration_range, [0.5, 1.0])
+        self.assertEqual(cfg.sustained_command_duration_range, [1.5, 3.0])
+        self.assertEqual(cfg.sustained_command_probability, 0.30)
         durations = e.command_steps_left
         short_low, short_high = [
             round(t / e.dt) for t in cfg.short_command_duration_range
@@ -86,10 +100,35 @@ class ContractTests(unittest.TestCase):
         for mode in (short, sustained):
             commands = e.commands[mode]
             self.assertTrue(0.13 < (commands == 0).all(dim=1).float().mean() < 0.18)
-            self.assertTrue(0.08 < (commands[:, 1] != 0).float().mean() < 0.12)
+            self.assertTrue(0.18 < (commands[:, 1] != 0).float().mean() < 0.22)
         untouched = durations[1::2].clone()
         e._reset_command_timer(torch.arange(0, e.num_envs, 2))
         torch.testing.assert_close(durations[1::2], untouched)
+
+    def test_pure_lateral_is_configured_and_mixed_keeps_full_range(self):
+        e = self.make_env(20000)
+        # Force each family to test its conditional distribution without guessing labels.
+        for family in (5, 6):
+            torch.manual_seed(9)
+            e.cfg.commands.pure_lateral_magnitude_range = [0.12, 0.28]
+            with patch(
+                "torch.multinomial", return_value=torch.full((e.num_envs,), family)
+            ):
+                e._resample_commands(torch.arange(e.num_envs))
+            y = e.commands[:, 1]
+            if family == 5:
+                self.assertTrue(((y.abs() >= 0.12) & (y.abs() <= 0.28)).all())
+                self.assertEqual(e.commands[:, [0, 2]].abs().sum(), 0)
+                self.assertAlmostEqual((y > 0).float().mean().item(), 0.5, delta=0.015)
+                self.assertAlmostEqual(y.abs().mean().item(), 0.20, delta=0.003)
+            else:
+                self.assertTrue(((y >= -0.30) & (y <= 0.30)).all())
+                self.assertLess(y.min(), -0.29)
+                self.assertGreater(y.max(), 0.29)
+                self.assertAlmostEqual(
+                    (y.abs() < 0.10).float().mean().item(), 1 / 3, delta=0.015
+                )
+                self.assertAlmostEqual(y.mean().item(), 0.0, delta=0.005)
 
     def test_lateral_tracking_incentive_and_longitudinal_tolerance(self):
         e = self.make_env(5)
