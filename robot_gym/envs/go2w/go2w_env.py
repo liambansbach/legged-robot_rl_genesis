@@ -32,6 +32,10 @@ class Go2WEnv(Go2Env):
                 "Go2-W command mixture requires seven nonnegative probabilities summing to one"
             )
         self.command_mixture = torch.tensor(probabilities, device=self.device)
+        if getattr(self.cfg.env, "record_command_families", False):
+            self.diagnostic_command_families = torch.full(
+                (self.num_envs,), -1, dtype=torch.long, device=self.device
+            )
         low, high = self.cfg.commands.pure_lateral_magnitude_range
         y_min, y_max = self.cfg.commands.ranges.lin_vel_y
         if not 0 < low <= high <= min(-y_min, y_max):
@@ -64,6 +68,10 @@ class Go2WEnv(Go2Env):
         if not n:
             return
         families = torch.multinomial(self.command_mixture, n, replacement=True)
+        if hasattr(self, "diagnostic_command_families"):
+            self.diagnostic_command_families[env_ids] = families
+        elif getattr(self, "training_diagnostics", None) is not None:
+            self.training_diagnostics.command_families[env_ids] = families
         cmd = torch.rand((n, 3), device=self.device)
         # Reuse the same uniform draw: balanced sign, independent uniform magnitude.
         lateral_sample = 2 * cmd[:, 1] - 1

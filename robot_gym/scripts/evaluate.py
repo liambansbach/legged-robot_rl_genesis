@@ -9,6 +9,17 @@ from genesis.utils.geom import inv_quat, transform_by_quat
 from robot_gym.envs import *  # noqa: F401,F403
 from robot_gym.utils import task_registry
 from robot_gym.utils.helpers import get_args
+from robot_gym.utils.helpers import class_to_dict, get_load_path
+from robot_gym import ROBOT_GYM_ROOT_DIR
+from robot_gym.utils.urdf_reader import URDFReader
+from robot_gym.utils.diagnostics import (
+    PhysicsDiagnostics,
+    check_reference_contract,
+    config_differences,
+    manifest,
+    loaded_properties,
+    write_json,
+)
 
 
 POSE_RECOVERY_CASES = {
@@ -258,6 +269,8 @@ def diagnostic_metrics(
             str(k): float((ncontacts == k).mean()) for k in range(5)
         },
         "any_wheel_airborne_fraction": float((ncontacts < 4).mean()),
+        "legacy_wheel_sample_false_fraction": float((~contacts).mean()),
+        "legacy_any_wheel_false_fraction": float((~contacts).any(axis=2).mean()),
         "wheel_action_mean": actions.mean(axis=(0, 1)).tolist(),
         "wheel_velocity_mean": wheels.mean(axis=(0, 1)).tolist(),
         # Positive difference produces positive yaw for the common +Y wheel axes.
@@ -275,7 +288,31 @@ def evaluate(args):
     if args.task != "go2w":
         raise ValueError("This command suite is specific to go2w")
     cfg, train_cfg = task_registry.get_cfgs("go2w")
-    cfg.env.num_envs = args.num_envs or 8
+    if args.load_run in (None, "-1") or args.checkpoint in (None, -1):
+        raise ValueError(
+            "Reference evaluation requires explicit --load_run and --checkpoint"
+        )
+    out = Path(args.output)
+    if out.exists() and any(out.iterdir()):
+        raise ValueError(f"Refusing to overwrite evaluation evidence: {out}")
+    checkpoint = get_load_path(
+        Path(ROBOT_GYM_ROOT_DIR)
+        / "logs"
+        / (args.experiment_name or train_cfg.runner.experiment_name),
+        args.load_run,
+        args.checkpoint,
+    )
+    # Saved configs include the URDF-derived order, populated during environment build.
+    cfg.asset.joint_names = URDFReader(cfg.asset.robot_file).joint_names
+    original_cfg = class_to_dict(cfg)
+    reference = check_reference_contract(
+        args.reference_config or Path(checkpoint).with_name("config.yaml"),
+        original_cfg,
+        class_to_dict(train_cfg),
+    )
+    cfg.env.num_envs = (
+        args.num_envs or {"nominal": 1, "bank": 32, "equilibrium": 3}[args.eval_mode]
+    )
     cfg.env.episode_length_s = max(
         20.0, 4 * args.steps * cfg.sim.dt * cfg.control.decimation
     )
@@ -297,15 +334,42 @@ def evaluate(args):
     cfg.init_state.joint_position_noise = cfg.init_state.joint_velocity_noise = 0.0
     cfg.init_state.orientation_noise = (0.0, 0.0, 0.0)
     cfg.init_state.linear_velocity_noise = cfg.init_state.angular_velocity_noise = 0.0
+    if args.eval_mode != "nominal":
+        cfg.sim.batch_links_info = cfg.sim.batch_dofs_info = True
+        cfg.env.episode_length_s = 60.0
     env, _ = task_registry.make_env("go2w", args=args, env_cfg=cfg)
     env.command_resampling_enabled = False
     train_cfg.runner.resume = True
-    runner, _ = task_registry.make_alg_runner(
+    runner, train_cfg = task_registry.make_alg_runner(
         env, args=args, train_cfg=train_cfg, save_config=False
     )
     policy = runner.get_inference_policy(device=env.device)
-    out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
+    if args.diagnostic_trace or args.eval_mode != "nominal":
+        env.physics_diagnostics = PhysicsDiagnostics(env)
+    cfg = env.cfg
+    write_json(
+        out / "manifest.json",
+        manifest(
+            ROBOT_GYM_ROOT_DIR,
+            checkpoint,
+            env.urdf_reader.robot_file_path_absolute,
+            class_to_dict(cfg),
+            class_to_dict(train_cfg),
+            {
+                "cli": vars(args),
+                "config_changes": config_differences(original_cfg, class_to_dict(cfg)),
+            },
+            reference,
+        ),
+    )
+    write_json(out / "loaded_properties.json", loaded_properties(env))
+    if args.eval_mode != "nominal":
+        from robot_gym.scripts.diagnostic_bank import evaluate_bank
+
+        evaluate_bank(env, runner, args, out)
+        gs.destroy()
+        return
     report = {
         "dt": env.dt,
         "seed": args.seed if args.seed is not None else train_cfg.seed,
@@ -378,6 +442,27 @@ def evaluate(args):
                 }
                 for key, value in detail.items():
                     detail_history[key].append(value)
+                if args.diagnostic_trace:
+                    for key in (
+                        "raw_actions",
+                        "applied_actions",
+                        "leg_position_targets",
+                        "wheel_velocity_targets",
+                        "control_torques",
+                        "control_torques_substep_max_abs",
+                        "summed_normal_ground_force",
+                        "legacy_force_support",
+                        "wheel_clearance",
+                        "base_quat_wxyz",
+                        "wheel_link_quat_wxyz",
+                        "base_heading",
+                        "base_position",
+                        "dof_position",
+                        "dof_velocity",
+                        "base_linear_velocity_body",
+                        "base_angular_velocity_body",
+                    ):
+                        detail_history.setdefault(key, []).append(state[key])
                 record = torch.cat(
                     [
                         state["commands"],
@@ -477,6 +562,20 @@ def evaluate(args):
                 cfg.rewards.base_height_target,
                 hip_indices,
             )
+            if args.diagnostic_trace:
+                from robot_gym.scripts.diagnostic_bank import summarize
+
+                metrics["physics_diagnostics_per_environment"] = summarize(
+                    detail,
+                    data[:, 0, :3],
+                    data[:, :, 9].astype(bool),
+                    env.dt,
+                    args.steps if before != after and after == (0, 0, 0) else None,
+                    env.leg_action_indices,
+                    env.torque_limits.cpu().numpy(),
+                    env.default_dof_pos[0].cpu().numpy(),
+                    env.action_scale.cpu().numpy().reshape(-1),
+                )
             if name in {"vy_-0.1", "vy_0.1", "vy_-0.25", "vy_0.25"}:
                 metrics["lateral"] = lateral_metrics(
                     data, detail, env.dt, cfg.asset.contact_height, initial_world_y

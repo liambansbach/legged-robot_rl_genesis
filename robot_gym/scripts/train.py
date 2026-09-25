@@ -50,6 +50,11 @@ def train(args):
     )
 
 
+    if args.training_diagnostics:
+        from pathlib import Path
+        from robot_gym.utils.training_diagnostics import TrainingDiagnostics
+        TrainingDiagnostics(ppo_runner, env, Path(ppo_runner.logger.log_dir) / "diagnostics.jsonl")
+
     ppo_runner.learn(
         num_learning_iterations=train_cfg.runner.max_iterations,
         init_at_random_ep_len=True,

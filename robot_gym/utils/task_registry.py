@@ -123,6 +123,8 @@ class TaskRegistry:
 
         # Apply CLI overrides
         env_cfg, train_cfg = update_cfg_from_args(env_cfg, train_cfg, args)
+        if getattr(args, "training_diagnostics", False):
+            env_cfg.env.record_command_families = True
 
         if getattr(args, "seed", None) is not None:
             env_cfg.seed = args.seed

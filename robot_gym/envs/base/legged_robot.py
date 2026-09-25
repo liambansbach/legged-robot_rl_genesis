@@ -52,6 +52,9 @@ class LeggedRobot(BaseTask):
             actions (torch.Tensor): Tensor of shape (num_envs, num_actions_per_env)
         """
 
+        diagnostics = getattr(self, "physics_diagnostics", None)
+        if diagnostics is not None:
+            diagnostics.begin_step(actions)
         clip_actions = self.cfg.normalization.clip_actions
         self.actions = torch.clip(actions, -clip_actions, clip_actions).to(self.device)
 
@@ -70,6 +73,8 @@ class LeggedRobot(BaseTask):
             self._control_dofs(self.applied_actions)
             self._apply_pushes()
             self.sim.step()
+            if diagnostics is not None:
+                diagnostics.after_substep()
 
         self.post_physics_step()
 
@@ -101,6 +106,8 @@ class LeggedRobot(BaseTask):
                 "commands", "base_lin_vel", "base_ang_vel", "rpy", "base_pos", "nonfoot_contact_count",
                 "dof_vel", "torques", "actions", "dof_pos", "foot_contacts", "foot_pos", "base_quat",
             )}
+            if getattr(self, "physics_diagnostics", None) is not None:
+                self.transition_state.update(self.physics_diagnostics.capture())
         # Reward the command that generated this transition, then choose the next command.
         self._post_physics_step_callback()
         self.extras.pop("episode", None)
@@ -209,6 +216,8 @@ class LeggedRobot(BaseTask):
             rew = rew * self.reward_scales[name]
             self.rew_buf += rew
             self.episode_sums[name] += rew
+        if getattr(self, "training_diagnostics", None) is not None:
+            self.training_diagnostics.reward(self.rew_buf, self.commands)
         if self.cfg.rewards.only_positive_rewards:
             self.rew_buf[:] = torch.clip(self.rew_buf[:], min=0.)
         # add termination reward after clipping
@@ -295,6 +304,8 @@ class LeggedRobot(BaseTask):
             with_entity=self.ground_floor_entity,
             is_padded=True,
         )
+        if getattr(self, "physics_diagnostics", None) is not None:
+            self.physics_diagnostics.contacts(contacts)
 
         valid_mask = contacts["valid_mask"]              # (N, K)
         link_a = contacts["link_a"]                      # (N, K)

@@ -72,6 +72,22 @@ class ContractTests(unittest.TestCase):
         e.commands[:] = torch.tensor([0.0, 0.0, 0.3])
         self.assertEqual(e._mobility_gate().sum(), 0)
 
+    def test_optional_family_labels_preserve_sampler_and_rng(self):
+        baseline, instrumented = self.make_env(), self.make_env()
+        instrumented.cfg.env.record_command_families = True
+        instrumented._build_control_tensors()
+        torch.manual_seed(123)
+        baseline._resample_commands(torch.arange(8))
+        rng = torch.get_rng_state().clone()
+        torch.manual_seed(123)
+        instrumented._resample_commands(torch.arange(8))
+        self.assertTrue(torch.equal(rng, torch.get_rng_state()))
+        self.assertTrue(torch.equal(baseline.commands, instrumented.commands))
+        self.assertTrue(
+            torch.equal(baseline.command_steps_left, instrumented.command_steps_left)
+        )
+        self.assertTrue((instrumented.diagnostic_command_families >= 0).all())
+
     def test_mixed_command_durations(self):
         torch.manual_seed(5)
         e = self.make_env(20000)

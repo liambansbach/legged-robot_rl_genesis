@@ -1,6 +1,7 @@
 """Opt-in real GPU runner: GO2W_GPU_TESTS=1 python -m unittest discover -s tests -p test_go2w_symmetry_integration.py."""
 
 import math
+import json
 import os
 from pathlib import Path
 import sys
@@ -28,6 +29,7 @@ class SymmetryIntegrationTests(unittest.TestCase):
             "--num_envs",
             "64",
             "--headless",
+            "--training_diagnostics",
             "--seed",
             "1",
             "--logger",
@@ -35,7 +37,7 @@ class SymmetryIntegrationTests(unittest.TestCase):
             "--max_iterations",
             "2",
             "--experiment_name",
-            "go2w_v2_2_smoke",
+            "go2w_diagnostics_smoke",
             "--run_name",
             "symmetry",
         ]
@@ -44,6 +46,10 @@ class SymmetryIntegrationTests(unittest.TestCase):
         try:
             env, _ = task_registry.make_env("go2w", args=args)
             runner, _ = task_registry.make_alg_runner(env, "go2w", args=args)
+            from robot_gym.utils.training_diagnostics import TrainingDiagnostics
+
+            diagnostic_path = Path(runner.logger.log_dir) / "diagnostics.jsonl"
+            TrainingDiagnostics(runner, env, diagnostic_path)
             symmetry = runner.alg.symmetry
             self.assertIs(symmetry.env, env)
             self.assertIs(symmetry.data_augmentation_func, sagittal_augmentation)
@@ -69,6 +75,16 @@ class SymmetryIntegrationTests(unittest.TestCase):
             self.assertEqual(aug_actions.shape, (128, 16))
             torch.testing.assert_close(aug_obs[:64], obs)
             runner.learn(num_learning_iterations=2, init_at_random_ep_len=True)
+            rows = [
+                json.loads(line) for line in diagnostic_path.read_text().splitlines()
+            ]
+            self.assertEqual([r["iteration"] for r in rows], [0, 1])
+            for row in rows:
+                self.assertNotIn("unlabelled_initial", row["nonterminal_reward"])
+                self.assertEqual(len(row["scheduler_kl_per_minibatch"]), 40)
+                self.assertEqual(len(row["ppo_clip_fraction_per_minibatch"]), 40)
+                self.assertEqual(len(row["action_vectors"]["raw_mean"]), 16)
+                self.assertFalse(row["source"]["mirror_loss_enabled"])
             log_dir = Path(runner.logger.log_dir)
             events = EventAccumulator(str(log_dir)).Reload()
             symmetry_events = events.Scalars("Loss/symmetry")
