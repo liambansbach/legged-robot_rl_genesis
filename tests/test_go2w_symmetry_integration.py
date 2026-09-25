@@ -84,6 +84,42 @@ class SymmetryIntegrationTests(unittest.TestCase):
                 f"SYMMETRY INTEGRATION PASS: {log_dir}; Loss/symmetry={[e.value for e in symmetry_events]}",
                 flush=True,
             )
+            # Check fixed commands with real physics/policy observations, including resets.
+            policy = runner.get_inference_policy(device=env.device)
+            for command in [
+                (0, 0, 0),
+                (0.5, 0, 0),
+                (0, 0.25, 0),
+                (0, 0, 0.4),
+                (0, 0, 1.0),
+                (0.5, 0, 0.8),
+            ]:
+                env.set_fixed_command(command)
+                obs, _ = env.reset()
+                expected = torch.tensor(command, device=env.device).expand(
+                    env.num_envs, -1
+                )
+                with torch.no_grad():
+                    for _ in range(3):
+                        torch.testing.assert_close(
+                            obs["policy"][:, 9:12], expected * env.commands_scale
+                        )
+                        obs, _, _, _ = env.step(policy(obs))
+                        torch.testing.assert_close(
+                            env.commands, expected.to(env.commands.dtype)
+                        )
+                env.reset_idx(torch.tensor([0, 2], device=env.device))
+                env.compute_observations()
+                torch.testing.assert_close(
+                    env.get_observations()["policy"][:, 9:12],
+                    expected * env.commands_scale,
+                )
+            env.set_fixed_command(None)
+            self.assertTrue(env.command_resampling_enabled)
+            print(
+                "FIXED COMMAND GPU PASS: six commands, full/selective resets, same-step policy observations",
+                flush=True,
+            )
         finally:
             gs.destroy()
 

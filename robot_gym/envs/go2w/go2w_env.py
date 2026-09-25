@@ -57,6 +57,8 @@ class Go2WEnv(Go2Env):
         self.command_steps_left[env_ids] = torch.where(use_sustained, sustained, short)
 
     def _resample_commands(self, env_ids):
+        if self._apply_fixed_command(env_ids):
+            return
         self._reset_command_timer(env_ids)
         n = len(env_ids)
         if not n:
@@ -140,19 +142,31 @@ class Go2WEnv(Go2Env):
             / (cfg.lateral_step_activation_vel - cfg.lateral_step_start_vel)
         ).clamp(0, 1)
 
-    def _yaw_gait_gate(self):
+    def _yaw_mobility_gate(self):
         cfg = self.cfg.rewards
         return (
-            (self.commands[:, 2].abs() - cfg.yaw_step_start)
-            / (cfg.yaw_step_full - cfg.yaw_step_start)
+            (self.commands[:, 2].abs() - cfg.yaw_mobility_start)
+            / (cfg.yaw_mobility_full - cfg.yaw_mobility_start)
         ).clamp(0, 1)
 
-    def _gait_gate(self):
-        # Prefer skid steering at low/moderate yaw; allow leg assistance at high yaw.
+    def _mobility_gate(self):
+        # Allow moderate-yaw unloading without requiring a prescribed gait.
         return torch.maximum(
             self._lateral_gait_gate(),
-            self.cfg.rewards.yaw_gait_weight * self._yaw_gait_gate(),
+            self.cfg.rewards.yaw_mobility_weight * self._yaw_mobility_gate(),
         )
+
+    def _pose_relaxation_gate(self):
+        cfg = self.cfg.rewards
+        yaw = (
+            (self.commands[:, 2].abs() - cfg.yaw_pose_start)
+            / (cfg.yaw_pose_full - cfg.yaw_pose_start)
+        ).clamp(0, 1)
+        return torch.maximum(self._lateral_gait_gate(), cfg.yaw_pose_weight * yaw)
+
+    def _gait_gate(self):
+        # Go2's inherited swing-clearance kernel calls this hook; pose uses its own gate.
+        return self._mobility_gate()
 
     def _reward_default_pose(self):
         err = (
@@ -160,10 +174,10 @@ class Go2WEnv(Go2Env):
             .square()
             .mean(dim=1)
         )
-        return (1 - 0.7 * self._gait_gate()) * err
+        return (1 - 0.7 * self._pose_relaxation_gate()) * err
 
     def _reward_leg_motion(self):
-        return (1 - 0.7 * self._gait_gate()) * self.dof_vel[
+        return (1 - 0.7 * self._mobility_gate()) * self.dof_vel[
             :, self.leg_action_indices
         ].square().mean(dim=1)
 
@@ -215,7 +229,7 @@ class Go2WEnv(Go2Env):
 
     def _reward_unnecessary_wheel_air(self):
         # Retain a contact preference even when stepping is allowed.
-        return (1 - 0.75 * self._gait_gate()) * (~self.foot_contacts).float().mean(
+        return (1 - 0.75 * self._mobility_gate()) * (~self.foot_contacts).float().mean(
             dim=1
         )
 

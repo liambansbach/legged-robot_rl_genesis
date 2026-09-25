@@ -416,12 +416,39 @@ class LeggedRobot(BaseTask):
             interval = [self.cfg.commands.resampling_time] * 2
         self.command_steps_left[env_ids] = self._sample_interval_steps(interval, len(env_ids), self.dt)
 
+    def set_fixed_command(self, command):
+        """Pin a play command without changing training ranges; None restores sampling."""
+        if command is None:
+            if getattr(self, "_fixed_command", None) is not None:
+                self._fixed_command = None
+                self.command_resampling_enabled = self._resampling_before_fixed
+            return
+        value = torch.as_tensor(command, dtype=self.commands.dtype, device=self.device)
+        if value.shape != (3,) or not torch.isfinite(value).all():
+            raise ValueError("Fixed command must contain three finite values: vx, vy, yaw")
+        if getattr(self, "_fixed_command", None) is None:
+            self._resampling_before_fixed = self.command_resampling_enabled
+        self._fixed_command = value.clone()
+        self.command_resampling_enabled = False
+        self._apply_fixed_command()
+        self.compute_observations()  # The very next policy call sees the new command.
+
+    def _apply_fixed_command(self, env_ids=None):
+        """Used before both generic and Go2-W family sampling, including episode resets."""
+        value = getattr(self, "_fixed_command", None)
+        if value is None:
+            return False
+        self.commands[slice(None) if env_ids is None else env_ids] = value
+        return True
+
     def _resample_commands(self, env_ids):
         """ Randommly select commands of some environments 
 
         Args:
             env_ids (List[int]): Environments ids for which new commands are needed
         """
+        if self._apply_fixed_command(env_ids):
+            return
         self._reset_command_timer(env_ids)
         # Normal resampling
         self.commands[env_ids, 0] = gs_rand_float(self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids), 1), device=self.device).squeeze(1)

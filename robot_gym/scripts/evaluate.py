@@ -117,6 +117,30 @@ def pose_recovery_metrics(
     }
 
 
+def wheel_mobility_metrics(contacts, wheel_link_height, contact_height):
+    """Contact transitions and nominal-height proxy for an explicitly selected window."""
+    result = {
+        "airborne_wheel_clearance_above_nominal_m": None,
+        "airborne_wheel_samples": 0,
+        "wheel_contact_transition_count_mean_per_environment": None,
+        "clearance_definition": "max(0, wheel_link_z - nominal contact height) when contact flag is false; nominal-height proxy, not tilted-cylinder ground gap; false flags can mean unloading",
+    }
+    if contacts.shape[1] == 0:
+        return result
+    clearance = np.maximum(0, wheel_link_height - contact_height)[~contacts]
+    result["airborne_wheel_samples"] = int(clearance.size)
+    if clearance.size:
+        result["airborne_wheel_clearance_above_nominal_m"] = {
+            "mean": float(clearance.mean()),
+            "p90": float(np.percentile(clearance, 90)),
+            "maximum": float(clearance.max()),
+        }
+    result["wheel_contact_transition_count_mean_per_environment"] = (
+        (contacts[1:] != contacts[:-1]).sum(axis=0).mean(axis=0).tolist()
+    )
+    return result
+
+
 def lateral_metrics(data, detail, dt, contact_height, initial_world_y=None):
     """Full-case lateral diagnostics from raw traces; exclude any environment that fell.
 
@@ -138,11 +162,14 @@ def lateral_metrics(data, detail, dt, contact_height, initial_world_y=None):
         "displacement_start_s": 0.0 if initial_world_y is not None else dt,
         "displacement_end_s": len(data) * dt,
         "total_lateral_displacement_world_y_m": None,
-        "airborne_wheel_clearance_above_nominal_m": None,
-        "airborne_wheel_samples": 0,
-        "wheel_contact_transition_count_mean_per_environment": None,
-        "clearance_definition": "max(0, wheel_link_z - nominal contact height) when contact flag is false; nominal-height proxy, not tilted-cylinder ground gap; false flags can mean unloading",
     }
+    result.update(
+        wheel_mobility_metrics(
+            detail["foot_contacts"][:, survivors],
+            detail["wheel_link_height"][:, survivors],
+            contact_height,
+        )
+    )
     for name, window in windows.items():
         velocity = data[window, survivors, 4]
         result["window_duration_s"][name] = len(velocity) * dt
@@ -152,20 +179,6 @@ def lateral_metrics(data, detail, dt, contact_height, initial_world_y=None):
     start_y = data[0, :, 17] if initial_world_y is None else initial_world_y
     result["total_lateral_displacement_world_y_m"] = float(
         (data[-1, survivors, 17] - start_y[survivors]).mean()
-    )
-    contacts = detail["foot_contacts"][:, survivors]
-    clearance = np.maximum(
-        0, detail["wheel_link_height"][:, survivors] - contact_height
-    )[~contacts]
-    result["airborne_wheel_samples"] = int(clearance.size)
-    if clearance.size:
-        result["airborne_wheel_clearance_above_nominal_m"] = {
-            "mean": float(clearance.mean()),
-            "p90": float(np.percentile(clearance, 90)),
-            "maximum": float(clearance.max()),
-        }
-    result["wheel_contact_transition_count_mean_per_environment"] = (
-        (contacts[1:] != contacts[:-1]).sum(axis=0).mean(axis=0).tolist()
     )
     return result
 
@@ -467,6 +480,15 @@ def evaluate(args):
             if name in {"vy_-0.1", "vy_0.1", "vy_-0.25", "vy_0.25"}:
                 metrics["lateral"] = lateral_metrics(
                     data, detail, env.dt, cfg.asset.contact_height, initial_world_y
+                )
+            if name.startswith("yaw_"):
+                metrics["yaw_mobility"] = wheel_mobility_metrics(
+                    detail["foot_contacts"][args.steps :, ~fallen],
+                    detail["wheel_link_height"][args.steps :, ~fallen],
+                    cfg.asset.contact_height,
+                )
+                metrics["yaw_mobility"]["window"] = (
+                    "post_transition; surviving environments only"
                 )
             if name == "stand":
                 window = min(args.steps, max(1, round(1.0 / env.dt)))

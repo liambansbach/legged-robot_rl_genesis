@@ -33,6 +33,15 @@ Not all arguments are required. A simple call could look like this:
 EXPORT_POLICY = True
 
 
+def configure_fixed_command(env, args):
+    """Any supplied command axis enables fixed play; unspecified axes become zero."""
+    values = [getattr(args, f"command_{axis}", None) for axis in ("vx", "vy", "yaw")]
+    if any(value is not None for value in values):
+        command = tuple(0.0 if value is None else value for value in values)
+        env.set_fixed_command(command)
+        print(f"Fixed command for every environment [vx, vy, yaw]: {command}", flush=True)
+
+
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)  
 
@@ -65,10 +74,7 @@ def play(args):
     env_cfg.domain_rand.randomize_com = False 
     env_cfg.domain_rand.randomize_action_delay = False
 
-    #hardcode velocity to test tracking performance in play mode (optional)
-    # env_cfg.commands.ranges.lin_vel_x = [-1.0, 1.0]
-    # env_cfg.commands.ranges.lin_vel_y = [0.0, 0.0]
-    # env_cfg.commands.ranges.ang_vel_yaw = [0.0, 0.0] 
+    # Use --command_vx/--command_vy/--command_yaw for fixed commands, keeping ranges intact.
     
     # Optional viewer/debug settings for play mode
     env_cfg.sim.performance_mode = False # genesis performance mode should be used for training only.
@@ -87,6 +93,7 @@ def play(args):
         env_cfg=env_cfg,
     )
 
+    configure_fixed_command(env, args)
     obs, _ = env.reset()
 
     # ----------------------------------------------------------------------

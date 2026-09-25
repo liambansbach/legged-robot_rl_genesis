@@ -166,9 +166,12 @@ class GO2WCfg(GO2Cfg):
         contact_force_threshold = 8.0
         lateral_step_start_vel = 0.03
         lateral_step_activation_vel = 0.10
-        yaw_step_start = 0.60
-        yaw_step_full = 1.10
-        yaw_gait_weight = 0.80
+        yaw_mobility_start = 0.30
+        yaw_mobility_full = 0.85
+        yaw_mobility_weight = 0.80
+        yaw_pose_start = 0.60
+        yaw_pose_full = 1.10
+        yaw_pose_weight = 0.35
         min_wheel_side_clearance = 0.045
         min_lateral_wheel_separation = 0.14
 
