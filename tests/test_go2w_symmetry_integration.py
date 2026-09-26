@@ -153,6 +153,7 @@ class ContinuationIntegrationTests(unittest.TestCase):
         sigma = float(os.environ["GO2W_RESUME_SMOKE_SIGMA"])
         self.assertIn(sigma, (0.25, 0.09))
         arm = "control" if sigma == 0.25 else "009"
+        entropy = os.environ.get("GO2W_RESUME_SMOKE_ENTROPY")
         argv = [
             "resume-smoke",
             "--task",
@@ -179,6 +180,11 @@ class ContinuationIntegrationTests(unittest.TestCase):
             "--tracking_sigma_x",
             str(sigma),
         ]
+        if entropy is not None:
+            self.assertEqual(float(entropy), 0.001)
+            self.assertEqual(sigma, 0.25)
+            argv[argv.index("--run_name") + 1] = "entropy_001_smoke_seed1"
+            argv += ["--entropy_coef", entropy]
         with patch.object(sys, "argv", argv):
             args = get_args()
         try:
@@ -195,6 +201,11 @@ class ContinuationIntegrationTests(unittest.TestCase):
                 "d0da829b95c683ce977323c4af88922c2a86ac9e680ff4501af302704c0cfcc1",
             )
             self.assertEqual(meta["completed_additional_updates"], 2)
+            if entropy is not None:
+                self.assertEqual(runner.alg.entropy_coef, 0.001)
+                self.assertEqual(meta["entropy_coef"], 0.001)
+                self.assertEqual(meta["explicit_overrides"]["entropy_coef"], 0.001)
+                self.assertEqual(cfg["train_cfg"]["algorithm"]["entropy_coef"], 0.001)
             self.assertEqual(cfg["env_cfg"]["rewards"]["tracking_sigma_x"], sigma)
             self.assertEqual(cfg["env_cfg"]["rewards"]["tracking_sigma_y"], 0.04)
             self.assertEqual(cfg["train_cfg"]["runner"]["num_steps_per_env"], 48)
@@ -230,6 +241,8 @@ class ContinuationIntegrationTests(unittest.TestCase):
             )  # Saved state equals completed runner.
             runner.load(checkpoint)
             reloaded = verify_resume_state(runner, checkpoint)
+            if entropy is not None:
+                self.assertEqual(runner.alg.entropy_coef, 0.001)
             for component in runner.alg.save().values():
                 if isinstance(component, dict):
                     for value in component.values():

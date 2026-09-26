@@ -113,6 +113,14 @@ def get_load_path(root, load_run=-1, checkpoint=-1):
     return load_path
 
 def update_cfg_from_args(env_cfg, cfg_train, args):
+    entropy = getattr(args, "entropy_coef", None)
+    if entropy is not None:
+        if args.task != "go2w":
+            raise ValueError("--entropy_coef is specific to go2w")
+        if not math.isfinite(entropy) or entropy < 0:
+            raise ValueError("--entropy_coef must be finite and nonnegative")
+        if cfg_train is not None:
+            cfg_train.algorithm.entropy_coef = entropy
     sigma_x = getattr(args, "tracking_sigma_x", None)
     if sigma_x is not None:
         if args.task != "go2w":
@@ -151,6 +159,7 @@ def get_args():
     parser = argparse.ArgumentParser(description="RL Policy")
 
     custom_parameters = [
+        {"name": "--entropy_coef", "type": float, "default": None, "help": "Go2-W entropy weight; unset preserves the registered config"},
         {"name": "--tracking_sigma_x", "type": float, "default": None, "help": "Go2-W forward squared-error denominator; unset preserves the registered config"},
         {"name": "--skip_zero_action_probe", "action": "store_true", "help": "Bank evaluation: retain all policy cases, omit the equilibrium zero-action probe"},
         {"name": "--diagnostic_trace", "action": "store_true", "help": "Read substep control forces, summed ground loads and cylinder geometry"},

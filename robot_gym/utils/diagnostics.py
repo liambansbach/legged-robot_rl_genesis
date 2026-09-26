@@ -113,7 +113,9 @@ def check_reference_contract(config_path, env_cfg, train_cfg):
     }
 
 
-def check_training_continuation(config_path, env_cfg, train_cfg, sigma_x=None):
+def check_training_continuation(
+    config_path, env_cfg, train_cfg, sigma_x=None, entropy_coef=None
+):
     """Go2-W continuation: every unexplained config difference is an error."""
     reference = check_reference_contract(config_path, env_cfg, train_cfg)
     allowed = {
@@ -129,6 +131,11 @@ def check_training_continuation(config_path, env_cfg, train_cfg, sigma_x=None):
     }
     if sigma_x is not None and env_cfg["rewards"]["tracking_sigma_x"] == sigma_x:
         allowed.add("env_cfg.rewards.tracking_sigma_x")
+    if (
+        entropy_coef is not None
+        and train_cfg["algorithm"]["entropy_coef"] == entropy_coef
+    ):
+        allowed.add("train_cfg.algorithm.entropy_coef")
     # Only the agreed two-update smoke may reduce the source batch size.
     if env_cfg["env"]["num_envs"] == 64 and train_cfg["runner"]["max_iterations"] == 2:
         allowed.add("env_cfg.env.num_envs")

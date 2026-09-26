@@ -67,7 +67,11 @@ def prepare_go2w_continuation(args, env_cfg, train_cfg):
         )
     env_cfg.asset.joint_names = URDFReader(env_cfg.asset.robot_file).joint_names
     reference = check_training_continuation(
-        config, class_to_dict(env_cfg), class_to_dict(train_cfg), args.tracking_sigma_x
+        config,
+        class_to_dict(env_cfg),
+        class_to_dict(train_cfg),
+        args.tracking_sigma_x,
+        args.entropy_coef,
     )
     saved_git = checkpoint.parent / "git" / f"{Path(ROBOT_GYM_ROOT_DIR).name}.diff"
     source_snapshot = None
@@ -119,6 +123,13 @@ def train(args):
         if Path(ppo_runner.checkpoint_path).resolve() != Path(parent["checkpoint"]):
             raise ValueError("Runner loaded a different continuation parent")
         loaded = verify_resume_state(ppo_runner, parent["checkpoint"])
+        if (
+            args.entropy_coef is not None
+            and ppo_runner.alg.entropy_coef != args.entropy_coef
+        ):
+            raise ValueError(
+                "Loaded algorithm entropy coefficient differs from explicit override"
+            )
         out = Path(ppo_runner.logger.log_dir).resolve()
         metadata = {
             "parent": parent,
@@ -126,6 +137,11 @@ def train(args):
             "source": source_identity(ROBOT_GYM_ROOT_DIR),
             "seed": train_cfg.seed,
             "tracking_sigma_x": env_cfg.rewards.tracking_sigma_x,
+            "entropy_coef": ppo_runner.alg.entropy_coef,
+            "explicit_overrides": {
+                "tracking_sigma_x": args.tracking_sigma_x,
+                "entropy_coef": args.entropy_coef,
+            },
             "planned_additional_updates": train_cfg.runner.max_iterations,
             "completed_additional_updates": 0,
             "status": "verified_before_update",

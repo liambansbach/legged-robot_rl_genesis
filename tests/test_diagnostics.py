@@ -46,6 +46,51 @@ URDF = Path(ROBOT_GYM_ROOT_DIR) / "ressources/robots/go2w/urdf/go2w_description.
 
 
 class DiagnosticsTests(unittest.TestCase):
+    def test_entropy_override_preserves_defaults_and_validates_values(self):
+        for value in (None, "0", "0.001", "0.005", "-0.001", "nan", "inf", "-inf"):
+            argv = ["train", "--task", "go2w"]
+            if value is not None:
+                argv += [f"--entropy_coef={value}"]
+            with patch.object(sys, "argv", argv):
+                args = get_args()
+            env, train = task_registry.get_cfgs("go2w")
+            before = class_to_dict(train)
+            if value in ("-0.001", "nan", "inf", "-inf"):
+                with self.assertRaisesRegex(ValueError, "finite and nonnegative"):
+                    update_cfg_from_args(env, train, args)
+            else:
+                update_cfg_from_args(env, train, args)
+                self.assertEqual(
+                    train.algorithm.entropy_coef,
+                    0.005 if value is None else float(value),
+                )
+                if value is None:
+                    self.assertIsNone(args.entropy_coef)
+                    self.assertEqual(before, class_to_dict(train))
+            self.assertEqual(
+                task_registry.get_cfgs("go2w")[1].algorithm.entropy_coef, 0.005
+            )
+            self.assertEqual(env.rewards.tracking_sigma_x, 0.25)
+        args.task, args.entropy_coef = "go2", 0.001
+        with self.assertRaisesRegex(ValueError, "specific to go2w"):
+            update_cfg_from_args(env, train, args)
+
+    def test_entropy_continuation_exception_requires_exact_explicit_request(self):
+        env, train = map(class_to_dict, task_registry.get_cfgs("go2w"))
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / "config.yaml"
+            config.write_text(yaml.safe_dump(dict(env_cfg=env, train_cfg=train)))
+            train["algorithm"]["entropy_coef"] = 0.001
+            for requested in (None, 0.005):
+                with self.assertRaisesRegex(ValueError, "entropy_coef"):
+                    check_training_continuation(
+                        config, env, train, entropy_coef=requested
+                    )
+            check_training_continuation(config, env, train, entropy_coef=0.001)
+            train["algorithm"]["learning_rate"] = 0.001
+            with self.assertRaisesRegex(ValueError, "learning_rate"):
+                check_training_continuation(config, env, train, entropy_coef=0.001)
+
     def test_x_override_default_validation_and_registry_isolation(self):
         for value in (None, "0.25", "0.09", "0", "-0.1", "nan", "inf", "-inf"):
             argv = ["train", "--task", "go2w"]
