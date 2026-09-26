@@ -113,6 +113,17 @@ def get_load_path(root, load_run=-1, checkpoint=-1):
     return load_path
 
 def update_cfg_from_args(env_cfg, cfg_train, args):
+    profile = getattr(args, "go2w_profile", None)
+    if profile is not None:
+        if args.task != "go2w":
+            raise ValueError("--go2w_profile is specific to go2w")
+        if getattr(args, "zero_command_brake", False):
+            raise ValueError("Go2-W step recovery requires zero-command braking disabled")
+        if getattr(args, "tracking_sigma_x", None) not in (None, 0.25) or getattr(args, "entropy_coef", None) not in (None, 0.001):
+            raise ValueError("step_recovery_v1 fixes tracking_sigma_x=0.25 and entropy_coef=0.001")
+        from robot_gym.envs.go2w.go2w_config import apply_go2w_profile
+
+        apply_go2w_profile(env_cfg, cfg_train, profile)
     if getattr(args, "zero_command_brake", False) and args.task != "go2w":
         raise ValueError("--zero_command_brake is specific to go2w playback/evaluation")
     entropy = getattr(args, "entropy_coef", None)
@@ -161,6 +172,7 @@ def get_args():
     parser = argparse.ArgumentParser(description="RL Policy")
 
     custom_parameters = [
+        {"name": "--go2w_profile", "choices": ["step_recovery_v1"], "default": None, "help": "Explicit Go2-W action/reward/training profile; unset preserves the baseline"},
         {"name": "--zero_command_brake", "action": "store_true", "help": "Go2-W inference only: blend wheel targets to zero for a complete zero body command"},
         {"name": "--entropy_coef", "type": float, "default": None, "help": "Go2-W entropy weight; unset preserves the registered config"},
         {"name": "--tracking_sigma_x", "type": float, "default": None, "help": "Go2-W forward squared-error denominator; unset preserves the registered config"},

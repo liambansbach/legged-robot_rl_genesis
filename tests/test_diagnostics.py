@@ -241,6 +241,30 @@ class DiagnosticsTests(unittest.TestCase):
         torch.testing.assert_close(
             summed_normal_force(c, torch.tensor([4])), torch.tensor([[12.0]])
         )
+        # The live profile uses the same single ground query, retaining legacy flags.
+        from robot_gym.envs.go2w.go2w_env import Go2WEnv
+        from robot_gym.envs.go2w.go2w_config import apply_go2w_profile
+
+        e = Go2WEnv.__new__(Go2WEnv)
+        e.cfg = GO2WCfg()
+        apply_go2w_profile(e.cfg, None, "step_recovery_v1")
+        e.step_recovery = True
+        e.foot_link_indices = torch.tensor([4, 5, 6, 7])
+        e.wheel_normal_force = torch.zeros(1, 4)
+        e.loaded_wheels = torch.zeros(1, 4, dtype=torch.bool)
+        e.nonfoot_contact_count = torch.zeros(1)
+        e.base_contact = torch.zeros(1, dtype=torch.bool)
+        e.ground_floor_entity = object()
+        e.robot = Mock(link_start=1, link_end=8, base_link=SimpleNamespace(idx=1))
+        for values in ([12.0], [6.0, 6.0], [8.0]):
+            e.robot.get_contacts.reset_mock()
+            e.robot.get_contacts.return_value = contacts(values)
+            legacy = e._compute_foot_contacts()
+            self.assertEqual(e.robot.get_contacts.call_count, 1)
+            self.assertIs(e.robot.get_contacts.call_args.kwargs["with_entity"], e.ground_floor_entity)
+            self.assertEqual(bool(e.loaded_wheels[0, 0]), sum(values) > 8)
+            self.assertEqual(bool(legacy[0, 0]), max(values) > 8)
+            self.assertEqual(e.wheel_normal_force[0, 0], sum(values))
 
     def test_finite_cylinder_signed_camber_offset_heading_and_spin(self):
         geometry = wheel_cylinders(URDF, GO2WCfg().asset.foot_link_names)

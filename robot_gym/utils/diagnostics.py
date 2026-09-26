@@ -74,6 +74,8 @@ def check_reference_contract(config_path, env_cfg, train_cfg):
         saved, {"env_cfg": env_cfg, "train_cfg": train_cfg}
     )
     important = (
+        "env_cfg.go2w_profile",
+        "train_cfg.go2w_profile",
         "env_cfg.control.",
         "env_cfg.normalization.",
         "env_cfg.sim.",
@@ -240,6 +242,17 @@ def cylinder_clearance(link_pos, link_quat, offset, local_axis, radius, half_wid
     )
 
 
+def link_reposition_velocity(link_pos, link_vel, base_pos, base_quat, base_vel_body, base_ang_body):
+    """Body derivative of link-origin position; all velocities refer to matching origins."""
+    inverse = base_quat.clone()
+    inverse[:, 1:] *= -1
+    r_body = rotate_wxyz(inverse[:, None], link_pos - base_pos[:, None])
+    return (
+        rotate_wxyz(inverse[:, None], link_vel) - base_vel_body[:, None]
+        - torch.linalg.cross(base_ang_body[:, None].expand_as(r_body), r_body)
+    )
+
+
 def wheel_cylinders(urdf, names, device="cpu"):
     root = ET.parse(urdf).getroot()
     offsets, axes, radii, widths = [], [], [], []
@@ -264,8 +277,8 @@ def wheel_cylinders(urdf, names, device="cpu"):
     )
 
 
-def nominal_support_heights(urdf, joint_angles, wheel_names):
-    """URDF FK with the root at z=0. Required base heights per wheel envelope."""
+def urdf_link_poses(urdf, joint_angles):
+    """CPU FK in the authored root frame, shared by kinematic diagnostic checks."""
     root = ET.parse(urdf).getroot()
     joints = list(root.findall("joint"))
     children = {j.find("child").get("link") for j in joints}
@@ -300,6 +313,12 @@ def nominal_support_heights(urdf, joint_angles, wheel_names):
         if len(pending) == len(joints):
             raise ValueError("Disconnected URDF tree")
         joints = pending
+    return poses
+
+
+def nominal_support_heights(urdf, joint_angles, wheel_names):
+    """URDF FK with the root at z=0. Required base heights per wheel envelope."""
+    poses = urdf_link_poses(urdf, joint_angles)
     positions = torch.tensor(
         np.stack([poses[n][:3, 3] for n in wheel_names]),
         dtype=torch.float32,
@@ -379,6 +398,9 @@ class PhysicsDiagnostics:
         if brake is not None:
             result["issued_actions"] = e.actions.clone()
             result["zero_command_brake_alpha"] = brake.alpha.clone()
+        if getattr(e, "step_recovery", False):
+            result["loaded_wheels"] = e.loaded_wheels.clone()
+            result["wheel_reposition_velocity_body"] = e.wheel_reposition_velocity_body.clone()
         return result
 
 

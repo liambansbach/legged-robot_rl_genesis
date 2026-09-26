@@ -44,6 +44,24 @@ def configure_fixed_command(env, args):
 
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)  
+    if args.task == "go2w":
+        from pathlib import Path
+        from robot_gym.utils.helpers import update_cfg_from_args, get_load_path, class_to_dict
+        from robot_gym.utils.urdf_reader import URDFReader
+        from robot_gym.utils.diagnostics import check_reference_contract
+
+        update_cfg_from_args(env_cfg, train_cfg, args)
+        if args.load_run in (None, "-1") or args.checkpoint in (None, -1):
+            raise ValueError("Go2-W playback requires explicit --load_run and --checkpoint")
+        checkpoint = get_load_path(
+            Path(ROBOT_GYM_ROOT_DIR) / "logs" / train_cfg.runner.experiment_name,
+            args.load_run, args.checkpoint,
+        )
+        env_cfg.asset.joint_names = URDFReader(env_cfg.asset.robot_file).joint_names
+        check_reference_contract(
+            args.reference_config or Path(checkpoint).with_name("config.yaml"),
+            class_to_dict(env_cfg), class_to_dict(train_cfg),
+        )
 
     # ----------------------------------------------------------------------
     # Override some parameters for testing / visualization

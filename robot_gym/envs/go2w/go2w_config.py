@@ -26,6 +26,60 @@ WHEEL_JOINTS = [
 ]
 
 
+def apply_go2w_profile(env_cfg, train_cfg, name):
+    """One explicit candidate; never mutate the registered config or its dictionaries."""
+    if name != "step_recovery_v1":
+        raise ValueError(f"Unknown Go2-W profile: {name}")
+    if env_cfg is not None and getattr(env_cfg, "go2w_profile", None) != name:
+        env_cfg.go2w_profile = name
+        scales = {"hip": 0.30, "thigh": 0.35, "calf": 0.40, "foot": 18.0}
+        env_cfg.control.action_scale = {
+            joint: scales[joint.split("_")[1]] for joint in LEG_JOINTS + WHEEL_JOINTS
+        }
+        env_cfg.commands.long_stand_probability = 0.25
+        env_cfg.commands.long_stand_duration_range = [3.0, 6.0]
+        env_cfg.rewards.clearance_target = 0.04
+        env_cfg.rewards.clearance_sigma = 0.02
+        env_cfg.rewards.clearance_activation_height = 0.01
+        env_cfg.rewards.reposition_speed = 0.15
+        env_cfg.rewards.scales.foot_swing_clearance = 0.12
+        env_cfg.rewards.scales.stand_still = -2.0
+        check_target_intervals(env_cfg)
+    if train_cfg is not None and getattr(train_cfg, "go2w_profile", None) != name:
+        train_cfg.go2w_profile = name
+        train_cfg.actor.distribution_cfg = {
+            **train_cfg.actor.distribution_cfg,
+            "init_std": 0.35,
+        }
+        train_cfg.algorithm.entropy_coef = 0.001
+        train_cfg.runner.experiment_name = "go2w_step_recovery_v1"
+        train_cfg.runner.max_iterations = 1500
+        train_cfg.runner.save_interval = 250
+
+
+def check_target_intervals(cfg):
+    """Candidate offsets must remain at least 0.02 rad inside the authored hard limits."""
+    import xml.etree.ElementTree as ET
+    from robot_gym.utils.urdf_reader import URDFReader
+
+    root = ET.parse(URDFReader(cfg.asset.robot_file).robot_file_path_absolute).getroot()
+    intervals = {}
+    for name in LEG_JOINTS:
+        limit = root.find(f"joint[@name='{name}']/limit")
+        lower, upper = float(limit.get("lower")), float(limit.get("upper"))
+        offset = cfg.control.action_scale[name] * cfg.normalization.clip_actions
+        nominal = cfg.init_state.default_joint_angles[name]
+        low, high = nominal - offset, nominal + offset
+        if not np.isfinite([lower, upper, low, high]).all() or not (
+            lower + 0.02 <= low <= high <= upper - 0.02
+        ):
+            raise ValueError(
+                f"{name}: target [{low}, {high}] violates URDF [{lower}, {upper}] with 0.02 rad margin"
+            )
+        intervals[name] = [low, high]
+    return intervals
+
+
 class GO2WCfg(GO2Cfg):
     class init_state(GO2Cfg.init_state):
         pos = (0.0, 0.0, 0.45)

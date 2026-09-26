@@ -348,7 +348,7 @@ def evaluate(args):
     )
     policy = runner.get_inference_policy(device=env.device)
     out.mkdir(parents=True, exist_ok=True)
-    if args.diagnostic_trace or args.zero_command_brake or args.eval_mode != "nominal":
+    if args.diagnostic_trace or args.zero_command_brake or args.go2w_profile or args.eval_mode != "nominal":
         env.physics_diagnostics = PhysicsDiagnostics(env)
     cfg = env.cfg
     write_json(
@@ -447,7 +447,7 @@ def evaluate(args):
                 }
                 for key, value in detail.items():
                     detail_history[key].append(value)
-                if args.diagnostic_trace or args.zero_command_brake:
+                if args.diagnostic_trace or args.zero_command_brake or args.go2w_profile:
                     for key in (
                         "raw_actions",
                         "applied_actions",
@@ -470,6 +470,9 @@ def evaluate(args):
                         detail_history.setdefault(key, []).append(state[key])
                     if args.zero_command_brake:
                         for key in ("issued_actions", "zero_command_brake_alpha"):
+                            detail_history.setdefault(key, []).append(state[key])
+                    if args.go2w_profile:
+                        for key in ("loaded_wheels", "wheel_reposition_velocity_body"):
                             detail_history.setdefault(key, []).append(state[key])
                 record = torch.cat(
                     [
@@ -570,7 +573,7 @@ def evaluate(args):
                 cfg.rewards.base_height_target,
                 hip_indices,
             )
-            if args.diagnostic_trace or args.zero_command_brake:
+            if args.diagnostic_trace or args.zero_command_brake or args.go2w_profile:
                 from robot_gym.scripts.diagnostic_bank import summarize
 
                 metrics["physics_diagnostics_per_environment"] = summarize(
@@ -658,10 +661,11 @@ def evaluate(args):
         "world_y",
         "wheel_action_saturation",
     ]
-    if args.zero_command_brake:
-        from robot_gym.scripts.diagnostic_bank import evaluate_brake_restarts
+    if args.zero_command_brake or args.go2w_profile:
+        from robot_gym.scripts.diagnostic_bank import evaluate_restarts
 
-        report["brake_restarts"] = evaluate_brake_restarts(env, policy, out)
+        prefix = "brake" if args.zero_command_brake else "hold"
+        report[f"{prefix}_restarts"] = evaluate_restarts(env, policy, out, prefix)
     (out / "metrics.json").write_text(json.dumps(report, indent=2, allow_nan=False))
     gs.destroy()
 

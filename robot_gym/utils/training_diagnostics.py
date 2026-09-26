@@ -313,6 +313,13 @@ class TrainingDiagnostics:
             "ppo_clip_fraction_per_minibatch": self.ppo_clip,
             "learning_rate_after_update": alg.learning_rate,
             "nonterminal_reward": rewards,
+            "command_time_exposure": {
+                name: {
+                    "environment_seconds": values["sample_count"] * self.env.dt,
+                    "fraction": values["sample_count"] / rewards["all"]["sample_count"],
+                }
+                for name, values in rewards.items() if name != "all"
+            },
             "slew_definition": "Consecutive clipped/scaled targets on sampled rollout states, excluding reset boundaries; mean path is a counterfactual at those same states; no extra policy calls",
         }
         with self.path.open("a") as stream:

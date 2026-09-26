@@ -104,6 +104,11 @@ def train(args):
 
     env_cfg, train_cfg = task_registry.get_cfgs(args.task)
     update_cfg_from_args(env_cfg, train_cfg, args)
+    profile = getattr(args, "go2w_profile", None)
+    if profile and not train_cfg.runner.resume and (
+        args.load_run is not None or args.checkpoint is not None
+    ):
+        raise ValueError("Fresh profile training must omit --load_run and --checkpoint")
     env_cfg.seed = train_cfg.seed
     if args.training_diagnostics:
         env_cfg.env.record_command_families = True
@@ -157,6 +162,30 @@ def train(args):
             f"Verified original learning state: {parent['checkpoint']}; LR={loaded['loaded_learning_rate']}",
             flush=True,
         )
+    elif profile:
+        from robot_gym.utils.helpers import class_to_dict
+        from robot_gym.utils.diagnostics import manifest
+        from robot_gym.utils.training_diagnostics import std_parameters
+
+        if ppo_runner.checkpoint_path is not None or ppo_runner.alg.optimizer.state:
+            raise ValueError("Fresh Go2-W profile unexpectedly loaded learning state")
+        out = Path(ppo_runner.logger.log_dir).resolve()
+        metadata = {
+            "profile": profile,
+            "source": source_identity(ROBOT_GYM_ROOT_DIR),
+            "seed": train_cfg.seed,
+            "initialization": "Fresh actor, critic, normalizers, optimizer and Gaussian; no checkpoint loaded",
+            "initial_std": std_parameters(ppo_runner.alg.actor.distribution),
+            "initial_learning_rate": ppo_runner.alg.learning_rate,
+            "entropy_coef": ppo_runner.alg.entropy_coef,
+            "planned_updates": train_cfg.runner.max_iterations,
+            "completed_updates": 0,
+            "output_directory": str(out),
+            "resolved_config_sha256": sha256(out / "config.yaml"),
+            "status": "fresh_before_update",
+            "iteration_labels": "RSL-RL 5.5.1 fresh label k follows k+1 completed updates",
+        }
+        write_json(out / "preparation.json", metadata)
     completed = False
     try:
         ppo_runner.learn(
@@ -181,6 +210,23 @@ def train(args):
                 else None
             )
             write_json(out / "continuation.json", metadata)
+        elif profile:
+            metadata["status"] = "completed" if completed else "failed"
+            metadata["completed_updates"] = (
+                train_cfg.runner.max_iterations if completed
+                else observer.iteration if observer else None
+            )
+            metadata["last_iteration_label"] = ppo_runner.current_learning_iteration
+            if completed:
+                checkpoint = out / f"model_{ppo_runner.current_learning_iteration}.pt"
+                metadata["final_checkpoint"] = str(checkpoint)
+                provenance = manifest(
+                    ROBOT_GYM_ROOT_DIR, checkpoint, env.urdf_reader.robot_file_path_absolute,
+                    class_to_dict(env_cfg), class_to_dict(train_cfg), vars(args), None,
+                )
+                provenance["training_overrides"] = provenance.pop("eval_overrides")
+                write_json(out / "manifest.json", provenance)
+            write_json(out / "preparation.json", metadata)
     return ppo_runner
 
 

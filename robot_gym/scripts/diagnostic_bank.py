@@ -244,7 +244,7 @@ def verify_selective_reset(env, out):
         )
 
 
-def evaluate_brake_restarts(env, policy, out):
+def evaluate_restarts(env, policy, out, prefix="brake"):
     """Two fixed restart traces using the same policy, step and reset paths."""
     report = {}
     old_timeout = env.max_episode_length
@@ -252,8 +252,8 @@ def evaluate_brake_restarts(env, policy, out):
     try:
         with torch.no_grad():
             for name, positive, negative in (
-                ("brake_restart_vx", (0.1, 0, 0), (-0.1, 0, 0)),
-                ("brake_restart_yaw", (0, 0, 0.4), (0, 0, -0.4)),
+                (f"{prefix}_restart_vx", (0.1, 0, 0), (-0.1, 0, 0)),
+                (f"{prefix}_restart_yaw", (0, 0, 0.4), (0, 0, -0.4)),
             ):
                 env.reset()
                 history, dones, commands, phases = {}, [], [], []

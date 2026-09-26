@@ -307,6 +307,8 @@ class LeggedRobot(BaseTask):
             with_entity=self.ground_floor_entity,
             is_padded=True,
         )
+        if getattr(self, "step_recovery", False):
+            self._update_wheel_support(contacts)
         if getattr(self, "physics_diagnostics", None) is not None:
             self.physics_diagnostics.contacts(contacts)
 

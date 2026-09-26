@@ -41,15 +41,83 @@ class SymmetryIntegrationTests(unittest.TestCase):
             "--run_name",
             "symmetry",
         ]
+        profile = os.environ.get("GO2W_SMOKE_PROFILE")
+        if profile:
+            self.assertEqual(profile, "step_recovery_v1")
+            argv += ["--go2w_profile", profile]
+            argv[argv.index("--experiment_name") + 1] = "go2w_step_recovery_v1_smoke"
+            argv[argv.index("--run_name") + 1] = "step_recovery_v1_smoke_seed1"
         with patch.object(sys, "argv", argv):
             args = get_args()
         try:
-            env, _ = task_registry.make_env("go2w", args=args)
-            runner, _ = task_registry.make_alg_runner(env, "go2w", args=args)
+            if profile:
+                from robot_gym.scripts.train import train
+
+                # Capture pre-update state without forwarding the policy or consuming RNG.
+                original = task_registry.make_alg_runner
+
+                def make_runner(*args, **kwargs):
+                    runner, cfg = original(*args, **kwargs)
+                    self.assertIsNone(runner.checkpoint_path)
+                    self.assertEqual(runner.current_learning_iteration, 0)
+                    self.assertFalse(runner.alg.optimizer.state)
+                    self.assertEqual(runner.alg.learning_rate, 8e-4)
+                    self.assertEqual(runner.alg.entropy_coef, 0.001)
+                    self.assertEqual(runner.cfg["num_steps_per_env"], 48)
+                    torch.testing.assert_close(
+                        runner.alg.actor.distribution.log_std_param.exp(),
+                        torch.full((16,), 0.35, device=runner.device),
+                    )
+                    for model in (runner.alg.actor, runner.alg.critic):
+                        self.assertEqual(model.obs_normalizer.count, 0)
+                        self.assertEqual(model.obs_normalizer._mean.count_nonzero(), 0)
+                        torch.testing.assert_close(
+                            model.obs_normalizer._var,
+                            torch.ones_like(model.obs_normalizer._var),
+                        )
+                    self.assertFalse(hasattr(runner.env, "physics_diagnostics"))
+                    self.assertFalse(hasattr(runner.env, "zero_command_brake"))
+                    # Check the live geometry/reward throughout this one rollout.
+                    reward = runner.env._reward_foot_swing_clearance
+
+                    def checked_reward():
+                        from robot_gym.utils.diagnostics import cylinder_clearance
+
+                        e = runner.env
+                        expected = cylinder_clearance(
+                            e.foot_pos,
+                            e.robot.get_links_quat(e.foot_link_indices_local),
+                            *e.wheel_geometry,
+                        )
+                        torch.testing.assert_close(e.wheel_clearance, expected)
+                        for value in (
+                            e.obs_buf,
+                            e.dof_pos,
+                            e.dof_vel,
+                            e.wheel_reposition_velocity_body,
+                            e.wheel_normal_force,
+                        ):
+                            self.assertTrue(torch.isfinite(value).all())
+                        result = reward()
+                        self.assertTrue(torch.isfinite(result).all())
+                        self.assertTrue(((result >= 0) & (result <= 1)).all())
+                        return result
+
+                    index = runner.env.reward_names.index("foot_swing_clearance")
+                    runner.env.reward_functions[index] = checked_reward
+                    return runner, cfg
+
+                with patch.object(task_registry, "make_alg_runner", make_runner):
+                    runner = train(args)
+                env = runner.env
+            else:
+                env, _ = task_registry.make_env("go2w", args=args)
+                runner, _ = task_registry.make_alg_runner(env, "go2w", args=args)
             from robot_gym.utils.training_diagnostics import TrainingDiagnostics
 
             diagnostic_path = Path(runner.logger.log_dir) / "diagnostics.jsonl"
-            TrainingDiagnostics(runner, env, diagnostic_path)
+            if not profile:
+                TrainingDiagnostics(runner, env, diagnostic_path)
             symmetry = runner.alg.symmetry
             self.assertIs(symmetry.env, env)
             self.assertIs(symmetry.data_augmentation_func, sagittal_augmentation)
@@ -74,7 +142,8 @@ class SymmetryIntegrationTests(unittest.TestCase):
             self.assertEqual(aug_obs["policy"].shape, (128, 56))
             self.assertEqual(aug_actions.shape, (128, 16))
             torch.testing.assert_close(aug_obs[:64], obs)
-            runner.learn(num_learning_iterations=2, init_at_random_ep_len=True)
+            if not profile:
+                runner.learn(num_learning_iterations=2, init_at_random_ep_len=True)
             rows = [
                 json.loads(line) for line in diagnostic_path.read_text().splitlines()
             ]
@@ -96,6 +165,65 @@ class SymmetryIntegrationTests(unittest.TestCase):
                 )
             )
             self.assertTrue((log_dir / "model_1.pt").is_file())
+            if profile:
+                from robot_gym.utils.training_diagnostics import verify_resume_state
+                from robot_gym.utils.diagnostics import sha256, write_json
+                import yaml
+
+                self.assertEqual(env.num_envs, 64)
+                self.assertEqual(env.num_obs, 56)
+                self.assertEqual(env.num_actions, 16)
+                self.assertFalse(hasattr(env, "physics_diagnostics"))
+                metadata = json.loads((log_dir / "preparation.json").read_text())
+                self.assertEqual(metadata["completed_updates"], 2)
+                self.assertEqual(metadata["status"], "completed")
+                cfg = yaml.safe_load((log_dir / "config.yaml").read_text())
+                self.assertEqual(cfg["env_cfg"]["go2w_profile"], profile)
+                self.assertEqual(cfg["train_cfg"]["runner"]["save_interval"], 250)
+                for row in rows:
+                    json.dumps(row, allow_nan=False)
+                    self.assertEqual(
+                        row["nonterminal_reward"]["all"]["sample_count"], 64 * 48
+                    )
+                    self.assertAlmostEqual(
+                        sum(
+                            v["fraction"] for v in row["command_time_exposure"].values()
+                        ),
+                        1,
+                    )
+                losses = {
+                    tag: [e.value for e in events.Scalars(tag)]
+                    for tag in events.Tags()["scalars"]
+                    if tag.startswith("Loss/")
+                }
+                self.assertTrue(losses)
+                for values in losses.values():
+                    self.assertEqual(len(values), 2)
+                    self.assertTrue(all(math.isfinite(v) for v in values))
+                checkpoint = log_dir / "model_1.pt"
+                verify_resume_state(runner, checkpoint)
+                runner.load(checkpoint)
+                reloaded = verify_resume_state(runner, checkpoint)
+                with torch.no_grad():
+                    action = runner.get_inference_policy()(env.get_observations())
+                self.assertTrue(torch.isfinite(action).all())
+                write_json(
+                    log_dir / "smoke_validation.json",
+                    {
+                        "argv": argv,
+                        "completed_updates": 2,
+                        "losses": losses,
+                        "save_reload": reloaded,
+                        "final_checkpoint_sha256": sha256(checkpoint),
+                        "geometry_reward_without_physics_recorder": True,
+                        "fresh_learning_state_verified": True,
+                    },
+                )
+                print(
+                    f"STEP RECOVERY SMOKE PASS: {log_dir}; two fresh updates",
+                    flush=True,
+                )
+                return
             print(
                 f"SYMMETRY INTEGRATION PASS: {log_dir}; Loss/symmetry={[e.value for e in symmetry_events]}",
                 flush=True,
