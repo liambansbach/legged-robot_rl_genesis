@@ -244,6 +244,87 @@ def verify_selective_reset(env, out):
         )
 
 
+def sustained_schedule():
+    """Fixed diagnostic holds, not a training distribution or robustness bank."""
+    commands = [
+        ("yaw_p040", (0, 0, 0.4)), ("yaw_n040", (0, 0, -0.4)),
+        ("yaw_p075", (0, 0, 0.75)), ("yaw_n075", (0, 0, -0.75)),
+        ("lateral_p020", (0, 0.2, 0)), ("lateral_n020", (0, -0.2, 0)),
+        ("straight_p050", (0.5, 0, 0)),
+        ("diagonal_p010", (0.7, 0.1, 0)), ("diagonal_n010", (0.7, -0.1, 0)),
+    ]
+    return {name: [((0, 0, 0), 2), (command, 25), ((0, 0, 0), 6)]
+            for name, command in commands}
+
+
+def rollout_sequence(env, policy, schedule, stop_on_reset=False):
+    """Capture pre-reset transitions; optionally censor at the first terminal step."""
+    history, dones, commands, phases = {}, [], [], []
+    stopped, start = False, 0
+    with torch.no_grad():
+        for command, seconds in schedule:
+            count = round(seconds / env.dt)
+            phase = {"command": command, "start": start, "steps": count, "recorded_steps": 0}
+            start += count
+            phases.append(phase)
+            for _ in range(0 if stopped else count):
+                env.commands[:] = torch.tensor(command, device=env.device)
+                env.compute_observations()
+                _, _, done, _ = env.step(policy(env.get_observations()))
+                for key, value in env.transition_state.items():
+                    history.setdefault(key, []).append(value.clone())
+                dones.append(done.clone())
+                commands.append(command)
+                phase["recorded_steps"] += 1
+                if stop_on_reset and bool(done.any()):
+                    stopped = True
+                    break
+            phase["censored"] = phase["recorded_steps"] < count or stopped
+    data = {key: torch.stack(values).cpu().numpy() for key, values in history.items()}
+    data["done"] = torch.stack(dones).cpu().numpy()
+    data["command_stream"] = np.asarray(commands)
+    return data, phases
+
+
+def evaluate_sustained(env, policy, out):
+    """One environment, nine uninterrupted sequences, with normal resets between them."""
+    import xml.etree.ElementTree as ET
+
+    if env.num_envs != 1 or env.max_episode_length * env.dt < 40:
+        raise ValueError("Sustained sequences require one environment and a >=40 s timeout")
+    tree = ET.parse(env.urdf_reader.robot_file_path_absolute).getroot()
+    wheel_joints = [env.joint_names[i] for i in env.wheel_action_indices]
+    axes = [[float(x) for x in tree.find(f"joint[@name='{name}']/axis").get("xyz").split()]
+            for name in wheel_joints]
+    report = {
+        "dt": env.dt, "episode_timeout_s": env.max_episode_length * env.dt,
+        "joint_order": env.joint_names, "wheel_order": env.cfg.asset.foot_link_names,
+        "wheel_joint_axes": axes, "wheel_indices": env.wheel_action_indices,
+        "leg_indices": env.leg_action_indices, "tests": {},
+        "trace_semantics": "raw_actions: actor proposal; actions: issued clipped action before delay; "
+                           "applied_actions: after delay. Terminal samples precede reset; no post-reset samples follow.",
+    }
+    for name, schedule in sustained_schedule().items():
+        env.reset()
+        initial = {key: getattr(env, key).cpu().numpy().copy()
+                   for key in ("base_pos", "base_quat", "foot_pos", "episode_length_buf")}
+        data, phases = rollout_sequence(env, policy, schedule, stop_on_reset=True)
+        np.savez_compressed(out / f"{name}.npz", **data, dt=env.dt,
+                            **{f"initial_{key}": value for key, value in initial.items()})
+        report["tests"][name] = {
+            "phases": phases, "trace": f"{name}.npz",
+            "fall_count": int(data["fallen"].sum()),
+            "timeout_count": int(data["time_out_buf"].sum()),
+            "reset_after_sample_indices": np.flatnonzero(data["done"][:, 0]).tolist(),
+            "normal_reset_before_sequence": True,
+            "nonwheel_contact_steps": int((data["nonfoot_contact_count"] > 0).sum()),
+            "uninterrupted": not bool(data["done"].any()),
+        }
+        write_json(out / "metrics.json", report)
+        print(f"{name}: {report['tests'][name]}", flush=True)
+    return report
+
+
 def evaluate_restarts(env, policy, out, prefix="brake"):
     """Two fixed restart traces using the same policy, step and reset paths."""
     report = {}
@@ -256,28 +337,16 @@ def evaluate_restarts(env, policy, out, prefix="brake"):
                 (f"{prefix}_restart_yaw", (0, 0, 0.4), (0, 0, -0.4)),
             ):
                 env.reset()
-                history, dones, commands, phases = {}, [], [], []
-                for command in ((0, 0, 0), positive, (0, 0, 0), negative, (0, 0, 0)):
-                    count = round((6 if command == (0, 0, 0) else 3) / env.dt)
-                    phases.append({"command": command, "start": len(dones), "steps": count})
-                    for _ in range(count):
-                        env.commands[:] = torch.tensor(command, device=env.device)
-                        env.compute_observations()
-                        _, _, done, _ = env.step(policy(env.get_observations()))
-                        for key, value in env.transition_state.items():
-                            history.setdefault(key, []).append(value.clone())
-                        dones.append(done.clone())
-                        commands.append(command)
-                data = {key: torch.stack(values).cpu().numpy() for key, values in history.items()}
-                done = torch.stack(dones).cpu().numpy()
+                schedule = [(command, 6 if command == (0, 0, 0) else 3)
+                            for command in ((0, 0, 0), positive, (0, 0, 0), negative, (0, 0, 0))]
+                data, phases = rollout_sequence(env, policy, schedule)
                 np.savez_compressed(
-                    out / f"{name}.npz", **data, done=done,
-                    command_stream=np.asarray(commands), dt=env.dt,
+                    out / f"{name}.npz", **data, dt=env.dt,
                 )
                 report[name] = {
                     "phases": phases,
                     "episode_timeout_s": env.max_episode_length * env.dt,
-                    "fall_count": int(done.sum()),
+                    "fall_count": int(data["done"].sum()),
                     "nonwheel_contact_steps": int((data["nonfoot_contact_count"] > 0).sum()),
                     "trace": f"{name}.npz",
                 }

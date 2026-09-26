@@ -231,6 +231,13 @@ def heading_wxyz(q):
     return torch.atan2(forward[..., 1], forward[..., 0])
 
 
+def wheel_axles_body(base_quat, wheel_quat, joint_axes):
+    """Joint axes in the base frame; invariant to wheel spin about those axes."""
+    inverse = base_quat.clone()
+    inverse[..., 1:] *= -1
+    return rotate_wxyz(inverse[..., None, :], rotate_wxyz(wheel_quat, joint_axes))
+
+
 def cylinder_clearance(link_pos, link_quat, offset, local_axis, radius, half_width):
     center = link_pos + rotate_wxyz(link_quat, offset)
     axis = rotate_wxyz(link_quat, local_axis)

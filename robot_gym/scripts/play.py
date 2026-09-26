@@ -20,7 +20,7 @@ Example play command (command line call) with all arguments specified:
 
     --task: Task name defined in task_registry envs/__init__.py
     --experiment_name: Name of the experiment (used to locate logs directory).
-    --run_name: Name of the current play run. Overrides config file if provided.
+    --run_name: Logging name only; does not select the source checkpoint.
     --load_run: Name of the training run to load. If -1: load the latest run.
     --checkpoint: Saved model checkpoint number. If -1: load the latest checkpoint.
     --rl_device: Device used for inference (cpu, cuda, cuda:0, etc.).
@@ -31,6 +31,10 @@ Not all arguments are required. A simple call could look like this:
 """
 
 EXPORT_POLICY = True
+
+
+def should_export_policy(args):
+    return EXPORT_POLICY and not args.zero_command_brake and not args.no_export
 
 
 def configure_fixed_command(env, args):
@@ -112,6 +116,7 @@ def play(args):
     )
 
     configure_fixed_command(env, args)
+    print(f"Episode timeout: {env.max_episode_length * env.dt:g} s; --steps spans resets. Falls still reset.", flush=True)
     if args.zero_command_brake:
         env.enable_zero_command_brake()
     obs, _ = env.reset()
@@ -135,7 +140,7 @@ def play(args):
     # Export policy as JIT
     # ----------------------------------------------------------------------
     # A composite controller needs an explicitly qualified package, not a bare neural export.
-    if EXPORT_POLICY and not args.zero_command_brake:
+    if should_export_policy(args):
         path = os.path.join(
             ROBOT_GYM_ROOT_DIR,
             "logs",

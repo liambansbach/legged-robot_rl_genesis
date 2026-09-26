@@ -2,6 +2,7 @@ import unittest
 import torch
 from tensordict import TensorDict
 from rsl_rl.models import MLPModel
+from robot_gym.envs import *  # noqa: F401,F403 -> register tasks before utils imports
 from robot_gym.utils.export import BoundedPolicy
 from robot_gym.scripts.evaluate import (
     response_metrics,
@@ -14,9 +15,80 @@ from robot_gym.scripts.evaluate import (
     POSE_RECOVERY_CASES,
 )
 import numpy as np
+from types import SimpleNamespace
+from robot_gym.scripts.diagnostic_bank import sustained_schedule, rollout_sequence
+from robot_gym.scripts.evaluate import swing_events, velocity_window_metrics
+from robot_gym.utils.diagnostics import rotate_wxyz, wheel_axles_body
+from scipy.spatial.transform import Rotation
 
 
 class InferenceTests(unittest.TestCase):
+    def test_sustained_schedule_and_censoring(self):
+        schedule = sustained_schedule()
+        self.assertEqual(len(schedule), 9)
+        for phases in schedule.values():
+            self.assertEqual([p[1] for p in phases], [2, 25, 6])
+            self.assertEqual(phases[0][0], (0, 0, 0))
+            self.assertEqual(phases[-1][0], (0, 0, 0))
+        for positive, negative in (("yaw_p040", "yaw_n040"), ("yaw_p075", "yaw_n075"),
+                                   ("lateral_p020", "lateral_n020"), ("diagonal_p010", "diagonal_n010")):
+            np.testing.assert_allclose(np.asarray(schedule[positive][1][0]) * [1, -1, -1], schedule[negative][1][0])
+        for terminal_at, timeout in ((None, False), (175, False), (175, True)):
+            env = SimpleNamespace(dt=.02, device="cpu", commands=torch.zeros(1, 3), steps=0)
+            env.compute_observations = lambda: None
+            env.get_observations = lambda: torch.zeros(1, 56)
+
+            def step(action):
+                env.steps += 1
+                done = torch.tensor([env.steps == terminal_at])
+                env.transition_state = {"commands": env.commands.clone(), "reset_buf": done,
+                                        "time_out_buf": done & timeout, "fallen": done & (not timeout)}
+                return None, None, done, {}
+
+            env.step = step
+            data, phases = rollout_sequence(env, lambda obs: torch.zeros(1, 16), schedule["yaw_p040"], True)
+            self.assertEqual(env.steps, terminal_at or 1650)
+            self.assertEqual([p["start"] for p in phases], [0, 100, 1350])
+            self.assertEqual(phases[1]["censored"], terminal_at is not None)
+            if terminal_at is not None:
+                self.assertEqual(phases[2]["recorded_steps"], 0)
+                self.assertEqual(int(data["time_out_buf"].sum()), int(timeout))
+                self.assertEqual(int(data["fallen"].sum()), int(not timeout))
+            np.testing.assert_array_equal(data["commands"][:, 0], data["command_stream"].astype(np.float32))
+
+    def test_body_world_and_spin_invariant_axles(self):
+        base = Rotation.from_euler("xyz", [.12, -.18, -.3])
+        q = torch.tensor(base.as_quat()[[3, 0, 1, 2]])
+        velocity = torch.tensor([.7, .1, 0.], dtype=torch.float64)
+        world = rotate_wxyz(q, velocity)
+        np.testing.assert_allclose(world.numpy(), base.apply(velocity.numpy()))
+        self.assertLess(float(world[1]), 0)  # positive body vy can coexist with negative world vy
+        axis = torch.tensor([[0., 1., 0.]], dtype=torch.float64)
+        expected = Rotation.from_euler("xyz", [.2, 0, -.1])
+        results = []
+        for spin in (0., 1.7, -2.8):
+            wheel = base * expected * Rotation.from_rotvec([0, spin, 0])
+            wq = torch.tensor(wheel.as_quat()[[3, 0, 1, 2]])[None]
+            results.append(wheel_axles_body(q, wq, axis).numpy())
+        for result in results:
+            np.testing.assert_allclose(result, expected.apply(axis.numpy()), atol=1e-12)
+
+    def test_swing_events_separate_unloading_and_boundaries(self):
+        loads = np.array([0, 0, 12, 5, 8, 9, 12, 5, 12, 5, 0.])
+        height = np.array([.03, .02, 0, .01, .04, .03, 0, .001, 0, .03, .04])
+        position = np.zeros((len(loads), 3))
+        position[:, 0] = np.arange(len(loads)) * .01
+        events = swing_events(loads, height, position, .02)
+        self.assertEqual([e["completed"] for e in events], [False, True, True, False])
+        self.assertEqual([e["geometric_lift"] for e in events], [True, True, False, True])
+        self.assertAlmostEqual(events[1]["duration_s"], .06)
+        self.assertAlmostEqual(events[1]["horizontal_displacement_body_m"], .04)
+        self.assertEqual(events[1]["peak_clearance_m"], .04)
+        data = np.tile([.5, .2, .03, .01, -.02, .4], (50, 1))
+        stats = velocity_window_metrics(data, [.5, .1, .4])
+        np.testing.assert_allclose(stats["rmse_vx_vy_yaw"], [0, .1, 0], atol=1e-12)
+        self.assertEqual(len(stats["std_six_axes"]), 6)
+
     def test_lateral_windows_displacement_clearance_and_contact_transitions(self):
         data = np.zeros((150, 2, 19))
         data[:50, 0, 4], data[50:100, 0, 4], data[100:, 0, 4] = 0.2, 0.04, 0.001

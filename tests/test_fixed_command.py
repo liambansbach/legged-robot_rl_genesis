@@ -8,7 +8,7 @@ import unittest
 import torch
 
 from robot_gym.envs import *  # noqa: F401,F403
-from robot_gym.scripts.play import configure_fixed_command
+from robot_gym.scripts.play import configure_fixed_command, should_export_policy
 from robot_gym.utils import get_args, task_registry
 from robot_gym.utils.helpers import class_to_dict
 from robot_gym.envs.go2w.zero_command_brake import ZeroCommandBrake
@@ -25,6 +25,15 @@ COMMANDS = [
 
 
 class FixedCommandTests(unittest.TestCase):
+    def test_no_export_is_opt_in_and_retains_brake_protection(self):
+        with patch.object(sys, "argv", ["play", "--task", "go2w"]):
+            args = get_args()
+        self.assertFalse(args.no_export)
+        self.assertTrue(should_export_policy(args))
+        for option in ("--no_export", "--zero_command_brake"):
+            with patch.object(sys, "argv", ["play", "--task", "go2w", option]):
+                self.assertFalse(should_export_policy(get_args()))
+
     def test_brake_ramps_clip_before_blend_and_preserve_legs_and_inputs(self):
         # Deliberately permuted mapping, with raw wheel proposals well beyond the bound.
         wheels = [12, 1, 6, 9]

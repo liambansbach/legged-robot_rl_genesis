@@ -172,6 +172,7 @@ def get_args():
     parser = argparse.ArgumentParser(description="RL Policy")
 
     custom_parameters = [
+        {"name": "--no_export", "action": "store_true", "help": "Playback: skip automatic policy export; source selection still uses --load_run"},
         {"name": "--go2w_profile", "choices": ["step_recovery_v1"], "default": None, "help": "Explicit Go2-W action/reward/training profile; unset preserves the baseline"},
         {"name": "--zero_command_brake", "action": "store_true", "help": "Go2-W inference only: blend wheel targets to zero for a complete zero body command"},
         {"name": "--entropy_coef", "type": float, "default": None, "help": "Go2-W entropy weight; unset preserves the registered config"},
@@ -180,7 +181,7 @@ def get_args():
         {"name": "--diagnostic_trace", "action": "store_true", "help": "Read substep control forces, summed ground loads and cylinder geometry"},
         {"name": "--training_diagnostics", "action": "store_true", "help": "Opt-in RSL-RL and unclipped reward JSONL diagnostics"},
         {"name": "--reference_config", "help": "Explicit audited saved config, if not next to the checkpoint"},
-        {"name": "--eval_mode", "choices": ["nominal", "bank", "equilibrium"], "default": "nominal"},
+        {"name": "--eval_mode", "choices": ["nominal", "bank", "equilibrium", "sustained"], "default": "nominal"},
         {"name": "--bank_seed", "type": int, "default": 240925, "help": "Local NumPy generator for a fixed 32-condition bank"},
         {"name": "--output", "default": "evaluation/go2w", "help": "Evaluation output directory"},
         {"name": "--logger", "choices": ["tensorboard", "wandb"], "help": "Override training logger"},

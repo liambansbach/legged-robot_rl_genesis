@@ -108,7 +108,9 @@ class LeggedRobot(BaseTask):
             self.transition_state = {name: getattr(self, name).clone() for name in (
                 "commands", "base_lin_vel", "base_ang_vel", "rpy", "base_pos", "nonfoot_contact_count",
                 "dof_vel", "torques", "actions", "dof_pos", "foot_contacts", "foot_pos", "base_quat",
+                "time_out_buf", "reset_buf", "episode_length_buf",
             )}
+            self.transition_state["fallen"] = self._compute_fallen_mask().clone()
             if getattr(self, "physics_diagnostics", None) is not None:
                 self.transition_state.update(self.physics_diagnostics.capture())
         # Reward the command that generated this transition, then choose the next command.

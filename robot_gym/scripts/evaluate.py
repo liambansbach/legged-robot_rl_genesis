@@ -222,6 +222,45 @@ def response_metrics(velocity, target, dt, start):
     return result
 
 
+def swing_events(normal_load, clearance, position_body, dt):
+    """One limb/window: unload <=6 N, reload >10 N; >=2 mm identifies geometric lift.
+
+    Hysteresis is analysis only. Boundary intervals remain censored. Displacement
+    spans the last loaded sample to reloading; low-clearance unloading is retained.
+    """
+    events = []
+    loaded = bool(normal_load[0] > 8)
+    start = None if loaded else 0
+    for i in range(1, len(normal_load) + 1):
+        at_end = i == len(normal_load)
+        if loaded:
+            if not at_end and normal_load[i] <= 6:
+                start, loaded = i, False
+        elif at_end or normal_load[i] > 10:
+            peak = float(np.max(clearance[start:i]))
+            stop = min(i, len(normal_load) - 1)
+            events.append({
+                "start_index": start, "end_index": i,
+                "left_censored": start == 0, "right_censored": at_end,
+                "completed": start != 0 and not at_end,
+                "duration_s": (i - start) * dt, "peak_clearance_m": peak,
+                "geometric_lift": peak >= 0.002,
+                "horizontal_displacement_body_m": float(np.linalg.norm(
+                    position_body[stop, :2] - position_body[max(0, start - 1), :2])),
+            })
+            start, loaded = None, True
+    return events
+
+
+def velocity_window_metrics(velocity_body, target):
+    """All six body axes; command error is defined for vx, vy and yaw only."""
+    return {
+        "mean_six_axes": velocity_body.mean(axis=0).tolist(),
+        "std_six_axes": velocity_body.std(axis=0).tolist(),
+        "rmse_vx_vy_yaw": np.sqrt(((velocity_body[:, [0, 1, 5]] - target) ** 2).mean(axis=0)).tolist(),
+    }
+
+
 def diagnostic_metrics(
     data, detail, target, dt, transition_step, height_target, hip_indices
 ):
@@ -312,7 +351,7 @@ def evaluate(args):
         class_to_dict(train_cfg),
     )
     cfg.env.num_envs = (
-        args.num_envs or {"nominal": 1, "bank": 32, "equilibrium": 3}[args.eval_mode]
+        args.num_envs or {"nominal": 1, "sustained": 1, "bank": 32, "equilibrium": 3}[args.eval_mode]
     )
     cfg.env.episode_length_s = max(
         20.0, 4 * args.steps * cfg.sim.dt * cfg.control.decimation
@@ -335,7 +374,13 @@ def evaluate(args):
     cfg.init_state.joint_position_noise = cfg.init_state.joint_velocity_noise = 0.0
     cfg.init_state.orientation_noise = (0.0, 0.0, 0.0)
     cfg.init_state.linear_velocity_noise = cfg.init_state.angular_velocity_noise = 0.0
-    if args.eval_mode != "nominal":
+    if args.eval_mode == "sustained":
+        if cfg.env.num_envs != 1 or args.zero_command_brake:
+            raise ValueError("Sustained evaluation requires one environment and no brake")
+        cfg.env.episode_length_s = 40.0
+        from robot_gym.scripts.diagnostic_bank import sustained_schedule
+        print("Sustained schedule (seconds): " + json.dumps(sustained_schedule()), flush=True)
+    elif args.eval_mode != "nominal":
         cfg.sim.batch_links_info = cfg.sim.batch_dofs_info = True
         cfg.env.episode_length_s = 60.0
     env, _ = task_registry.make_env("go2w", args=args, env_cfg=cfg)
@@ -369,6 +414,12 @@ def evaluate(args):
         ),
     )
     write_json(out / "loaded_properties.json", loaded_properties(env))
+    if args.eval_mode == "sustained":
+        from robot_gym.scripts.diagnostic_bank import evaluate_sustained
+
+        evaluate_sustained(env, policy, out)
+        gs.destroy()
+        return
     if args.eval_mode != "nominal":
         from robot_gym.scripts.diagnostic_bank import evaluate_bank
 
