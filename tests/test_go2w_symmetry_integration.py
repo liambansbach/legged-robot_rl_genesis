@@ -269,16 +269,23 @@ class SymmetryIntegrationTests(unittest.TestCase):
 
 
 @unittest.skipUnless(
-    os.environ.get("GO2W_RESUME_SMOKE_SIGMA"), "opt-in original CK800 resume smoke"
+    os.environ.get("GO2W_RESUME_SMOKE_SIGMA") or os.environ.get("GO2W_RESUME_SMOKE_FINETUNE"),
+    "opt-in original checkpoint resume smoke",
 )
 class ContinuationIntegrationTests(unittest.TestCase):
-    def test_original_ck800_two_additional_updates(self):
+    def test_original_checkpoint_two_additional_updates(self):
         from robot_gym.scripts.train import train
         from robot_gym.utils.training_diagnostics import verify_resume_state
         from robot_gym.utils.diagnostics import sha256, write_json
         import yaml
 
-        sigma = float(os.environ["GO2W_RESUME_SMOKE_SIGMA"])
+        finetune = os.environ.get("GO2W_RESUME_SMOKE_FINETUNE")
+        sigma = float(os.environ.get("GO2W_RESUME_SMOKE_SIGMA", "0.25"))
+        iteration = 1499 if finetune else 800
+        parent_hash = (
+            "080ac621c286250fa959d269a5e6299761af25a850fbbd449155a6f13f315ae7" if finetune
+            else "d0da829b95c683ce977323c4af88922c2a86ac9e680ff4501af302704c0cfcc1"
+        )
         self.assertIn(sigma, (0.25, 0.09))
         arm = "control" if sigma == 0.25 else "009"
         entropy = os.environ.get("GO2W_RESUME_SMOKE_ENTROPY")
@@ -313,12 +320,20 @@ class ContinuationIntegrationTests(unittest.TestCase):
             self.assertEqual(sigma, 0.25)
             argv[argv.index("--run_name") + 1] = "entropy_001_smoke_seed1"
             argv += ["--entropy_coef", entropy]
+        if finetune:
+            self.assertIn(finetune, ("coverage", "coverage_mobility"))
+            self.assertIsNone(entropy)
+            argv[argv.index("--checkpoint") + 1] = str(iteration)
+            argv[argv.index("--experiment_name") + 1] = "go2w_step_recovery_v1"
+            argv[argv.index("--load_run") + 1] = "step_recovery_v1_seed1_20260926_165356_2026-09-26_16-55-18"
+            argv[argv.index("--run_name") + 1] = f"{finetune}_smoke_seed1_{os.environ['GO2W_COMPARISON_TAG']}"
+            argv += ["--go2w_profile", "step_recovery_v1", "--go2w_finetune", finetune]
         with patch.object(sys, "argv", argv):
             args = get_args()
         try:
             runner = train(
                 args
-            )  # Includes exact comparison to original CK800 before learn.
+            )  # Includes exact comparison to the original parent before learn.
             out = Path(runner.logger.log_dir)
             meta = json.loads((out / "continuation.json").read_text())
             cfg = yaml.safe_load((out / "config.yaml").read_text())
@@ -326,9 +341,17 @@ class ContinuationIntegrationTests(unittest.TestCase):
             self.assertTrue(meta["loaded_state"]["exact_state_match"])
             self.assertEqual(
                 meta["parent"]["checkpoint_sha256"],
-                "d0da829b95c683ce977323c4af88922c2a86ac9e680ff4501af302704c0cfcc1",
+                parent_hash,
             )
             self.assertEqual(meta["completed_additional_updates"], 2)
+            if finetune:
+                self.assertEqual(meta["parent"]["saved_config"]["sha256"],
+                                 "916691c276ba5112fe947b00e5c59b527d0390fa68596421e97906c827a501d6")
+                self.assertEqual(cfg["env_cfg"]["go2w_finetune"], finetune)
+                self.assertEqual(meta["explicit_overrides"]["go2w_finetune"], finetune)
+                self.assertEqual(runner.alg.entropy_coef, 0.001)
+                self.assertTrue(torch.isfinite(runner.env.obs_buf).all())
+                self.assertTrue(torch.isfinite(runner.env.rew_buf).all())
             if entropy is not None:
                 self.assertEqual(runner.alg.entropy_coef, 0.001)
                 self.assertEqual(meta["entropy_coef"], 0.001)
@@ -337,12 +360,12 @@ class ContinuationIntegrationTests(unittest.TestCase):
             self.assertEqual(cfg["env_cfg"]["rewards"]["tracking_sigma_x"], sigma)
             self.assertEqual(cfg["env_cfg"]["rewards"]["tracking_sigma_y"], 0.04)
             self.assertEqual(cfg["train_cfg"]["runner"]["num_steps_per_env"], 48)
-            self.assertEqual(cfg["train_cfg"]["runner"]["save_interval"], 50)
+            self.assertEqual(cfg["train_cfg"]["runner"]["save_interval"], 250 if finetune else 50)
             rows = [
                 json.loads(line)
                 for line in (out / "diagnostics.jsonl").read_text().splitlines()
             ]
-            self.assertEqual([r["iteration"] for r in rows], [800, 801])
+            self.assertEqual([r["iteration"] for r in rows], [iteration, iteration + 1])
             for row in rows:
                 self.assertEqual(len(row["scheduler_kl_per_minibatch"]), 40)
                 self.assertEqual(len(row["ppo_clip_fraction_per_minibatch"]), 40)
@@ -351,6 +374,8 @@ class ContinuationIntegrationTests(unittest.TestCase):
                     row["nonterminal_reward"]["all"]["sample_count"], 64 * 48
                 )
                 self.assertFalse(row["source"]["mirror_loss_enabled"])
+                if finetune:
+                    self.assertIn("coverage_time_exposure", row)
                 json.dumps(row, allow_nan=False)
             events = EventAccumulator(str(out)).Reload()
             losses = {
@@ -363,7 +388,7 @@ class ContinuationIntegrationTests(unittest.TestCase):
                 self.assertEqual(len(values), 2)
                 self.assertTrue(all(math.isfinite(v) for v in values))
             checkpoint = Path(meta["final_checkpoint"])
-            self.assertEqual(checkpoint.name, "model_801.pt")
+            self.assertEqual(checkpoint.name, f"model_{iteration + 1}.pt")
             verify_resume_state(
                 runner, checkpoint
             )  # Saved state equals completed runner.
@@ -395,7 +420,7 @@ class ContinuationIntegrationTests(unittest.TestCase):
                 },
             )
             print(
-                f"CK800 RESUME SMOKE PASS: {out}; sigma_x={sigma}; two additional updates",
+                f"CK{iteration} RESUME SMOKE PASS: {out}; finetune={finetune}; sigma_x={sigma}; two additional updates",
                 flush=True,
             )
         finally:

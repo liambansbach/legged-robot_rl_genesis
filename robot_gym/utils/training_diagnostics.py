@@ -142,6 +142,7 @@ class TrainingDiagnostics:
         self.rewards = {}
         self.kl = []
         self.ppo_clip = []
+        self.coverage = None
 
     def add(self, key, value):
         value = value.detach().float()
@@ -194,6 +195,14 @@ class TrainingDiagnostics:
 
     def reward(self, raw, commands):
         # raw is the dt-scaled nonterminal reward sum, before only_positive_rewards.
+        if hasattr(self.env, "diagnostic_long_moving_commands"):
+            mixed = self.command_families == 6
+            counts = torch.stack((
+                self.env.diagnostic_long_moving_commands.sum(),
+                mixed.sum(),
+                (mixed & (commands[:, 2] == 0)).sum(),
+            ))
+            self.coverage = counts if self.coverage is None else self.coverage + counts
         masks = {
             "all": torch.ones_like(raw, dtype=torch.bool),
             "unlabelled_initial": self.command_families == -1,
@@ -322,6 +331,15 @@ class TrainingDiagnostics:
             },
             "slew_definition": "Consecutive clipped/scaled targets on sampled rollout states, excluding reset boundaries; mean path is a counterfactual at those same states; no extra policy calls",
         }
+        if self.coverage is not None:
+            long_moving, mixed, mixed_zero_yaw = self.coverage.tolist()
+            row["coverage_time_exposure"] = {
+                "long_moving_environment_seconds": long_moving * self.env.dt,
+                "long_moving_fraction": long_moving / rewards["all"]["sample_count"],
+                "mixed_zero_yaw_environment_seconds": mixed_zero_yaw * self.env.dt,
+                "zero_yaw_fraction_of_mixed_time": mixed_zero_yaw / mixed if mixed else None,
+                "definition": "Observed environment steps, including truncated segments; not completed long holds or segment probabilities",
+            }
         with self.path.open("a") as stream:
             stream.write(json.dumps(json_safe(row), allow_nan=False) + "\n")
         self.iteration += 1

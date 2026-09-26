@@ -124,6 +124,13 @@ def update_cfg_from_args(env_cfg, cfg_train, args):
         from robot_gym.envs.go2w.go2w_config import apply_go2w_profile
 
         apply_go2w_profile(env_cfg, cfg_train, profile)
+    finetune = getattr(args, "go2w_finetune", None)
+    if finetune is not None:
+        if args.task != "go2w" or profile != "step_recovery_v1":
+            raise ValueError("--go2w_finetune requires go2w with --go2w_profile step_recovery_v1")
+        from robot_gym.envs.go2w.go2w_config import apply_go2w_finetune
+
+        apply_go2w_finetune(env_cfg, cfg_train, finetune)
     if getattr(args, "zero_command_brake", False) and args.task != "go2w":
         raise ValueError("--zero_command_brake is specific to go2w playback/evaluation")
     entropy = getattr(args, "entropy_coef", None)
@@ -172,6 +179,7 @@ def get_args():
     parser = argparse.ArgumentParser(description="RL Policy")
 
     custom_parameters = [
+        {"name": "--go2w_finetune", "choices": ["coverage", "coverage_mobility"], "default": None, "help": "Explicit step_recovery_v1 continuation/evaluation design; unset preserves sampling and rewards"},
         {"name": "--no_export", "action": "store_true", "help": "Playback: skip automatic policy export; source selection still uses --load_run"},
         {"name": "--go2w_profile", "choices": ["step_recovery_v1"], "default": None, "help": "Explicit Go2-W action/reward/training profile; unset preserves the baseline"},
         {"name": "--zero_command_brake", "action": "store_true", "help": "Go2-W inference only: blend wheel targets to zero for a complete zero body command"},

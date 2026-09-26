@@ -15,6 +15,7 @@ from robot_gym.envs.go2w.go2w_env import Go2WEnv
 from robot_gym.envs.go2w.go2w_config import (
     GO2WCfg,
     apply_go2w_profile,
+    apply_go2w_finetune,
     check_target_intervals,
 )
 from robot_gym.envs.go2.go2_env import Go2Env
@@ -24,6 +25,7 @@ from robot_gym.utils.helpers import class_to_dict, update_cfg_from_args
 from robot_gym.utils.diagnostics import (
     check_reference_contract,
     check_training_continuation,
+    config_differences,
     urdf_link_poses,
     link_reposition_velocity,
     wheel_cylinders,
@@ -56,6 +58,146 @@ class ContractTests(unittest.TestCase):
             for n in ["lin_vel_x", "lin_vel_y", "ang_vel_yaw"]
         }
         return e
+
+    def test_finetune_selection_and_exact_continuation_exceptions(self):
+        baseline = tuple(map(class_to_dict, task_registry.get_cfgs("go2w")))
+        configs = {}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "config.yaml"
+            for variant in (None, "coverage", "coverage_mobility"):
+                argv = ["train", "--task", "go2w", "--go2w_profile", "step_recovery_v1"]
+                if variant:
+                    argv += ["--go2w_finetune", variant]
+                with patch.object(sys, "argv", argv):
+                    args = get_args()
+                self.assertEqual(args.go2w_finetune, variant)
+                env, train = task_registry.get_cfgs("go2w")
+                rng = torch.get_rng_state().clone()
+                update_cfg_from_args(env, train, args)
+                self.assertTrue(torch.equal(rng, torch.get_rng_state()))
+                resolved = tuple(map(class_to_dict, (env, train)))
+                update_cfg_from_args(env, train, args)
+                self.assertEqual(resolved, tuple(map(class_to_dict, (env, train))))
+                configs[variant] = resolved
+                if variant is None:
+                    path.write_text(yaml.safe_dump(json.loads(json.dumps(
+                        dict(env_cfg=resolved[0], train_cfg=resolved[1])))))
+                    continue
+                check_training_continuation(path, *resolved, finetune=variant)
+                with self.assertRaisesRegex(ValueError, "Unexplained"):
+                    check_training_continuation(path, *resolved)
+                with self.assertRaisesRegex(ValueError, "contract mismatch"):
+                    check_reference_contract(path, *resolved)
+                for section, key, value in (
+                    ("commands", "mixed_zero_yaw_probability", 0.6),
+                    ("commands", "long_stand_probability", 0.3),
+                    ("rewards", "tracking_sigma_x", 0.09),
+                    ("rewards", "yaw_pose_start", 0.1),
+                    ("control", "wheel_velocity_target_limit", 19),
+                ):
+                    changed = copy.deepcopy(resolved[0])
+                    changed[section][key] = value
+                    with self.assertRaises(ValueError, msg=f"{section}.{key}"):
+                        check_training_continuation(path, changed, resolved[1], finetune=variant)
+                changed_train = copy.deepcopy(resolved[1])
+                changed_train["algorithm"]["entropy_coef"] = 0.002
+                with self.assertRaisesRegex(ValueError, "entropy_coef"):
+                    check_training_continuation(path, resolved[0], changed_train, finetune=variant)
+                with self.assertRaises(ValueError):
+                    check_training_continuation(path, *resolved, finetune="coverage" if variant.endswith("mobility") else "coverage_mobility")
+                saved_variant = Path(tmp) / f"{variant}.yaml"
+                saved_variant.write_text(yaml.safe_dump(json.loads(json.dumps(
+                    dict(env_cfg=resolved[0], train_cfg=resolved[1])))))
+                check_reference_contract(saved_variant, *resolved)
+                with self.assertRaisesRegex(ValueError, "contract mismatch"):
+                    check_reference_contract(saved_variant, *configs[None])
+            differences = config_differences(configs["coverage"][0], configs["coverage_mobility"][0])
+            self.assertEqual(set(differences), {
+                "go2w_finetune", "rewards.yaw_mobility_start",
+                "rewards.yaw_mobility_full", "rewards.wheel_air_relaxation",
+            })
+            self.assertEqual(set(config_differences(configs["coverage"][1], configs["coverage_mobility"][1])), {"go2w_finetune"})
+        self.assertEqual(baseline, tuple(map(class_to_dict, task_registry.get_cfgs("go2w"))))
+        with self.assertRaisesRegex(ValueError, "requires"):
+            apply_go2w_finetune(GO2WCfg(), None, "coverage")
+
+    def test_finetune_sampler_mixture_and_fixed_commands(self):
+        count = 100000
+        samples = []
+        for variant in (None, "coverage", "coverage_mobility"):
+            e = self.make_env(count, "step_recovery_v1")
+            if variant:
+                apply_go2w_finetune(e.cfg, None, variant)
+            e.cfg.env.record_command_families = True
+            e._build_control_tensors()
+            torch.manual_seed(290926)
+            e._resample_commands(torch.arange(count))
+            samples.append((e.commands.clone(), e.command_steps_left.clone(),
+                            e.diagnostic_command_families.clone(), torch.get_rng_state().clone()))
+            if not variant:
+                continue
+            families = e.diagnostic_command_families
+            moving = families != 0
+            stand = ~moving
+            duration = e.command_steps_left * e.dt
+            fractions = torch.bincount(families, minlength=7) / count
+            torch.testing.assert_close(fractions, e.command_mixture, atol=0.005, rtol=0)
+            for mask, expected in ((moving, (0.70, 0.25, 0.05)), (stand, (0.525, 0.225, 0.25))):
+                durations = duration[mask]
+                # Durations are quantized at 50 Hz; the shared 3 s endpoint is negligible here.
+                fractions = torch.stack(((durations < 1.5).float().mean(),
+                                         ((durations >= 1.5) & (durations < 3)).float().mean(),
+                                         (durations >= 3).float().mean()))
+                torch.testing.assert_close(fractions, torch.tensor(expected), atol=0.012, rtol=0)
+            long = moving & (duration > 3)
+            self.assertTrue(((duration[long] >= 8) & (duration[long] <= 15)).all())
+            self.assertTrue(torch.equal(e.diagnostic_long_moving_commands, long))
+            self.assertTrue((duration[stand] <= 6).all())
+            self.assertTrue(torch.equal(e.command_steps_left[stand], samples[0][1][stand]))
+            mixed = families == 6
+            self.assertAlmostEqual(float((e.commands[mixed, 2] == 0).float().mean()), 0.5, delta=0.025)
+            self.assertAlmostEqual(float((e.commands[mixed, 1] > 0).float().mean()), 0.5, delta=0.025)
+            self.assertTrue(torch.equal(e.commands[mixed, :2], samples[0][0][mixed, :2]))
+            e.command_resampling_enabled = True
+            e.compute_observations = Mock()
+            e.set_fixed_command((0.7, 0.1, 0.0))
+            before = torch.get_rng_state().clone()
+            e._resample_commands(torch.arange(count))
+            self.assertTrue(torch.equal(before, torch.get_rng_state()))
+            torch.testing.assert_close(e.commands, torch.tensor([0.7, 0.1, 0.0]).expand(count, -1))
+        for a, b in zip(samples[1], samples[2]):
+            self.assertTrue(torch.equal(a, b))
+
+    def test_finetune_mobility_terms_and_unchanged_pose_gate(self):
+        pose = []
+        for variant, expected in (("coverage", [0, 0, 0.1454545, 0.6545455, 1, 1]),
+                                  ("coverage_mobility", [0, 0, 0.4444444, 0.8, 1, 1])):
+            e = self.make_env(6, "step_recovery_v1")
+            apply_go2w_finetune(e.cfg, None, variant)
+            e.commands[:] = torch.tensor([[0, 0, 0], [0.5, 0, 0], [0, 0, 0.4],
+                                          [0, 0, 0.75], [0.7, 0.1, 0], [0, -0.1, 0]])
+            torch.testing.assert_close(e._mobility_gate(), torch.tensor(expected))
+            pose.append(e._pose_relaxation_gate())
+            e.loaded_wheels = torch.tensor([[False, True, True, True]]).repeat(6, 1)
+            e.wheel_clearance = torch.full((6, 4), 0.04)
+            e.wheel_reposition_velocity_body = torch.zeros(6, 4, 3)
+            e.wheel_reposition_velocity_body[:, :, 0] = 0.15
+            positive = 0.12 * e._reward_foot_swing_clearance()
+            negative = -0.25 * e._reward_unnecessary_wheel_air()
+            self.assertAlmostEqual(float(positive[2]), 0.0533333 if variant.endswith("mobility") else 0.0174545, places=6)
+            self.assertAlmostEqual(float(negative[2]), -0.0375 if variant.endswith("mobility") else -0.0556818, places=6)
+            self.assertEqual(float(positive[:2].sum()), 0)
+            e.loaded_wheels[:, 1] = False
+            self.assertAlmostEqual(float((-0.25 * e._reward_unnecessary_wheel_air())[2]), 2 * float(negative[2]), places=6)
+            e.wheel_reposition_velocity_body.zero_()
+            self.assertEqual(float(e._reward_foot_swing_clearance().sum()), 0)
+            e.wheel_reposition_velocity_body[:, :, 0] = 0.15
+            e.wheel_clearance.zero_()
+            self.assertEqual(float(e._reward_foot_swing_clearance().sum()), 0)
+            e.wheel_clearance.fill_(0.04)
+            e.loaded_wheels.zero_()
+            self.assertEqual(float(e._reward_foot_swing_clearance().sum()), 0)
+        self.assertTrue(torch.equal(*pose))
 
     def test_profile_opt_in_contract_and_registry_isolation(self):
         baseline = tuple(map(class_to_dict, task_registry.get_cfgs("go2w")))

@@ -26,6 +26,38 @@ WHEEL_JOINTS = [
 ]
 
 
+FINETUNE_COMMANDS = {
+    "mixed_zero_yaw_probability": 0.50,
+    "moving_long_probability": 0.05,
+    "moving_long_duration_range": [8.0, 15.0],
+}
+FINETUNE_MOBILITY = {
+    "yaw_mobility_start": 0.15,
+    "yaw_mobility_full": 0.60,
+    "wheel_air_relaxation": 0.90,
+}
+
+
+def apply_go2w_finetune(env_cfg, train_cfg, name):
+    """Explicit continuation designs on the unchanged step-recovery action contract."""
+    if name not in ("coverage", "coverage_mobility"):
+        raise ValueError(f"Unknown Go2-W finetune: {name}")
+    for cfg in (env_cfg, train_cfg):
+        if cfg is not None:
+            if getattr(cfg, "go2w_profile", None) != "step_recovery_v1":
+                raise ValueError("Go2-W finetune requires --go2w_profile step_recovery_v1")
+            previous = getattr(cfg, "go2w_finetune", name)
+            if previous != name:
+                raise ValueError("Cannot change finetune selection on an already resolved config")
+            cfg.go2w_finetune = name
+    if env_cfg is not None:
+        for key, value in FINETUNE_COMMANDS.items():
+            setattr(env_cfg.commands, key, value.copy() if isinstance(value, list) else value)
+        if name == "coverage_mobility":
+            for key, value in FINETUNE_MOBILITY.items():
+                setattr(env_cfg.rewards, key, value)
+
+
 def apply_go2w_profile(env_cfg, train_cfg, name):
     """One explicit candidate; never mutate the registered config or its dictionaries."""
     if name != "step_recovery_v1":

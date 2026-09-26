@@ -73,6 +73,10 @@ class Go2WEnv(Go2Env):
             self.diagnostic_command_families = torch.full(
                 (self.num_envs,), -1, dtype=torch.long, device=self.device
             )
+            if getattr(self.cfg, "go2w_finetune", None):
+                self.diagnostic_long_moving_commands = torch.zeros(
+                    self.num_envs, dtype=torch.bool, device=self.device
+                )
         low, high = self.cfg.commands.pure_lateral_magnitude_range
         y_min, y_max = self.cfg.commands.ranges.lin_vel_y
         if not 0 < low <= high <= min(-y_min, y_max):
@@ -192,6 +196,24 @@ class Go2WEnv(Go2Env):
             self.command_steps_left[long_ids] = self._sample_interval_steps(
                 self.cfg.commands.long_stand_duration_range, len(long_ids), self.dt
             )
+        if getattr(self.cfg, "go2w_finetune", None):
+            cfg = self.cfg.commands
+            mixed_ids = env_ids[families == 6]
+            zero_yaw = torch.rand(len(mixed_ids), device=self.device) < cfg.mixed_zero_yaw_probability
+            self.commands[mixed_ids[zero_yaw], 2] = 0
+            # Reassign one sixth of the ordinary 30% sustained MOVING segments.
+            # Stand's original draws and 25% long-stand replacement stay intact.
+            sustained = self.command_steps_left[env_ids] >= round(cfg.sustained_command_duration_range[0] / self.dt)
+            candidates = env_ids[(families != 0) & sustained]
+            long_ids = candidates[torch.rand(len(candidates), device=self.device)
+                                  < cfg.moving_long_probability / cfg.sustained_command_probability]
+            self.command_steps_left[long_ids] = self._sample_interval_steps(
+                cfg.moving_long_duration_range, len(long_ids), self.dt
+            )
+            if hasattr(self, "diagnostic_long_moving_commands"):
+                self.diagnostic_long_moving_commands[env_ids] = (
+                    (families != 0) & (self.command_steps_left[env_ids] > round(3 / self.dt))
+                )
 
     def compute_observations(self):
         # Keep this construction explicit so simulator velocity can later be replaced by an estimate.
@@ -333,7 +355,8 @@ class Go2WEnv(Go2Env):
     def _reward_unnecessary_wheel_air(self):
         # Retain a contact preference even when stepping is allowed.
         contacts = self.loaded_wheels if self.step_recovery else self.foot_contacts
-        return (1 - 0.75 * self._mobility_gate()) * (~contacts).float().mean(dim=1)
+        relaxation = getattr(self.cfg.rewards, "wheel_air_relaxation", 0.75)
+        return (1 - relaxation * self._mobility_gate()) * (~contacts).float().mean(dim=1)
 
     def _reward_foot_swing_clearance(self):
         if not self.step_recovery:

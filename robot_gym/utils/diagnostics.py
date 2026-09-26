@@ -58,7 +58,7 @@ def config_differences(saved, current, prefix=""):
     return {} if saved == current else {prefix: {"saved": saved, "current": current}}
 
 
-def check_reference_contract(config_path, env_cfg, train_cfg):
+def check_reference_contract(config_path, env_cfg, train_cfg, finetune_continuation=False):
     """Check the training contract BEFORE intentional evaluation overrides.
 
     Reward/command-exposure differences are reported, not treated as changed physics.
@@ -103,6 +103,12 @@ def check_reference_contract(config_path, env_cfg, train_cfg):
         for k, v in differences.items()
         if k.startswith(important) and k not in execution
     }
+    # Playback/evaluation must explicitly select the saved finetune design.
+    # Training checks its exact allowed transition separately below.
+    if not finetune_continuation:
+        for key in ("env_cfg.go2w_finetune", "train_cfg.go2w_finetune"):
+            if key in differences:
+                mismatches[key] = differences[key]
     if mismatches:
         raise ValueError(
             "Reference actuator/observation/physics contract mismatch:\n"
@@ -116,10 +122,10 @@ def check_reference_contract(config_path, env_cfg, train_cfg):
 
 
 def check_training_continuation(
-    config_path, env_cfg, train_cfg, sigma_x=None, entropy_coef=None
+    config_path, env_cfg, train_cfg, sigma_x=None, entropy_coef=None, finetune=None
 ):
     """Go2-W continuation: every unexplained config difference is an error."""
-    reference = check_reference_contract(config_path, env_cfg, train_cfg)
+    reference = check_reference_contract(config_path, env_cfg, train_cfg, finetune_continuation=True)
     allowed = {
         "train_cfg.runner.run_name",
         "train_cfg.runner.resume",
@@ -131,6 +137,28 @@ def check_training_continuation(
         "env_cfg.sim.batch_dofs_info",  # Populated during Genesis build for DR.
         "env_cfg.sim.batch_links_info",
     }
+    if finetune is not None:
+        from robot_gym.envs.go2w.go2w_config import FINETUNE_COMMANDS, FINETUNE_MOBILITY
+
+        if finetune not in ("coverage", "coverage_mobility"):
+            raise ValueError(f"Unknown Go2-W finetune: {finetune}")
+        expected = {
+            "env_cfg.go2w_finetune": finetune,
+            "train_cfg.go2w_finetune": finetune,
+            **{f"env_cfg.commands.{key}": value for key, value in FINETUNE_COMMANDS.items()},
+        }
+        if finetune == "coverage_mobility":
+            expected.update({f"env_cfg.rewards.{key}": value for key, value in FINETUNE_MOBILITY.items()})
+        resolved = {"env_cfg": env_cfg, "train_cfg": train_cfg}
+        if any(cfg.get("go2w_profile") != "step_recovery_v1" for cfg in resolved.values()):
+            raise ValueError("Finetune continuation requires the step_recovery_v1 profile")
+        for key, value in expected.items():
+            current = resolved
+            for part in key.split("."):
+                current = current.get(part, {}) if isinstance(current, dict) else None
+            if current != value:
+                raise ValueError(f"Finetune override differs from explicit {finetune}: {key}")
+        allowed.update(expected)
     if sigma_x is not None and env_cfg["rewards"]["tracking_sigma_x"] == sigma_x:
         allowed.add("env_cfg.rewards.tracking_sigma_x")
     if (

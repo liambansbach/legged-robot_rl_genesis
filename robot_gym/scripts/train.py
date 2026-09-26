@@ -72,6 +72,7 @@ def prepare_go2w_continuation(args, env_cfg, train_cfg):
         class_to_dict(train_cfg),
         args.tracking_sigma_x,
         args.entropy_coef,
+        getattr(args, "go2w_finetune", None),
     )
     saved_git = checkpoint.parent / "git" / f"{Path(ROBOT_GYM_ROOT_DIR).name}.diff"
     source_snapshot = None
@@ -104,6 +105,8 @@ def train(args):
 
     env_cfg, train_cfg = task_registry.get_cfgs(args.task)
     update_cfg_from_args(env_cfg, train_cfg, args)
+    if getattr(args, "go2w_finetune", None) and not train_cfg.runner.resume:
+        raise ValueError("Go2-W finetune requires explicit full-state --resume")
     profile = getattr(args, "go2w_profile", None)
     if profile and not train_cfg.runner.resume and (
         args.load_run is not None or args.checkpoint is not None
@@ -148,6 +151,7 @@ def train(args):
             "explicit_overrides": {
                 "tracking_sigma_x": args.tracking_sigma_x,
                 "entropy_coef": args.entropy_coef,
+                "go2w_finetune": getattr(args, "go2w_finetune", None),
             },
             "planned_additional_updates": train_cfg.runner.max_iterations,
             "completed_additional_updates": 0,
