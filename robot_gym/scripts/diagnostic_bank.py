@@ -301,6 +301,8 @@ def evaluate_bank(env, runner, args, out):
     }
     with torch.no_grad():
         for name, before, after in sequences:
+            if name == "zero_action_stand" and args.skip_zero_action_probe:
+                continue
             apply_conditions(env, conditions, nominal)
             history, dones, commands = {}, [], []
             for step in range(2 * hold):

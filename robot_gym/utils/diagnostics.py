@@ -113,6 +113,44 @@ def check_reference_contract(config_path, env_cfg, train_cfg):
     }
 
 
+def check_training_continuation(config_path, env_cfg, train_cfg, sigma_x=None):
+    """Go2-W continuation: every unexplained config difference is an error."""
+    reference = check_reference_contract(config_path, env_cfg, train_cfg)
+    allowed = {
+        "train_cfg.runner.run_name",
+        "train_cfg.runner.resume",
+        "train_cfg.runner.load_run",
+        "train_cfg.runner.checkpoint",
+        "train_cfg.runner.max_iterations",
+        "train_cfg.runner.logger",
+        "env_cfg.env.record_command_families",  # Read-only diagnostic labels.
+        "env_cfg.sim.batch_dofs_info",  # Populated during Genesis build for DR.
+        "env_cfg.sim.batch_links_info",
+    }
+    if sigma_x is not None and env_cfg["rewards"]["tracking_sigma_x"] == sigma_x:
+        allowed.add("env_cfg.rewards.tracking_sigma_x")
+    # Only the agreed two-update smoke may reduce the source batch size.
+    if env_cfg["env"]["num_envs"] == 64 and train_cfg["runner"]["max_iterations"] == 2:
+        allowed.add("env_cfg.env.num_envs")
+    unexpected = {k: v for k, v in reference["differences"].items() if k not in allowed}
+    if unexpected:
+        raise ValueError(
+            "Unexplained continuation config differences:\n"
+            + json.dumps(unexpected, indent=2)
+        )
+    return reference
+
+
+def check_continuation_output(checkpoint, output):
+    parent, output = Path(checkpoint).resolve().parent, Path(output).resolve()
+    if output == parent or parent in output.parents:
+        raise ValueError(
+            f"Continuation output must be separate from its parent run: {output}"
+        )
+    if output.exists():
+        raise ValueError(f"Continuation output must be fresh: {output}")
+
+
 def source_identity(root):
     def git(*args):
         return subprocess.check_output(

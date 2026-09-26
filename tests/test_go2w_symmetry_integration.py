@@ -140,5 +140,126 @@ class SymmetryIntegrationTests(unittest.TestCase):
             gs.destroy()
 
 
+@unittest.skipUnless(
+    os.environ.get("GO2W_RESUME_SMOKE_SIGMA"), "opt-in original CK800 resume smoke"
+)
+class ContinuationIntegrationTests(unittest.TestCase):
+    def test_original_ck800_two_additional_updates(self):
+        from robot_gym.scripts.train import train
+        from robot_gym.utils.training_diagnostics import verify_resume_state
+        from robot_gym.utils.diagnostics import sha256, write_json
+        import yaml
+
+        sigma = float(os.environ["GO2W_RESUME_SMOKE_SIGMA"])
+        self.assertIn(sigma, (0.25, 0.09))
+        arm = "control" if sigma == 0.25 else "009"
+        argv = [
+            "resume-smoke",
+            "--task",
+            "go2w",
+            "--num_envs",
+            "64",
+            "--headless",
+            "--training_diagnostics",
+            "--seed",
+            "1",
+            "--logger",
+            "tensorboard",
+            "--max_iterations",
+            "2",
+            "--resume",
+            "--checkpoint",
+            "800",
+            "--experiment_name",
+            "go2w_flat_pilot_v2_4_yaw_mobility",
+            "--load_run",
+            "augmentation_seed1_2026-09-25_16-27-23",
+            "--run_name",
+            f"xtracking_{arm}_smoke_seed1",
+            "--tracking_sigma_x",
+            str(sigma),
+        ]
+        with patch.object(sys, "argv", argv):
+            args = get_args()
+        try:
+            runner = train(
+                args
+            )  # Includes exact comparison to original CK800 before learn.
+            out = Path(runner.logger.log_dir)
+            meta = json.loads((out / "continuation.json").read_text())
+            cfg = yaml.safe_load((out / "config.yaml").read_text())
+            self.assertEqual(meta["status"], "completed")
+            self.assertTrue(meta["loaded_state"]["exact_state_match"])
+            self.assertEqual(
+                meta["parent"]["checkpoint_sha256"],
+                "d0da829b95c683ce977323c4af88922c2a86ac9e680ff4501af302704c0cfcc1",
+            )
+            self.assertEqual(meta["completed_additional_updates"], 2)
+            self.assertEqual(cfg["env_cfg"]["rewards"]["tracking_sigma_x"], sigma)
+            self.assertEqual(cfg["env_cfg"]["rewards"]["tracking_sigma_y"], 0.04)
+            self.assertEqual(cfg["train_cfg"]["runner"]["num_steps_per_env"], 48)
+            self.assertEqual(cfg["train_cfg"]["runner"]["save_interval"], 50)
+            rows = [
+                json.loads(line)
+                for line in (out / "diagnostics.jsonl").read_text().splitlines()
+            ]
+            self.assertEqual([r["iteration"] for r in rows], [800, 801])
+            for row in rows:
+                self.assertEqual(len(row["scheduler_kl_per_minibatch"]), 40)
+                self.assertEqual(len(row["ppo_clip_fraction_per_minibatch"]), 40)
+                self.assertEqual(len(row["action_vectors"]["raw_mean"]), 16)
+                self.assertEqual(
+                    row["nonterminal_reward"]["all"]["sample_count"], 64 * 48
+                )
+                self.assertFalse(row["source"]["mirror_loss_enabled"])
+                json.dumps(row, allow_nan=False)
+            events = EventAccumulator(str(out)).Reload()
+            losses = {
+                tag: [event.value for event in events.Scalars(tag)]
+                for tag in events.Tags()["scalars"]
+                if tag.startswith("Loss/")
+            }
+            self.assertTrue(losses)
+            for values in losses.values():
+                self.assertEqual(len(values), 2)
+                self.assertTrue(all(math.isfinite(v) for v in values))
+            checkpoint = Path(meta["final_checkpoint"])
+            self.assertEqual(checkpoint.name, "model_801.pt")
+            verify_resume_state(
+                runner, checkpoint
+            )  # Saved state equals completed runner.
+            runner.load(checkpoint)
+            reloaded = verify_resume_state(runner, checkpoint)
+            for component in runner.alg.save().values():
+                if isinstance(component, dict):
+                    for value in component.values():
+                        if torch.is_tensor(value):
+                            self.assertTrue(torch.isfinite(value).all())
+            # Inference only after training/reload; no extra training-time policy calls.
+            with torch.no_grad():
+                action = runner.get_inference_policy()(runner.env.get_observations())
+            self.assertTrue(torch.isfinite(action).all())
+            self.assertEqual(
+                sha256(meta["parent"]["checkpoint"]),
+                meta["parent"]["checkpoint_sha256"],
+            )
+            write_json(
+                out / "smoke_validation.json",
+                {
+                    "argv": argv,
+                    "losses": losses,
+                    "save_reload": reloaded,
+                    "final_checkpoint_sha256": sha256(checkpoint),
+                    "finite_policy_output": True,
+                },
+            )
+            print(
+                f"CK800 RESUME SMOKE PASS: {out}; sigma_x={sigma}; two additional updates",
+                flush=True,
+            )
+        finally:
+            gs.destroy()
+
+
 if __name__ == "__main__":
     unittest.main()

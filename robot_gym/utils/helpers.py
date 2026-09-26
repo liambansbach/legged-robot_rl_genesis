@@ -3,6 +3,7 @@ import torch
 import numpy as np
 import random
 import argparse
+import math
 
 def class_to_dict(obj) -> dict:
     if not  hasattr(obj,"__dict__"):
@@ -112,6 +113,14 @@ def get_load_path(root, load_run=-1, checkpoint=-1):
     return load_path
 
 def update_cfg_from_args(env_cfg, cfg_train, args):
+    sigma_x = getattr(args, "tracking_sigma_x", None)
+    if sigma_x is not None:
+        if args.task != "go2w":
+            raise ValueError("--tracking_sigma_x is specific to go2w")
+        if not math.isfinite(sigma_x) or sigma_x <= 0:
+            raise ValueError("--tracking_sigma_x must be finite and positive")
+        if env_cfg is not None:
+            env_cfg.rewards.tracking_sigma_x = sigma_x
     # seed
     if env_cfg is not None:
         # num envs
@@ -142,6 +151,8 @@ def get_args():
     parser = argparse.ArgumentParser(description="RL Policy")
 
     custom_parameters = [
+        {"name": "--tracking_sigma_x", "type": float, "default": None, "help": "Go2-W forward squared-error denominator; unset preserves the registered config"},
+        {"name": "--skip_zero_action_probe", "action": "store_true", "help": "Bank evaluation: retain all policy cases, omit the equilibrium zero-action probe"},
         {"name": "--diagnostic_trace", "action": "store_true", "help": "Read substep control forces, summed ground loads and cylinder geometry"},
         {"name": "--training_diagnostics", "action": "store_true", "help": "Opt-in RSL-RL and unclipped reward JSONL diagnostics"},
         {"name": "--reference_config", "help": "Explicit audited saved config, if not next to the checkpoint"},

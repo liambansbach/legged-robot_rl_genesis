@@ -249,6 +249,10 @@ class TaskRegistry:
                 load_run=train_cfg.runner.load_run,
                 checkpoint=train_cfg.runner.checkpoint,
             )
+            if save_config and getattr(args, "task", None) == "go2w":
+                from robot_gym.utils.diagnostics import check_continuation_output
+
+                check_continuation_output(resume_path, log_dir)
 
         runner = OnPolicyRunner(
             env=env,

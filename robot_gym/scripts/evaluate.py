@@ -9,7 +9,7 @@ from genesis.utils.geom import inv_quat, transform_by_quat
 from robot_gym.envs import *  # noqa: F401,F403
 from robot_gym.utils import task_registry
 from robot_gym.utils.helpers import get_args
-from robot_gym.utils.helpers import class_to_dict, get_load_path
+from robot_gym.utils.helpers import class_to_dict, get_load_path, update_cfg_from_args
 from robot_gym import ROBOT_GYM_ROOT_DIR
 from robot_gym.utils.urdf_reader import URDFReader
 from robot_gym.utils.diagnostics import (
@@ -288,6 +288,7 @@ def evaluate(args):
     if args.task != "go2w":
         raise ValueError("This command suite is specific to go2w")
     cfg, train_cfg = task_registry.get_cfgs("go2w")
+    update_cfg_from_args(cfg, train_cfg, args)
     if args.load_run in (None, "-1") or args.checkpoint in (None, -1):
         raise ValueError(
             "Reference evaluation requires explicit --load_run and --checkpoint"

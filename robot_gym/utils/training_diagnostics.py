@@ -5,12 +5,65 @@ and never performs an extra actor forward or random draw. Unsupported paths fail
 """
 
 import inspect
+import importlib.metadata
 import json
 from pathlib import Path
 
 import torch
 
 from robot_gym.utils.diagnostics import json_safe, sha256
+
+
+def verify_resume_state(runner, checkpoint):
+    """Read-only, exact comparison with the parent; no forwards or RNG draws."""
+    if importlib.metadata.version("rsl-rl-lib") != "5.5.1":
+        raise ValueError("Go2-W full-state continuation is validated for RSL-RL 5.5.1")
+    saved = torch.load(checkpoint, map_location="cpu", weights_only=False)
+
+    def compare(expected, actual, path):
+        if torch.is_tensor(expected):
+            equal = (
+                torch.is_tensor(actual)
+                and expected.dtype == actual.dtype
+                and torch.equal(expected, actual.detach().cpu())
+            )
+        elif isinstance(expected, dict):
+            equal = isinstance(actual, dict) and expected.keys() == actual.keys()
+            if equal:
+                for key in expected:
+                    compare(expected[key], actual[key], f"{path}.{key}")
+        elif isinstance(expected, (list, tuple)):
+            equal = isinstance(actual, (list, tuple)) and len(expected) == len(actual)
+            if equal:
+                for index, (a, b) in enumerate(zip(expected, actual)):
+                    compare(a, b, f"{path}.{index}")
+        else:
+            equal = expected == actual
+        if not equal:
+            raise ValueError(
+                f"Loaded continuation state differs from checkpoint: {path}"
+            )
+
+    # Native save includes both normalizers (all buffers/counters) in the models.
+    state = runner.alg.save()
+    for key in ("actor_state_dict", "critic_state_dict", "optimizer_state_dict"):
+        compare(saved[key], state[key], key)
+    compare(saved["iter"], runner.current_learning_iteration, "iteration")
+    learning_rate = saved["optimizer_state_dict"]["param_groups"][0]["lr"]
+    compare(learning_rate, runner.alg.learning_rate, "algorithm.learning_rate")
+    return {
+        "exact_state_match": True,
+        "rsl_rl_version": "5.5.1",
+        "source_iteration": saved["iter"],
+        "loaded_learning_rate": learning_rate,
+        "optimizer_learning_rates": [
+            g["lr"] for g in runner.alg.optimizer.param_groups
+        ],
+        "actor_and_critic_state_keys": {
+            k: list(state[k]) for k in ("actor_state_dict", "critic_state_dict")
+        },
+        "std_before_update": json_safe(std_parameters(runner.alg.actor.distribution)),
+    }
 
 
 def std_parameters(distribution):
