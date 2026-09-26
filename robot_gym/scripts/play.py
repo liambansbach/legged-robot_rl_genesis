@@ -94,6 +94,8 @@ def play(args):
     )
 
     configure_fixed_command(env, args)
+    if args.zero_command_brake:
+        env.enable_zero_command_brake()
     obs, _ = env.reset()
 
     # ----------------------------------------------------------------------
@@ -114,7 +116,8 @@ def play(args):
     # ---------------------------------------------------------------------- 
     # Export policy as JIT
     # ----------------------------------------------------------------------
-    if EXPORT_POLICY:
+    # A composite controller needs an explicitly qualified package, not a bare neural export.
+    if EXPORT_POLICY and not args.zero_command_brake:
         path = os.path.join(
             ROBOT_GYM_ROOT_DIR,
             "logs",

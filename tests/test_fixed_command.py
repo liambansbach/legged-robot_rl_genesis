@@ -11,6 +11,7 @@ from robot_gym.envs import *  # noqa: F401,F403
 from robot_gym.scripts.play import configure_fixed_command
 from robot_gym.utils import get_args, task_registry
 from robot_gym.utils.helpers import class_to_dict
+from robot_gym.envs.go2w.zero_command_brake import ZeroCommandBrake
 
 
 COMMANDS = [
@@ -24,6 +25,90 @@ COMMANDS = [
 
 
 class FixedCommandTests(unittest.TestCase):
+    def test_brake_ramps_clip_before_blend_and_preserve_legs_and_inputs(self):
+        # Deliberately permuted mapping, with raw wheel proposals well beyond the bound.
+        wheels = [12, 1, 6, 9]
+        legs = [i for i in range(16) if i not in wheels]
+        brake = ZeroCommandBrake(7, wheels, 0.02, "cpu")
+        raw = torch.linspace(-4, 4, 16).repeat(7, 1)
+        original = raw.clone()
+        commands = torch.tensor([
+            [0, 0, 0], [0.1, 0, 0], [0, 0.1, 0], [0, 0, 0.4],
+            [0, 0, -0.4], [0.8e-6, 0.8e-6, 0], [0, 0, 1.1e-6],
+        ])
+        for step in range(10):
+            issued = brake.apply(raw, commands)
+            self.assertAlmostEqual(float(brake.alpha[0]), (step + 1) / 10, places=6)
+            torch.testing.assert_close(issued[:, legs], raw.clamp(-1, 1)[:, legs])
+            torch.testing.assert_close(issued[1:], raw[1:].clamp(-1, 1))
+            torch.testing.assert_close(issued[0, wheels], raw[0, wheels].clamp(-1, 1) * (1 - (step + 1) / 10))
+        self.assertEqual(float(brake.alpha[0]), 1)
+        self.assertEqual(issued[0, wheels].abs().max(), 0)
+        commands[0, 0] = -0.1
+        for step in range(5):
+            issued = brake.apply(raw, commands)
+            self.assertAlmostEqual(float(brake.alpha[0]), 1 - (step + 1) / 5, places=6)
+        self.assertEqual(float(brake.alpha[0]), 0)
+        torch.testing.assert_close(issued, raw.clamp(-1, 1))
+        torch.testing.assert_close(raw, original)
+        brake.apply(raw, torch.full((7, 3), 0.5e-6))
+        brake.reset([1, 5])
+        torch.testing.assert_close(brake.alpha, torch.tensor([.1, 0, .1, .1, .1, 0, .1]))
+        brake.reset()
+        self.assertEqual(brake.alpha.count_nonzero(), 0)
+
+    def test_brake_step_history_observations_and_reset_semantics(self):
+        e = self.make_env("go2w")
+        e.num_actions, e.all_env_ids = 16, torch.arange(3)
+        e.action_delay_steps = torch.tensor([0, 1, 0])
+        e.privileged_obs_buf = None
+        e.rew_buf = torch.zeros(3)
+        e._control_dofs = Mock()
+        e._apply_pushes = Mock()
+        e.cfg.domain_rand.push_robots = False
+        e.set_fixed_command((0, 0, 0))
+        raw = torch.linspace(-4, 4, 16).repeat(3, 1)
+        original = raw.clone()
+        # Disabled mode is the ordinary clipped action/history path.
+        e.step(raw)
+        torch.testing.assert_close(e.actions, raw.clamp(-1, 1))
+        e.enable_zero_command_brake()
+        e.action_history.zero_()
+        e.step(raw)
+        expected = raw.clamp(-1, 1)
+        expected[:, e.wheel_action_indices] *= .9
+        torch.testing.assert_close(e.actions, expected)
+        torch.testing.assert_close(e.action_history[:, 0], expected)
+        torch.testing.assert_close(e.obs_buf[:, -16:], expected)
+        torch.testing.assert_close(e.applied_actions[0], expected[0])
+        self.assertEqual(e.applied_actions[1].count_nonzero(), 0)
+        self.assertEqual(e._control_dofs.call_count, 2 * e.cfg.control.decimation)
+        torch.testing.assert_close(e.zero_command_brake.alpha, torch.full((3,), .1))
+        torch.testing.assert_close(raw, original)
+        e.reset_idx(torch.tensor([1]))
+        torch.testing.assert_close(e.zero_command_brake.alpha, torch.tensor([.1, 0, .1]))
+        e.reset()
+        self.assertEqual(e.zero_command_brake.alpha.count_nonzero(), 0)
+        self.assertEqual(e.actions.count_nonzero(), 0)
+
+    def test_brake_cli_default_and_training_rejection(self):
+        from robot_gym.scripts.train import train
+        from robot_gym.utils.helpers import update_cfg_from_args
+
+        with patch.object(sys, "argv", ["play", "--task", "go2w"]):
+            args = get_args()
+        self.assertFalse(args.zero_command_brake)
+        env, cfg = task_registry.get_cfgs("go2w")
+        before = (class_to_dict(env), class_to_dict(cfg))
+        args.zero_command_brake = True
+        update_cfg_from_args(env, cfg, args)
+        self.assertEqual(before, (class_to_dict(env), class_to_dict(cfg)))
+        with self.assertRaisesRegex(ValueError, "inference-only"):
+            train(args)
+        args.task = "go2"
+        with self.assertRaisesRegex(ValueError, "specific to go2w"):
+            update_cfg_from_args(env, cfg, args)
+
     def make_env(self, task):
         cls = task_registry.get_task_class(task)
         e = cls.__new__(cls)

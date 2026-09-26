@@ -7,6 +7,28 @@ from robot_gym.envs.go2.go2_env import Go2Env
 
 
 class Go2WEnv(Go2Env):
+    def enable_zero_command_brake(self):
+        from .zero_command_brake import ZeroCommandBrake
+
+        self.zero_command_brake = ZeroCommandBrake(
+            self.num_envs, self.wheel_action_indices, self.dt, self.device,
+            self.cfg.normalization.clip_actions,
+        )
+
+    def reset_idx(self, env_ids):
+        super().reset_idx(env_ids)
+        brake = getattr(self, "zero_command_brake", None)
+        if brake is not None:
+            brake.reset(env_ids)
+
+    def reset(self):
+        result = super().reset()
+        brake = getattr(self, "zero_command_brake", None)
+        if brake is not None:
+            # The base reset performs one zero-action settling step.
+            brake.reset()
+        return result
+
     def _build_control_tensors(self):
         super()._build_control_tensors()
         self.leg_action_indices = [

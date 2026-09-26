@@ -57,6 +57,9 @@ class LeggedRobot(BaseTask):
             diagnostics.begin_step(actions)
         clip_actions = self.cfg.normalization.clip_actions
         self.actions = torch.clip(actions, -clip_actions, clip_actions).to(self.device)
+        brake = getattr(self, "zero_command_brake", None)
+        if brake is not None:
+            self.actions = brake.apply(self.actions, self.commands)
 
         # newest policy action at index 0, older actions shifted back
         self.action_history = torch.roll(self.action_history, shifts=1, dims=1)

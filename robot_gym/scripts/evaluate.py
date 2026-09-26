@@ -339,6 +339,8 @@ def evaluate(args):
         cfg.sim.batch_links_info = cfg.sim.batch_dofs_info = True
         cfg.env.episode_length_s = 60.0
     env, _ = task_registry.make_env("go2w", args=args, env_cfg=cfg)
+    if args.zero_command_brake:
+        env.enable_zero_command_brake()
     env.command_resampling_enabled = False
     train_cfg.runner.resume = True
     runner, train_cfg = task_registry.make_alg_runner(
@@ -346,7 +348,7 @@ def evaluate(args):
     )
     policy = runner.get_inference_policy(device=env.device)
     out.mkdir(parents=True, exist_ok=True)
-    if args.diagnostic_trace or args.eval_mode != "nominal":
+    if args.diagnostic_trace or args.zero_command_brake or args.eval_mode != "nominal":
         env.physics_diagnostics = PhysicsDiagnostics(env)
     cfg = env.cfg
     write_json(
@@ -360,6 +362,8 @@ def evaluate(args):
             {
                 "cli": vars(args),
                 "config_changes": config_differences(original_cfg, class_to_dict(cfg)),
+                "zero_command_brake": env.zero_command_brake.contract()
+                if args.zero_command_brake else None,
             },
             reference,
         ),
@@ -443,7 +447,7 @@ def evaluate(args):
                 }
                 for key, value in detail.items():
                     detail_history[key].append(value)
-                if args.diagnostic_trace:
+                if args.diagnostic_trace or args.zero_command_brake:
                     for key in (
                         "raw_actions",
                         "applied_actions",
@@ -464,6 +468,9 @@ def evaluate(args):
                         "base_angular_velocity_body",
                     ):
                         detail_history.setdefault(key, []).append(state[key])
+                    if args.zero_command_brake:
+                        for key in ("issued_actions", "zero_command_brake_alpha"):
+                            detail_history.setdefault(key, []).append(state[key])
                 record = torch.cat(
                     [
                         state["commands"],
@@ -563,7 +570,7 @@ def evaluate(args):
                 cfg.rewards.base_height_target,
                 hip_indices,
             )
-            if args.diagnostic_trace:
+            if args.diagnostic_trace or args.zero_command_brake:
                 from robot_gym.scripts.diagnostic_bank import summarize
 
                 metrics["physics_diagnostics_per_environment"] = summarize(
@@ -651,6 +658,10 @@ def evaluate(args):
         "world_y",
         "wheel_action_saturation",
     ]
+    if args.zero_command_brake:
+        from robot_gym.scripts.diagnostic_bank import evaluate_brake_restarts
+
+        report["brake_restarts"] = evaluate_brake_restarts(env, policy, out)
     (out / "metrics.json").write_text(json.dumps(report, indent=2, allow_nan=False))
     gs.destroy()
 

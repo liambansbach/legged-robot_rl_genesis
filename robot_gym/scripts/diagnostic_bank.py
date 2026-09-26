@@ -244,6 +244,49 @@ def verify_selective_reset(env, out):
         )
 
 
+def evaluate_brake_restarts(env, policy, out):
+    """Two fixed restart traces using the same policy, step and reset paths."""
+    report = {}
+    old_timeout = env.max_episode_length
+    env.max_episode_length = max(old_timeout, round(25 / env.dt))
+    try:
+        with torch.no_grad():
+            for name, positive, negative in (
+                ("brake_restart_vx", (0.1, 0, 0), (-0.1, 0, 0)),
+                ("brake_restart_yaw", (0, 0, 0.4), (0, 0, -0.4)),
+            ):
+                env.reset()
+                history, dones, commands, phases = {}, [], [], []
+                for command in ((0, 0, 0), positive, (0, 0, 0), negative, (0, 0, 0)):
+                    count = round((6 if command == (0, 0, 0) else 3) / env.dt)
+                    phases.append({"command": command, "start": len(dones), "steps": count})
+                    for _ in range(count):
+                        env.commands[:] = torch.tensor(command, device=env.device)
+                        env.compute_observations()
+                        _, _, done, _ = env.step(policy(env.get_observations()))
+                        for key, value in env.transition_state.items():
+                            history.setdefault(key, []).append(value.clone())
+                        dones.append(done.clone())
+                        commands.append(command)
+                data = {key: torch.stack(values).cpu().numpy() for key, values in history.items()}
+                done = torch.stack(dones).cpu().numpy()
+                np.savez_compressed(
+                    out / f"{name}.npz", **data, done=done,
+                    command_stream=np.asarray(commands), dt=env.dt,
+                )
+                report[name] = {
+                    "phases": phases,
+                    "episode_timeout_s": env.max_episode_length * env.dt,
+                    "fall_count": int(done.sum()),
+                    "nonwheel_contact_steps": int((data["nonfoot_contact_count"] > 0).sum()),
+                    "trace": f"{name}.npz",
+                }
+                print(f"{name}: {report[name]}", flush=True)
+    finally:
+        env.max_episode_length = old_timeout
+    return report
+
+
 def evaluate_bank(env, runner, args, out):
     conditions = condition_bank(args.bank_seed)
     if args.eval_mode == "equilibrium":

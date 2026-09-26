@@ -113,6 +113,8 @@ def get_load_path(root, load_run=-1, checkpoint=-1):
     return load_path
 
 def update_cfg_from_args(env_cfg, cfg_train, args):
+    if getattr(args, "zero_command_brake", False) and args.task != "go2w":
+        raise ValueError("--zero_command_brake is specific to go2w playback/evaluation")
     entropy = getattr(args, "entropy_coef", None)
     if entropy is not None:
         if args.task != "go2w":
@@ -159,6 +161,7 @@ def get_args():
     parser = argparse.ArgumentParser(description="RL Policy")
 
     custom_parameters = [
+        {"name": "--zero_command_brake", "action": "store_true", "help": "Go2-W inference only: blend wheel targets to zero for a complete zero body command"},
         {"name": "--entropy_coef", "type": float, "default": None, "help": "Go2-W entropy weight; unset preserves the registered config"},
         {"name": "--tracking_sigma_x", "type": float, "default": None, "help": "Go2-W forward squared-error denominator; unset preserves the registered config"},
         {"name": "--skip_zero_action_probe", "action": "store_true", "help": "Bank evaluation: retain all policy cases, omit the equilibrium zero-action probe"},

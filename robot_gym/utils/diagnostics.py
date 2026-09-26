@@ -352,7 +352,7 @@ class PhysicsDiagnostics:
         wheel_limit = e.dof_vel_limits[e.wheel_action_indices].clamp(
             max=e.cfg.control.wheel_velocity_target_limit
         )
-        return {
+        result = {
             "raw_actions": self.raw_actions.clone(),
             "applied_actions": e.applied_actions.clone(),
             "leg_position_targets": leg_targets,
@@ -375,6 +375,11 @@ class PhysicsDiagnostics:
             "base_linear_velocity_body": e.base_lin_vel.clone(),
             "base_angular_velocity_body": e.base_ang_vel.clone(),
         }
+        brake = getattr(e, "zero_command_brake", None)
+        if brake is not None:
+            result["issued_actions"] = e.actions.clone()
+            result["zero_command_brake_alpha"] = brake.alpha.clone()
+        return result
 
 
 def loaded_properties(env):

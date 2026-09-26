@@ -399,6 +399,23 @@ class DiagnosticsTests(unittest.TestCase):
         ):
             self.assertIn(key, trace)
         torch.testing.assert_close(torch.get_rng_state(), rng)
+        self.assertNotIn("zero_command_brake_alpha", trace)
+        from robot_gym.envs.go2w.zero_command_brake import ZeroCommandBrake
+
+        e.zero_command_brake = ZeroCommandBrake(1, e.wheel_action_indices, .02, "cpu")
+        raw = torch.full((1, 16), 4.0)
+        e.actions = e.zero_command_brake.apply(raw, torch.zeros(1, 3))
+        probe.begin_step(raw)
+        probe.after_substep()
+        # The delayed command is still the previous zero action.
+        trace = probe.capture()
+        torch.testing.assert_close(trace["raw_actions"], raw)
+        torch.testing.assert_close(trace["issued_actions"], e.actions)
+        torch.testing.assert_close(trace["zero_command_brake_alpha"], torch.tensor([.1]))
+        self.assertEqual(trace["applied_actions"].count_nonzero(), 0)
+        self.assertEqual(trace["wheel_velocity_targets"].count_nonzero(), 0)
+        torch.testing.assert_close(trace["leg_position_targets"], torch.zeros(1, 12))
+        torch.testing.assert_close(torch.get_rng_state(), rng)
 
     def test_bank_is_explicit_reproducible_and_does_not_change_global_rng(self):
         np.random.seed(123)

@@ -91,6 +91,8 @@ def prepare_go2w_continuation(args, env_cfg, train_cfg):
 
 
 def train(args):
+    if getattr(args, "zero_command_brake", False):
+        raise ValueError("--zero_command_brake is inference-only; training is not supported")
     from pathlib import Path
     from robot_gym import ROBOT_GYM_ROOT_DIR
     from robot_gym.utils.helpers import update_cfg_from_args
