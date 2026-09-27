@@ -2,6 +2,10 @@
 
 import json
 from pathlib import Path
+from time import perf_counter
+
+PROCESS_STARTED = perf_counter()
+
 import numpy as np
 import torch
 import genesis as gs
@@ -321,6 +325,13 @@ def diagnostic_metrics(
     return result
 
 
+def use_physics_diagnostics(args):
+    if args.eval_mode == "closed_loop":
+        return args.diagnostic_trace
+    return bool(args.diagnostic_trace or args.zero_command_brake or args.go2w_profile
+                or args.eval_mode != "nominal")
+
+
 def evaluate(args):
     if args.steps < 2:
         raise ValueError("--steps must be at least 2")
@@ -351,7 +362,7 @@ def evaluate(args):
         class_to_dict(train_cfg),
     )
     cfg.env.num_envs = (
-        args.num_envs or {"nominal": 1, "sustained": 1, "bank": 32, "equilibrium": 3}[args.eval_mode]
+        args.num_envs or {"nominal": 1, "sustained": 1, "closed_loop": 1, "bank": 32, "equilibrium": 3}[args.eval_mode]
     )
     cfg.env.episode_length_s = max(
         20.0, 4 * args.steps * cfg.sim.dt * cfg.control.decimation
@@ -374,7 +385,14 @@ def evaluate(args):
     cfg.init_state.joint_position_noise = cfg.init_state.joint_velocity_noise = 0.0
     cfg.init_state.orientation_noise = (0.0, 0.0, 0.0)
     cfg.init_state.linear_velocity_noise = cfg.init_state.angular_velocity_noise = 0.0
-    if args.eval_mode == "sustained":
+    if args.eval_mode == "closed_loop":
+        if cfg.env.num_envs != 1 or args.seed != 1 or args.zero_command_brake:
+            raise ValueError("Closed-loop evaluation requires one environment, explicit seed 1 and no brake")
+        cfg.env.episode_length_s = 30.0
+        cfg.env.capture_closed_loop = True
+        print("Closed-loop schedule: straight [0.5,0], left [0.5,0.1], right [0.5,-0.1]; "
+              "each 2 s settle, 12 s trapezoidal path, 3 s endpoint feedback, 3 s exact zero", flush=True)
+    elif args.eval_mode == "sustained":
         if cfg.env.num_envs != 1 or args.zero_command_brake:
             raise ValueError("Sustained evaluation requires one environment and no brake")
         cfg.env.episode_length_s = 40.0
@@ -393,7 +411,7 @@ def evaluate(args):
     )
     policy = runner.get_inference_policy(device=env.device)
     out.mkdir(parents=True, exist_ok=True)
-    if args.diagnostic_trace or args.zero_command_brake or args.go2w_profile or args.eval_mode != "nominal":
+    if use_physics_diagnostics(args):
         env.physics_diagnostics = PhysicsDiagnostics(env)
     cfg = env.cfg
     write_json(
@@ -414,6 +432,23 @@ def evaluate(args):
         ),
     )
     write_json(out / "loaded_properties.json", loaded_properties(env))
+    if args.eval_mode == "closed_loop":
+        from robot_gym.scripts.diagnostic_bank import evaluate_closed_loop
+
+        startup = perf_counter() - PROCESS_STARTED
+        report = evaluate_closed_loop(env, policy, out)
+        shutdown = perf_counter()
+        gs.destroy()
+        report["wall_clock_s"].update(startup=startup, shutdown=perf_counter() - shutdown,
+                                      total=perf_counter() - PROCESS_STARTED)
+        report["timing_scope"] = "perf_counter from evaluator module imports through shutdown; final JSON write excluded"
+        # Include the summary's own size without pretending the write is free.
+        for _ in range(3):
+            write_json(out / "metrics.json", report)
+            report["output_bytes"] = {p.name: p.stat().st_size for p in out.iterdir() if p.is_file()}
+        write_json(out / "metrics.json", report)
+        print("Closed-loop complete: " + json.dumps(report["wall_clock_s"]), flush=True)
+        return
     if args.eval_mode == "sustained":
         from robot_gym.scripts.diagnostic_bank import evaluate_sustained
 

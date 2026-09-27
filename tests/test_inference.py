@@ -17,12 +17,113 @@ from robot_gym.scripts.evaluate import (
 import numpy as np
 from types import SimpleNamespace
 from robot_gym.scripts.diagnostic_bank import sustained_schedule, rollout_sequence
+from robot_gym.scripts.diagnostic_bank import (
+    closed_loop_reference, closed_loop_request, rollout_closed_loop, closed_loop_metrics,
+    CLOSED_LOOP_CASES,
+)
+from robot_gym.scripts.evaluate import use_physics_diagnostics
 from robot_gym.scripts.evaluate import swing_events, velocity_window_metrics
 from robot_gym.utils.diagnostics import rotate_wxyz, wheel_axles_body
 from scipy.spatial.transform import Rotation
 
 
 class InferenceTests(unittest.TestCase):
+    def test_closed_loop_reference_and_frames(self):
+        from unittest.mock import patch
+        from robot_gym.utils.helpers import get_args
+
+        with patch('sys.argv', ['evaluate']):
+            self.assertEqual(get_args().eval_mode, 'nominal')
+        with patch('sys.argv', ['evaluate', '--eval_mode', 'closed_loop']):
+            self.assertEqual(get_args().eval_mode, 'closed_loop')
+        for t, expected in [(0, (0, 0, 0)), (2, (1, 0, 0)), (2.5, (1, .125, .5)),
+                            (3, (1, .5, 1)), (13, (1, 10.5, 1)),
+                            (13.5, (1, 10.875, .5)), (14, (2, 11, 0)),
+                            (17, (3, 11, 0)), (20, (3, 11, 0))]:
+            np.testing.assert_allclose(closed_loop_reference(t), expected)
+        times = np.linspace(2, 14, 12001)
+        speed = [closed_loop_reference(t)[2] for t in times]
+        self.assertAlmostEqual(float(np.trapezoid(speed, times)), 11)
+        self.assertEqual(CLOSED_LOOP_CASES['diagonal_left'], (.5, .1))
+        self.assertEqual(CLOSED_LOOP_CASES['diagonal_right'], (.5, -.1))
+        rotation = Rotation.from_euler('xyz', [.15, -.2, .4])
+        q = torch.tensor(rotation.as_quat()[[3, 0, 1, 2]])[None]
+        position = torch.tensor([[1., 2., .4]], dtype=torch.float64)
+        ref = torch.tensor([[1.01, 2.02]], dtype=torch.float64)
+        velocity = torch.tensor([[.3, -.1]], dtype=torch.float64)
+        heading = torch.tensor([.45], dtype=torch.float64)
+        request, issued, correction = closed_loop_request(position, q, ref, velocity, heading)
+        np.testing.assert_allclose(request[0, :2], rotation.inv().apply([.31, -.08, 0])[:2], atol=1e-12)
+        self.assertAlmostEqual(float(request[0, 2]), .075)
+        np.testing.assert_allclose(correction, [[.01, .02]], atol=1e-12)
+        np.testing.assert_array_equal(request, issued)
+        # A large wrapped heading difference must use the short turn and command bounds.
+        q = torch.tensor(Rotation.from_euler('z', np.pi-.01).as_quat()[[3, 0, 1, 2]])[None]
+        request, issued, _ = closed_loop_request(position, q, ref+10, velocity, torch.tensor([-np.pi+.01]))
+        self.assertAlmostEqual(float(request[0, 2]), .03, places=6)
+        self.assertGreater(float((request-issued).abs().max()), 1)
+
+    def test_closed_loop_hold_censoring_and_light_recording(self):
+        for failure in (None, 'fall', 'timeout', 'reset', 'nonfinite_state'):
+            env = SimpleNamespace(dt=.02, device='cpu', num_envs=1, commands=torch.zeros(1, 3),
+                                  base_pos=torch.tensor([[0., 0., .4]]), base_quat=torch.tensor([[1., 0., 0., 0.]]),
+                                  episode_length_buf=torch.zeros(1, dtype=torch.long),
+                                  cfg=SimpleNamespace(control=SimpleNamespace(decimation=4), sim=SimpleNamespace(dt=.005)))
+            env.compute_observations = lambda: None
+            env.get_observations = lambda: torch.zeros(1, 56)
+
+            def step(action):
+                env.episode_length_buf += 1
+                env.base_pos[:, 0] += .001
+                terminal = int(env.episode_length_buf[0]) == 175 and failure is not None
+                state = {k: getattr(env, k).clone() for k in ('base_pos', 'base_quat', 'episode_length_buf')}
+                state.update(base_lin_vel=torch.zeros(1, 3), base_ang_vel=torch.zeros(1, 3),
+                             dof_pos=torch.zeros(1, 16), dof_vel=torch.zeros(1, 16), torques=torch.zeros(1, 16),
+                             actions=action.clamp(-1, 1), applied_actions=action.clamp(-1, 1),
+                             foot_contacts=torch.ones(1, 4), nonfoot_contact_count=torch.zeros(1),
+                             fallen=torch.tensor([terminal and failure=='fall']),
+                             time_out_buf=torch.tensor([terminal and failure=='timeout']),
+                             reset_buf=torch.tensor([terminal and failure!='nonfinite_state']))
+                if terminal and failure=='nonfinite_state':
+                    state['base_pos'][0, 0] = float('nan')
+                env.transition_state = state
+                if terminal:
+                    env.base_pos[:] = -999  # automatic reset must not replace terminal evidence
+
+            env.step = step
+            data, reason = rollout_closed_loop(env, lambda obs: torch.ones(1, 16)*1.2, (.5, .1))
+            self.assertEqual(reason, failure)
+            self.assertEqual(len(data['time_s']), 175 if failure else 1000)
+            self.assertNotEqual(float(data['base_pos'][-1, 0]), -999)
+            np.testing.assert_allclose(data['raw_actions'], 1.2)
+            np.testing.assert_allclose(data['actions'], 1)
+            np.testing.assert_array_equal(data['issued_commands'][:100], 0)
+            for start in range(100, len(data['time_s'])-4, 5):
+                np.testing.assert_array_equal(data['issued_commands'][start:start+5],
+                                              np.tile(data['issued_commands'][start], (5, 1)))
+            result = closed_loop_metrics(data, reason, env.dt)
+            self.assertEqual(result['uninterrupted'], failure is None)
+            self.assertEqual(result['phases'][1]['censored'], failure is not None)
+            if failure:
+                self.assertIsNone(result['exact_zero'])
+            else:
+                self.assertEqual(int(data['outer_update'].sum()), 150)
+                np.testing.assert_array_equal(data['issued_commands'][850:], 0)
+                np.testing.assert_allclose(data['reference_position_world'][849], [.1+5.5, 1.1], atol=1e-6)
+                self.assertIsNotNone(result['endpoint_error_m'])
+                self.assertIn('velocity_sign_reversals_above_001', result['windows']['late_hold'])
+            env.dt = .01
+            with self.assertRaisesRegex(ValueError, '50 Hz'):
+                rollout_closed_loop(env, lambda obs: torch.zeros(1, 16), (.5, 0))
+        args = SimpleNamespace(eval_mode='closed_loop', diagnostic_trace=False,
+                               go2w_profile='step_recovery_v1', zero_command_brake=False)
+        self.assertFalse(use_physics_diagnostics(args))
+        args.diagnostic_trace = True
+        self.assertTrue(use_physics_diagnostics(args))
+        args.diagnostic_trace = False
+        for args.eval_mode in ('nominal', 'sustained', 'bank'):
+            self.assertTrue(use_physics_diagnostics(args))
+
     def test_sustained_schedule_and_censoring(self):
         schedule = sustained_schedule()
         self.assertEqual(len(schedule), 9)

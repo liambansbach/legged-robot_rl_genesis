@@ -1,6 +1,7 @@
 """Small explicit reset/DR bank and standing probe; called by evaluate --eval_mode."""
 
 import json
+from time import perf_counter
 import numpy as np
 import torch
 from scipy.spatial.transform import Rotation
@@ -10,6 +11,8 @@ from robot_gym.utils.diagnostics import (
     write_json,
     nominal_support_heights,
     sha256,
+    heading_wxyz,
+    rotate_wxyz,
 )
 
 
@@ -284,6 +287,230 @@ def rollout_sequence(env, policy, schedule, stop_on_reset=False):
     data["done"] = torch.stack(dones).cpu().numpy()
     data["command_stream"] = np.asarray(commands)
     return data, phases
+
+
+CLOSED_LOOP_BOUNDS = ((-0.25, -0.20, -0.50), (0.70, 0.20, 0.50))
+CLOSED_LOOP_CASES = {"straight": (0.5, 0.0), "diagonal_left": (0.5, 0.1),
+                     "diagonal_right": (0.5, -0.1)}
+
+
+def closed_loop_reference(seconds):
+    """Phase, integrated speed and speed; 2/12/3/3 s, with no moving reanchor."""
+    if seconds < 2:
+        return 0, 0.0, 0.0
+    if seconds >= 14:
+        return (2 if seconds < 17 else 3), 11.0, 0.0
+    t = seconds - 2
+    if t <= 1:
+        return 1, 0.5 * t * t, t
+    if t <= 11:
+        return 1, t - 0.5, 1.0
+    d = t - 11
+    return 1, 10.5 + d - 0.5 * d * d, 1.0 - d
+
+
+def closed_loop_request(position, quaternion, reference, velocity_world, heading):
+    """Fixed 1/s position and 1.5/s heading feedback; clip commands only."""
+    correction = reference - position[..., :2]
+    inverse = quaternion * quaternion.new_tensor([1, -1, -1, -1])
+    zeros = torch.zeros_like(correction[..., :1])
+    body = rotate_wxyz(inverse, torch.cat((velocity_world + correction, zeros), dim=-1))
+    error = heading - heading_wxyz(quaternion)
+    yaw = 1.5 * torch.atan2(torch.sin(error), torch.cos(error))
+    request = torch.cat((body[..., :2], yaw[..., None]), dim=-1)
+    low, high = request.new_tensor(CLOSED_LOOP_BOUNDS).unbind()
+    return request, request.clamp(low, high), correction
+
+
+def rollout_closed_loop(env, policy, nominal_velocity):
+    """GPU tensor accumulation, one packed CPU copy, and first-failure censoring."""
+    if (env.num_envs != 1 or abs(env.dt - .02) > 1e-9
+            or env.cfg.control.decimation != 4 or abs(env.cfg.sim.dt - .005) > 1e-9):
+        raise ValueError("Closed loop requires 50 Hz policy, four 5 ms substeps and 10 Hz = five policy steps")
+    rows, layout, failure = [], {}, None
+    command = torch.zeros_like(env.commands)
+    request, correction = command.clone(), command[:, :2].clone()
+    p0, psi0, nominal_world = None, None, None
+    initial_episode_step = int(env.episode_length_buf[0])
+    with torch.no_grad():
+        for step in range(1000):
+            phase, distance, speed = closed_loop_reference(step * env.dt)
+            if step == 100:
+                p0 = env.base_pos[:, :2].clone()
+                psi0 = heading_wxyz(env.base_quat).clone()
+                vx, vy = nominal_velocity
+                nominal_world = torch.stack((vx * psi0.cos() - vy * psi0.sin(),
+                                             vx * psi0.sin() + vy * psi0.cos()), dim=-1)
+            update = phase in (1, 2) and step % 5 == 0
+            if update:
+                request, command, correction = closed_loop_request(
+                    env.base_pos, env.base_quat, p0 + nominal_world * distance,
+                    nominal_world * speed, psi0)
+            elif phase in (0, 3):
+                command.zero_()
+                request = torch.zeros_like(command)
+                correction = torch.zeros_like(correction)
+            env.commands[:] = command
+            env.compute_observations()
+            raw = policy(env.get_observations())
+            if not bool(torch.isfinite(raw).all()):
+                failure = "nonfinite_policy_before_step"
+                break
+            env.step(raw)
+            state = env.transition_state
+            _, end_distance, end_speed = closed_loop_reference((step + 1) * env.dt)
+            # Settling has no anchored reference; its placeholder is excluded from errors.
+            reference = torch.zeros_like(correction) if p0 is None else p0 + nominal_world * end_distance
+            values = {k: state[k] for k in (
+                "base_pos", "base_quat", "base_lin_vel", "base_ang_vel", "dof_pos", "dof_vel",
+                "torques", "actions", "applied_actions", "foot_contacts", "nonfoot_contact_count",
+                "fallen", "time_out_buf", "reset_buf", "episode_length_buf")}
+            for key in ("wheel_normal_force", "loaded_wheels"):
+                if key in state:
+                    values[key] = state[key]
+            if getattr(env, "physics_diagnostics", None) is not None:
+                values.update(state)
+            values.update(raw_actions=raw, issued_commands=command, unclipped_commands=request,
+                          position_correction_world=correction, reference_position_world=reference,
+                          reference_velocity_world=torch.zeros_like(correction) if p0 is None else nominal_world * end_speed,
+                          reference_heading=torch.zeros(1, device=env.device) if psi0 is None else psi0,
+                          phase=command.new_tensor([phase]), outer_update=command.new_tensor([update]))
+            if not layout:
+                offset = 0
+                for key, value in values.items():
+                    layout[key] = (offset, offset + value.numel(), tuple(value.shape[1:]))
+                    offset += value.numel()
+            row = torch.cat([v.reshape(-1).float() for v in values.values()])
+            rows.append(row)
+            if not bool(torch.isfinite(row).all()):
+                failure = "nonfinite_state"
+            elif bool(state["fallen"].any()):
+                failure = "fall"
+            elif bool(state["time_out_buf"].any()):
+                failure = "timeout"
+            elif bool(state["reset_buf"].any()) or int(state["episode_length_buf"][0]) != initial_episode_step + step + 1:
+                failure = "reset"
+            if failure:
+                break
+    packed = torch.stack(rows).cpu().numpy() if rows else np.empty((0, 0))
+    data = {key: packed[:, a:b].reshape((len(rows), *shape)) for key, (a, b, shape) in layout.items()}
+    data["time_s"] = np.arange(1, len(rows) + 1) * env.dt
+    return data, failure
+
+
+def closed_loop_metrics(data, failure, dt):
+    """Physical summaries with incomplete windows left censored, not called recovery."""
+    count = len(data["time_s"])
+    result = {"recorded_steps": count, "duration_s": count * dt, "failure": failure,
+              "uninterrupted": failure is None and count == 1000,
+              "phases": [], "endpoint_error_m": None, "exact_zero": None, "windows": {}}
+    for phase, (name, start, end) in enumerate((("settle", 0, 100), ("move", 100, 700),
+                                               ("endpoint_feedback", 700, 850), ("exact_zero", 850, 1000))):
+        result["phases"].append({"name": name, "start_s": start * dt, "planned_steps": end - start,
+                                 "recorded_steps": max(0, min(count, end) - start),
+                                 "censored": count < end or (failure is not None and start < count <= end)})
+    if not count:
+        return result
+    result.update(fall_count=int(data["fallen"].sum()), timeout_count=int(data["time_out_buf"].sum()),
+                  reset_after_sample_indices=np.flatnonzero(data["reset_buf"]).tolist(),
+                  nonwheel_contact_steps=int((data["nonfoot_contact_count"] > 0).sum()))
+    finite = np.isfinite(np.concatenate([v.reshape(count, -1) for v in data.values()], axis=1)).all(axis=1)
+    valid_end = int(np.flatnonzero(~finite)[0]) if not finite.all() else count
+    if valid_end <= 100:
+        return result
+    position = data["base_pos"][:valid_end, :2]
+    heading = heading_wxyz(torch.from_numpy(data["base_quat"][:valid_end])).numpy()
+    error = data["reference_position_world"][:valid_end] - position
+    heading_error = np.arctan2(np.sin(data["reference_heading"][:valid_end] - heading),
+                              np.cos(data["reference_heading"][:valid_end] - heading))
+    direction = data["reference_velocity_world"][100]
+    direction = direction / np.linalg.norm(direction)
+    cross = (position - position[99]) @ np.array([-direction[1], direction[0]])
+    body = np.concatenate((data["base_lin_vel"], data["base_ang_vel"]), axis=1)
+
+    def distribution(values):
+        return {"rms": float(np.sqrt(np.mean(values ** 2))),
+                "p95_abs": float(np.percentile(np.abs(values), 95)), "max_abs": float(np.max(np.abs(values)))}
+
+    # Include moving/hold transients, one-second windows and a distinct late hold.
+    windows = [("move", 100, 700), ("endpoint_feedback", 700, 850), ("feedback_all", 100, 850),
+               ("late_hold", 750, 850), *[(f"second_{i:02d}", i * 50, (i + 1) * 50) for i in range(2, 20)]]
+    for name, start, end in windows:
+        if end > valid_end:
+            result["windows"][name] = {"censored": True}
+            continue
+        s = slice(start, end)
+        commands = data["issued_commands"][s]
+        request = data["unclipped_commands"][s]
+        velocity_error = body[s][:, [0, 1, 5]] - commands
+        result["windows"][name] = {
+            "censored": False, "position_error_m": distribution(np.linalg.norm(error[s], axis=1)),
+            "cross_track_m": distribution(cross[s]), "heading_error_rad": distribution(heading_error[s]),
+            "body_velocity_mean_six_axes": body[s].mean(axis=0).tolist(),
+            "body_velocity_std_six_axes": body[s].std(axis=0).tolist(),
+            "velocity_bias_vx_vy_yaw": velocity_error.mean(axis=0).tolist(),
+            "velocity_rmse_vx_vy_yaw": np.sqrt((velocity_error ** 2).mean(axis=0)).tolist(),
+            "command_mean": commands.mean(axis=0).tolist(), "command_std": commands.std(axis=0).tolist(),
+            "command_min": commands.min(axis=0).tolist(), "command_max": commands.max(axis=0).tolist(),
+            "command_clipped_fraction": (np.abs(request - commands) > 1e-6).mean(axis=0).tolist(),
+            "command_at_bound_fraction": ((np.abs(commands - np.asarray(CLOSED_LOOP_BOUNDS[0])) < 1e-6)
+                                          | (np.abs(commands - np.asarray(CLOSED_LOOP_BOUNDS[1])) < 1e-6)).mean(axis=0).tolist(),
+            "position_error_xy_peak_to_peak_m": np.ptp(error[s], axis=0).tolist(),
+            "heading_error_peak_to_peak_rad": float(np.ptp(heading_error[s])),
+            "position_correction_m_s": distribution(np.linalg.norm(data["position_correction_world"][s], axis=1)),
+            "yaw_correction_rad_s": distribution(request[:, 2]),
+        }
+        # Analysis tolerance only; the issued controller has no deadband.
+        result["windows"][name]["command_sign_reversals_above_001"] = [
+            int(np.sum(np.diff(np.sign(axis[np.abs(axis) > .01])) != 0)) for axis in commands.T]
+        result["windows"][name]["velocity_sign_reversals_above_001"] = [
+            int(np.sum(np.diff(np.sign(axis[np.abs(axis) > .01])) != 0)) for axis in body[s][:, [0, 1, 5]].T]
+    if valid_end >= 850:
+        result["endpoint_error_m"] = float(np.linalg.norm(error[849]))
+    if valid_end == 1000 and failure is None:
+        path = position[849:]
+        yaw_change = float(np.unwrap(heading[849:])[-1] - heading[849])
+        result["exact_zero"] = {
+            "last_second_xy_rms_m_s": float(np.sqrt((body[-50:, :2] ** 2).sum(axis=1).mean())),
+            "last_second_yaw_rms_rad_s": float(np.sqrt((body[-50:, 5] ** 2).mean())),
+            "displacement_m": float(np.linalg.norm(path[-1] - path[0])),
+            "path_m": float(np.linalg.norm(np.diff(path, axis=0), axis=1).sum()),
+            "signed_heading_change_rad": yaw_change, "absolute_heading_change_rad": abs(yaw_change),
+            "includes_braking": True,
+        }
+    return result
+
+
+def evaluate_closed_loop(env, policy, out):
+    """Three fixed nominal probes; no search, policy adaptation or export."""
+    if abs(env.max_episode_length * env.dt - 30) > 1e-6:
+        raise ValueError("Closed-loop episode limit must be 30 s")
+    report = {"mode": "closed_loop", "tests": {}, "joint_order": env.joint_names,
+              "controller": {"position_gain_per_s": 1.0, "heading_gain_per_s": 1.5,
+                             "command_bounds": CLOSED_LOOP_BOUNDS, "policy_hz": 50, "feedback_hz": 10,
+                             "physics_step_s": .005, "physics_steps_per_policy": 4,
+                             "nominal_velocities_initial_heading_frame": CLOSED_LOOP_CASES},
+              "heavy_recorder": getattr(env, "physics_diagnostics", None) is not None,
+              "trace_semantics": "Post-step, pre-reset state; reference at sample time. Commands and requests held five steps. "
+                                 "raw_actions: actor proposal; actions: clipped before delay; applied_actions: after delay. "
+                                 "torques: existing policy-rate control-force getter, not substep maxima. "
+                                 "Reference anchors once after settling; no valid reference in phase 0.",
+              "wall_clock_s": {"rollout": 0.0, "postprocessing": 0.0}}
+    for name, velocity in CLOSED_LOOP_CASES.items():
+        started = perf_counter()
+        env.reset()
+        data, failure = rollout_closed_loop(env, policy, velocity)
+        report["wall_clock_s"]["rollout"] += perf_counter() - started
+        started = perf_counter()
+        result = closed_loop_metrics(data, failure, env.dt)
+        np.savez_compressed(out / f"{name}.npz", **data, dt=env.dt)
+        result.update(trace=f"{name}.npz", normal_reset_before_sequence=True)
+        report["tests"][name] = result
+        report["wall_clock_s"]["postprocessing"] += perf_counter() - started
+        write_json(out / "metrics.json", report)
+        print(f"Closed loop {name}: {result['recorded_steps']} steps, failure={failure}, "
+              f"endpoint error={result['endpoint_error_m']}", flush=True)
+    return report
 
 
 def evaluate_sustained(env, policy, out):

@@ -111,6 +111,12 @@ class LeggedRobot(BaseTask):
                 "time_out_buf", "reset_buf", "episode_length_buf",
             )}
             self.transition_state["fallen"] = self._compute_fallen_mask().clone()
+            if getattr(self.cfg.env, "capture_closed_loop", False):
+                # Preserve the issued/delayed action and cached loads before reset clears them.
+                self.transition_state["applied_actions"] = self.applied_actions.clone()
+                if getattr(self, "step_recovery", False):
+                    self.transition_state["wheel_normal_force"] = self.wheel_normal_force.clone()
+                    self.transition_state["loaded_wheels"] = self.loaded_wheels.clone()
             if getattr(self, "physics_diagnostics", None) is not None:
                 self.transition_state.update(self.physics_diagnostics.capture())
         # Reward the command that generated this transition, then choose the next command.

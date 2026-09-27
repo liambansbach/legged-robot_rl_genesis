@@ -189,7 +189,7 @@ def get_args():
         {"name": "--diagnostic_trace", "action": "store_true", "help": "Read substep control forces, summed ground loads and cylinder geometry"},
         {"name": "--training_diagnostics", "action": "store_true", "help": "Opt-in RSL-RL and unclipped reward JSONL diagnostics"},
         {"name": "--reference_config", "help": "Explicit audited saved config, if not next to the checkpoint"},
-        {"name": "--eval_mode", "choices": ["nominal", "bank", "equilibrium", "sustained"], "default": "nominal"},
+        {"name": "--eval_mode", "choices": ["nominal", "bank", "equilibrium", "sustained", "closed_loop"], "default": "nominal"},
         {"name": "--bank_seed", "type": int, "default": 240925, "help": "Local NumPy generator for a fixed 32-condition bank"},
         {"name": "--output", "default": "evaluation/go2w", "help": "Evaluation output directory"},
         {"name": "--logger", "choices": ["tensorboard", "wandb"], "help": "Override training logger"},
