@@ -183,7 +183,7 @@ class ContractTests(unittest.TestCase):
     def test_finetune_sampler_mixture_and_fixed_commands(self):
         count = 100000
         samples = []
-        for variant in (None, "coverage", "coverage_mobility"):
+        for variant in (None, "coverage", "coverage_mobility", "precision_clearance"):
             e = self.make_env(count, "step_recovery_v1")
             if variant:
                 apply_go2w_finetune(e.cfg, None, variant)
@@ -224,8 +224,9 @@ class ContractTests(unittest.TestCase):
             e._resample_commands(torch.arange(count))
             self.assertTrue(torch.equal(before, torch.get_rng_state()))
             torch.testing.assert_close(e.commands, torch.tensor([0.7, 0.1, 0.0]).expand(count, -1))
-        for a, b in zip(samples[1], samples[2]):
-            self.assertTrue(torch.equal(a, b))
+        for variant in samples[2:]:
+            for a, b in zip(samples[1], variant):
+                self.assertTrue(torch.equal(a, b))
 
     def test_finetune_mobility_terms_and_unchanged_pose_gate(self):
         pose = []

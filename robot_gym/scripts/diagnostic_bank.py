@@ -788,12 +788,12 @@ def precision_metrics(data, schedule, dt, metadata, initial):
                             "reason": "Nonfinite terminal data retained in NPZ; tracking not summarized"})
             continue
         velocity = np.concatenate((d["base_lin_vel"], d["base_ang_vel"]), axis=-1)
-        world_velocity = rotate_wxyz(torch.tensor(d["base_quat"]), torch.tensor(d["base_lin_vel"])).numpy()
-        heading = np.unwrap(heading_wxyz(torch.tensor(d["base_quat"])).numpy())
-        inverse = torch.tensor(d["base_quat"]); inverse[:, 1:] *= -1
-        feet = rotate_wxyz(inverse[:, None], torch.tensor(d["foot_pos"] - d["base_pos"][:, None])).numpy()
-        axles = wheel_axles_body(torch.tensor(d["base_quat"]), torch.tensor(d["wheel_link_quat"]),
-                                torch.tensor(metadata["wheel_joint_axes"], dtype=torch.float32)).numpy()
+        world_velocity = rotate_wxyz(torch.from_numpy(d["base_quat"]), torch.from_numpy(d["base_lin_vel"])).numpy()
+        heading = np.unwrap(heading_wxyz(torch.from_numpy(d["base_quat"])).numpy())
+        inverse = torch.from_numpy(d["base_quat"]); inverse[:, 1:] *= -1
+        feet = rotate_wxyz(inverse[:, None], torch.from_numpy(d["foot_pos"] - d["base_pos"][:, None])).numpy()
+        axles = wheel_axles_body(torch.from_numpy(d["base_quat"]), torch.from_numpy(d["wheel_link_quat"]),
+                                torch.tensor(metadata["wheel_joint_axes"], dtype=torch.float32, device="cpu")).numpy()
         result = {"condition_index": index, "recorded_steps": n, "duration_s": n*dt,
                   "failure": bool(d["failure"].any()), "falls": int(d["fallen"].sum()),
                   "nonwheel_contact_steps": int((d["nonfoot_contact_count"] > 0).sum()),
@@ -808,7 +808,7 @@ def precision_metrics(data, schedule, dt, metadata, initial):
                 continue
             sl = slice(offset, end); tail = slice(max(offset, end-round(1/dt)), end)
             start_position = initial["base_pos"][index] if offset == 0 else d["base_pos"][offset-1]
-            start_heading = float(heading_wxyz(torch.tensor(initial["base_quat"][index]))) if offset == 0 else heading[offset-1]
+            start_heading = float(heading_wxyz(torch.from_numpy(initial["base_quat"][index]))) if offset == 0 else heading[offset-1]
             path = np.concatenate((start_position[None, :2], d["base_pos"][sl, :2]))
             legs = metadata["leg_indices"]
             error = d["dof_pos"][tail][:, legs] - np.asarray(metadata["nominal_position"])[legs]

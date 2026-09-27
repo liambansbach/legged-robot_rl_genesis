@@ -80,7 +80,13 @@ class InferenceTests(unittest.TestCase):
                         wheel_indices=[3,7,11,15], nominal_position=[0]*16,
                         action_scale=[1]*16, force_limits=[100]*16, wheel_target_limit=20)
         initial = dict(base_pos=np.zeros((2,3)), base_quat=np.tile([1.,0,0,0],(2,1)))
-        result = precision_metrics(data, [(.06,(.1,0,0)),(.04,(0,0,0))], .02, metadata, initial)
+        original_device = torch.get_default_device()
+        try:
+            # Genesis changes the default device; NumPy summaries must stay on CPU.
+            torch.set_default_device("meta")
+            result = precision_metrics(data, [(.06,(.1,0,0)),(.04,(0,0,0))], .02, metadata, initial)
+        finally:
+            torch.set_default_device(original_device)
         self.assertTrue(result[0]["failure"])
         self.assertTrue(result[0]["phases"][0]["censored"])
         self.assertEqual(result[0]["phases"][1]["samples"], 0)
