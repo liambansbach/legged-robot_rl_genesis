@@ -59,6 +59,65 @@ class ContractTests(unittest.TestCase):
         }
         return e
 
+    def test_precision_clearance_exact_transition_and_rewards(self):
+        from robot_gym.envs.go2w.go2w_config import FINETUNE_PRECISION
+        baseline = tuple(map(class_to_dict, task_registry.get_cfgs("go2w")))
+        pairs = {}
+        for name in ("coverage", "precision_clearance"):
+            e, t = task_registry.get_cfgs("go2w")
+            apply_go2w_profile(e, t, "step_recovery_v1")
+            apply_go2w_finetune(e, t, name)
+            pairs[name] = tuple(map(class_to_dict, (e, t)))
+        a, b = pairs["coverage"], pairs["precision_clearance"]
+        self.assertEqual(set(config_differences(a[0], b[0])), {"go2w_finetune", *FINETUNE_PRECISION})
+        self.assertEqual(set(config_differences(a[1], b[1])), {"go2w_finetune"})
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)/"config.yaml"
+            path.write_text(yaml.safe_dump(json.loads(json.dumps(dict(env_cfg=a[0], train_cfg=a[1])))))
+            check_training_continuation(path, *b, finetune="precision_clearance")
+            with self.assertRaises(ValueError):
+                check_training_continuation(path, *b)
+            with self.assertRaises(ValueError):
+                check_reference_contract(path, *b)
+            for key in FINETUNE_PRECISION:
+                changed = copy.deepcopy(b[0]); target = changed
+                *parts, field = key.split(".")
+                for part in parts:
+                    target = target[part]
+                target[field] = 999
+                with self.assertRaises(ValueError, msg=key):
+                    check_training_continuation(path, changed, b[1], finetune="precision_clearance")
+            changed = copy.deepcopy(b[0]); changed["rewards"]["yaw_mobility_start"] = .15
+            with self.assertRaises(ValueError):
+                check_training_continuation(path, changed, b[1], finetune="precision_clearance")
+            path.write_text(yaml.safe_dump(json.loads(json.dumps(dict(env_cfg=b[0], train_cfg=b[1])))))
+            check_reference_contract(path, *b)
+            with self.assertRaisesRegex(ValueError, "coverage A parent"):
+                check_training_continuation(path, *b, finetune="precision_clearance")
+        e = self.make_env(7, "step_recovery_v1")
+        e.base_ang_vel = torch.zeros(7, 3)
+        e.commands[:, 2] = torch.tensor([0, .03, .1, .2, -.2, .4, -.4])
+        torch.testing.assert_close(e._reward_tracking_ang_vel(), Go2Env._reward_tracking_ang_vel(e), rtol=0, atol=0)
+        apply_go2w_finetune(e.cfg, None, "precision_clearance")
+        torch.testing.assert_close(e._reward_tracking_ang_vel(), torch.exp(-e.commands[:, 2].square()/.04))
+        self.assertEqual(e.cfg.rewards.scales.tracking_ang_vel, .8)
+        heights = torch.tensor([0, .005, .01, .02, .03, .04, .06])
+        e.wheel_clearance = heights[:, None].expand(-1, 4)
+        e.loaded_wheels = torch.tensor([[False, True, True, True]]).expand(7, -1).clone()
+        e.wheel_reposition_velocity_body = torch.zeros(7, 4, 3); e.wheel_reposition_velocity_body[..., 0] = .15
+        e.commands[:] = torch.tensor([0., .1, 0.])
+        expected = (heights/.04).clamp(0,1)*torch.exp(-(heights-.04).square()/(2*.025**2))
+        torch.testing.assert_close(e._reward_foot_swing_clearance(), expected)
+        np.testing.assert_allclose(expected[1:6], [.046914,.121688,.363075,.692337,1], atol=1e-6)
+        for command in ((0,0,0), (.5,0,0)):
+            e.commands[:] = torch.tensor(command)
+            self.assertTrue((e._reward_foot_swing_clearance() == 0).all())
+        e.commands[:] = torch.tensor([0., .1, 0.]); e.loaded_wheels[:] = False
+        self.assertTrue((e._reward_foot_swing_clearance() == 0).all())
+        e.loaded_wheels[:, 1:] = True; e.wheel_reposition_velocity_body.zero_()
+        self.assertTrue((e._reward_foot_swing_clearance() == 0).all())
+        self.assertEqual(baseline, tuple(map(class_to_dict, task_registry.get_cfgs("go2w"))))
+
     def test_finetune_selection_and_exact_continuation_exceptions(self):
         baseline = tuple(map(class_to_dict, task_registry.get_cfgs("go2w")))
         configs = {}

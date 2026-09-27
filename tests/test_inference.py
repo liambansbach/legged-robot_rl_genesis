@@ -1,4 +1,5 @@
 import unittest
+import json
 import torch
 from tensordict import TensorDict
 from rsl_rl.models import MLPModel
@@ -28,6 +29,65 @@ from scipy.spatial.transform import Rotation
 
 
 class InferenceTests(unittest.TestCase):
+    def test_precision_schedules_and_terminal_alignment(self):
+        from robot_gym.scripts.diagnostic_bank import precision_schedule, precision_conditions, rollout_precision
+        schedules = precision_schedule()
+        self.assertEqual([sum(t for t,c in v) for v in schedules.values()], [15,19,19,13,13])
+        self.assertEqual(sum(t for t,c in precision_schedule(True)["dynamics"]), 26)
+        for family in ("yaw", "lateral"):
+            plus, minus = schedules[family+"_positive"], schedules[family+"_negative"]
+            for (ta, a), (tb, b) in zip(plus, minus):
+                self.assertEqual(ta, tb); np.testing.assert_array_equal(a, -np.asarray(b))
+        conditions = precision_conditions()
+        self.assertEqual([c["delay"] for c in conditions], [0,0,0,0,0,0,1,2])
+        env = SimpleNamespace(dt=.02, device="cpu", num_envs=2, commands=torch.zeros(2,3),
+                              episode_length_buf=torch.zeros(2, dtype=torch.long))
+        env.compute_observations = lambda: None
+        env.get_observations = lambda: torch.zeros(2,56)
+        env.ticks = 0
+        def step(raw):
+            env.ticks += 1
+            state = {key: torch.zeros(2, size) for key,size in
+                     (("commands",3),("base_pos",3),("base_quat",4),("base_lin_vel",3),("base_ang_vel",3),("rpy",3),
+                      ("dof_pos",16),("dof_vel",16),("torques",16),("actions",16),("applied_actions",16),
+                      ("foot_pos",12),("foot_contacts",4),("wheel_normal_force",4),("loaded_wheels",4),
+                      ("wheel_clearance",4),("wheel_link_quat",16),("wheel_reposition_velocity_body",12))}
+            state.update({k: torch.zeros(2) for k in ("fallen","time_out_buf","reset_buf","nonfoot_contact_count")})
+            state["episode_length_buf"] = torch.full((2,), env.ticks)
+            state["commands"] = env.commands.clone()
+            state["base_pos"][:] = env.ticks
+            state["actions"] = raw.clamp(-1,1)
+            state["applied_actions"] = state["actions"]
+            if env.ticks == 2:
+                state["reset_buf"][0] = state["fallen"][0] = 1
+            env.transition_state = state
+        env.step = step
+        data = rollout_precision(env, lambda obs: torch.full((2,16),1.2), [(.06,(.1,0,0)),(.04,(0,0,0))])
+        np.testing.assert_array_equal(data["valid"][:,0], [1,1,0,0,0])
+        np.testing.assert_array_equal(data["valid"][:,1], 1)
+        self.assertEqual(data["base_pos"][1,0,0], 2)
+        np.testing.assert_array_equal(data["phase"][:,0], [0,0,0,1,1])
+        np.testing.assert_allclose(data["raw_actions"], 1.2)
+        np.testing.assert_allclose(data["actions"], 1.)
+        np.testing.assert_allclose(data["commands"][:3,:,0], .1)
+        from robot_gym.scripts.diagnostic_bank import precision_metrics
+        names = [f"{side}_{joint}_joint" for side in ("FL", "FR", "RL", "RR")
+                 for joint in ("hip", "thigh", "calf", "foot")]
+        data["foot_pos"] = data["foot_pos"].reshape(5,2,4,3)
+        data["wheel_link_quat"] = data["wheel_link_quat"].reshape(5,2,4,4)
+        metadata = dict(joint_order=names, wheel_order=["FL","FR","RL","RR"],
+                        wheel_joint_axes=[[0,1,0]]*4, leg_indices=[i for i in range(16) if i%4!=3],
+                        wheel_indices=[3,7,11,15], nominal_position=[0]*16,
+                        action_scale=[1]*16, force_limits=[100]*16, wheel_target_limit=20)
+        initial = dict(base_pos=np.zeros((2,3)), base_quat=np.tile([1.,0,0,0],(2,1)))
+        result = precision_metrics(data, [(.06,(.1,0,0)),(.04,(0,0,0))], .02, metadata, initial)
+        self.assertTrue(result[0]["failure"])
+        self.assertTrue(result[0]["phases"][0]["censored"])
+        self.assertEqual(result[0]["phases"][1]["samples"], 0)
+        self.assertFalse(result[1]["failure"])
+        self.assertEqual(result[1]["phases"][0]["last_second"]["mean_error_vx_vy_yaw"], [-.1,0,0])
+        json.dumps(result, allow_nan=False)
+
     def test_closed_loop_reference_and_frames(self):
         from unittest.mock import patch
         from robot_gym.utils.helpers import get_args

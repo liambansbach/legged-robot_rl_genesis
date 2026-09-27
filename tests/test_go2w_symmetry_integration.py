@@ -273,6 +273,46 @@ class SymmetryIntegrationTests(unittest.TestCase):
     "opt-in original checkpoint resume smoke",
 )
 class ContinuationIntegrationTests(unittest.TestCase):
+    def precision_dr_readback(self, args):
+        from robot_gym.utils.diagnostics import loaded_properties
+
+        env, _ = task_registry.make_env("go2w", args=args)
+        self.assertEqual(tuple(env.action_history.shape), (64, 3, 16))
+        before = loaded_properties(env)
+        delays = env.action_delay_steps.clone()
+        self.assertEqual(set(delays.tolist()), {0, 1, 2})
+        self.assertTrue(torch.all((before["effective_friction"] >= .6) & (before["effective_friction"] <= 1.2)))
+        for key, nominal in (("kp", env.base_p_gains), ("kv", env.base_d_gains)):
+            active = nominal != 0
+            factors = before[key][:, active] / nominal[active]
+            self.assertTrue(torch.all((factors >= .85) & (factors <= 1.15)))
+            torch.testing.assert_close(factors, factors[:, :1].expand_as(factors))
+        env.reset_idx(torch.tensor([0], device=env.device))
+        after = loaded_properties(env)
+        for key in ("mass", "com_local", "inertia_local", "wheel_friction_ratio"):
+            torch.testing.assert_close(before[key], after[key], rtol=0, atol=0)
+        for key in ("kp", "kv"):
+            torch.testing.assert_close(before[key][1:], after[key][1:], rtol=0, atol=0)
+        torch.testing.assert_close(delays[1:], env.action_delay_steps[1:], rtol=0, atol=0)
+        env.cfg.env.capture_transitions = True
+        env.cfg.env.capture_closed_loop = True
+        env.action_delay_steps[:3] = torch.arange(3, device=env.device)
+        env.action_history.zero_()
+        for tick in range(3):
+            env.step(torch.full_like(env.actions, (tick + 1) * .1))
+            expected = torch.tensor([max(0, tick + 1 - delay) * .1 for delay in range(3)], device=env.device)
+            torch.testing.assert_close(env.transition_state["applied_actions"][:3], expected[:, None].expand(-1, 16))
+        env.reset_idx(torch.tensor([0], device=env.device))
+        self.assertTrue((env.action_history[0] == 0).all())
+        report = {"before": before, "after_selective_reset": after,
+                  "sampled_delay": delays, "three_tick_history_verified": True,
+                  "initialization": "Auxiliary simulator destroyed; train rebuilds and reseeds before native load"}
+        gs.destroy()
+        from robot_gym.envs.base.base_task import BaseTask
+        BaseTask._gs_initialized = False
+        BaseTask._gs_backend = None
+        return report
+
     def test_original_checkpoint_two_additional_updates(self):
         from robot_gym.scripts.train import train
         from robot_gym.utils.training_diagnostics import verify_resume_state
@@ -281,8 +321,10 @@ class ContinuationIntegrationTests(unittest.TestCase):
 
         finetune = os.environ.get("GO2W_RESUME_SMOKE_FINETUNE")
         sigma = float(os.environ.get("GO2W_RESUME_SMOKE_SIGMA", "0.25"))
-        iteration = 1499 if finetune else 800
+        precision = finetune == "precision_clearance"
+        iteration = 1798 if precision else 1499 if finetune else 800
         parent_hash = (
+            "02fe2fe814b2b82e35253097b2ff8976cf699b0f42be06dd70c03f202f2eeb25" if precision else
             "080ac621c286250fa959d269a5e6299761af25a850fbbd449155a6f13f315ae7" if finetune
             else "d0da829b95c683ce977323c4af88922c2a86ac9e680ff4501af302704c0cfcc1"
         )
@@ -321,16 +363,19 @@ class ContinuationIntegrationTests(unittest.TestCase):
             argv[argv.index("--run_name") + 1] = "entropy_001_smoke_seed1"
             argv += ["--entropy_coef", entropy]
         if finetune:
-            self.assertIn(finetune, ("coverage", "coverage_mobility"))
+            self.assertIn(finetune, ("coverage", "coverage_mobility", "precision_clearance"))
             self.assertIsNone(entropy)
             argv[argv.index("--checkpoint") + 1] = str(iteration)
             argv[argv.index("--experiment_name") + 1] = "go2w_step_recovery_v1"
             argv[argv.index("--load_run") + 1] = "step_recovery_v1_seed1_20260926_165356_2026-09-26_16-55-18"
             argv[argv.index("--run_name") + 1] = f"{finetune}_smoke_seed1_{os.environ['GO2W_COMPARISON_TAG']}"
             argv += ["--go2w_profile", "step_recovery_v1", "--go2w_finetune", finetune]
+            if precision:
+                argv[argv.index("--load_run") + 1] = "coverage_seed1_20260926_231000_2026-09-26_23-15-39"
         with patch.object(sys, "argv", argv):
             args = get_args()
         try:
+            dr_readback = self.precision_dr_readback(args) if precision else None
             runner = train(
                 args
             )  # Includes exact comparison to the original parent before learn.
@@ -346,6 +391,7 @@ class ContinuationIntegrationTests(unittest.TestCase):
             self.assertEqual(meta["completed_additional_updates"], 2)
             if finetune:
                 self.assertEqual(meta["parent"]["saved_config"]["sha256"],
+                                 "8f88bb3ab44423e01aa3c2b7a19be9f49e82bd377862315fa47825627bb644d7" if precision else
                                  "916691c276ba5112fe947b00e5c59b527d0390fa68596421e97906c827a501d6")
                 self.assertEqual(cfg["env_cfg"]["go2w_finetune"], finetune)
                 self.assertEqual(meta["explicit_overrides"]["go2w_finetune"], finetune)
@@ -417,6 +463,7 @@ class ContinuationIntegrationTests(unittest.TestCase):
                     "save_reload": reloaded,
                     "final_checkpoint_sha256": sha256(checkpoint),
                     "finite_policy_output": True,
+                    "dr_readback": dr_readback,
                 },
             )
             print(

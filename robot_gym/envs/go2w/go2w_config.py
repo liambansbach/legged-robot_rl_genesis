@@ -36,11 +36,20 @@ FINETUNE_MOBILITY = {
     "yaw_mobility_full": 0.60,
     "wheel_air_relaxation": 0.90,
 }
+FINETUNE_PRECISION = {
+    "rewards.tracking_sigma_yaw": 0.04,
+    "rewards.clearance_sigma": 0.025,
+    "rewards.clearance_activation_height": 0.04,
+    "rewards.scales.foot_swing_clearance": 0.40,
+    "domain_rand.kp_scale_range": [0.85, 1.15],
+    "domain_rand.kd_scale_range": [0.85, 1.15],
+    "domain_rand.action_delay_steps_range": [0, 2],
+}
 
 
 def apply_go2w_finetune(env_cfg, train_cfg, name):
     """Explicit continuation designs on the unchanged step-recovery action contract."""
-    if name not in ("coverage", "coverage_mobility"):
+    if name not in ("coverage", "coverage_mobility", "precision_clearance"):
         raise ValueError(f"Unknown Go2-W finetune: {name}")
     for cfg in (env_cfg, train_cfg):
         if cfg is not None:
@@ -56,6 +65,13 @@ def apply_go2w_finetune(env_cfg, train_cfg, name):
         if name == "coverage_mobility":
             for key, value in FINETUNE_MOBILITY.items():
                 setattr(env_cfg.rewards, key, value)
+        if name == "precision_clearance":
+            for path, value in FINETUNE_PRECISION.items():
+                target = env_cfg
+                *parts, key = path.split(".")
+                for part in parts:
+                    target = getattr(target, part)
+                setattr(target, key, value.copy() if isinstance(value, list) else value)
 
 
 def apply_go2w_profile(env_cfg, train_cfg, name):

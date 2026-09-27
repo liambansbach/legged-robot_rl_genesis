@@ -117,6 +117,9 @@ class LeggedRobot(BaseTask):
                 if getattr(self, "step_recovery", False):
                     self.transition_state["wheel_normal_force"] = self.wheel_normal_force.clone()
                     self.transition_state["loaded_wheels"] = self.loaded_wheels.clone()
+            if getattr(self.cfg.env, "capture_precision", False):
+                for name in ("wheel_clearance", "wheel_link_quat", "wheel_reposition_velocity_body"):
+                    self.transition_state[name] = getattr(self, name).clone()
             if getattr(self, "physics_diagnostics", None) is not None:
                 self.transition_state.update(self.physics_diagnostics.capture())
         # Reward the command that generated this transition, then choose the next command.

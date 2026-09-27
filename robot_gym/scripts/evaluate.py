@@ -326,6 +326,8 @@ def diagnostic_metrics(
 
 
 def use_physics_diagnostics(args):
+    if args.eval_mode in ("precision_screen", "precision_dr"):
+        return False
     if args.eval_mode == "closed_loop":
         return args.diagnostic_trace
     return bool(args.diagnostic_trace or args.zero_command_brake or args.go2w_profile
@@ -362,7 +364,7 @@ def evaluate(args):
         class_to_dict(train_cfg),
     )
     cfg.env.num_envs = (
-        args.num_envs or {"nominal": 1, "sustained": 1, "closed_loop": 1, "bank": 32, "equilibrium": 3}[args.eval_mode]
+        args.num_envs or {"nominal": 1, "sustained": 1, "closed_loop": 1, "precision_screen": 1, "precision_dr": 8, "bank": 32, "equilibrium": 3}[args.eval_mode]
     )
     cfg.env.episode_length_s = max(
         20.0, 4 * args.steps * cfg.sim.dt * cfg.control.decimation
@@ -385,7 +387,18 @@ def evaluate(args):
     cfg.init_state.joint_position_noise = cfg.init_state.joint_velocity_noise = 0.0
     cfg.init_state.orientation_noise = (0.0, 0.0, 0.0)
     cfg.init_state.linear_velocity_noise = cfg.init_state.angular_velocity_noise = 0.0
-    if args.eval_mode == "closed_loop":
+    if args.eval_mode in ("precision_screen", "precision_dr"):
+        expected = 8 if args.eval_mode == "precision_dr" else 1
+        if cfg.env.num_envs != expected or args.seed != 1 or args.zero_command_brake or not args.go2w_profile:
+            raise ValueError("Precision checks require the profile, explicit seed 1, matching batch and no brake")
+        cfg.env.episode_length_s = 30.0
+        cfg.env.capture_closed_loop = cfg.env.capture_precision = True
+        if args.eval_mode == "precision_dr":
+            cfg.domain_rand.action_delay_steps_range = [0, 2]
+            cfg.sim.batch_links_info = cfg.sim.batch_dofs_info = True
+        from robot_gym.scripts.diagnostic_bank import precision_schedule
+        print("Precision schedule: " + json.dumps(precision_schedule(args.eval_mode == "precision_dr")), flush=True)
+    elif args.eval_mode == "closed_loop":
         if cfg.env.num_envs != 1 or args.seed != 1 or args.zero_command_brake:
             raise ValueError("Closed-loop evaluation requires one environment, explicit seed 1 and no brake")
         cfg.env.episode_length_s = 30.0
@@ -432,11 +445,12 @@ def evaluate(args):
         ),
     )
     write_json(out / "loaded_properties.json", loaded_properties(env))
-    if args.eval_mode == "closed_loop":
-        from robot_gym.scripts.diagnostic_bank import evaluate_closed_loop
+    if args.eval_mode in ("closed_loop", "precision_screen", "precision_dr"):
+        from robot_gym.scripts.diagnostic_bank import evaluate_closed_loop, evaluate_precision
 
         startup = perf_counter() - PROCESS_STARTED
-        report = evaluate_closed_loop(env, policy, out)
+        report = (evaluate_closed_loop(env, policy, out) if args.eval_mode == "closed_loop"
+                  else evaluate_precision(env, policy, out, args.eval_mode == "precision_dr"))
         shutdown = perf_counter()
         gs.destroy()
         report["wall_clock_s"].update(startup=startup, shutdown=perf_counter() - shutdown,
@@ -447,7 +461,7 @@ def evaluate(args):
             write_json(out / "metrics.json", report)
             report["output_bytes"] = {p.name: p.stat().st_size for p in out.iterdir() if p.is_file()}
         write_json(out / "metrics.json", report)
-        print("Closed-loop complete: " + json.dumps(report["wall_clock_s"]), flush=True)
+        print(args.eval_mode + " complete: " + json.dumps(report["wall_clock_s"]), flush=True)
         return
     if args.eval_mode == "sustained":
         from robot_gym.scripts.diagnostic_bank import evaluate_sustained

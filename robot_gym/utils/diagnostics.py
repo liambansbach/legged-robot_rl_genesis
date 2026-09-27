@@ -138,9 +138,9 @@ def check_training_continuation(
         "env_cfg.sim.batch_links_info",
     }
     if finetune is not None:
-        from robot_gym.envs.go2w.go2w_config import FINETUNE_COMMANDS, FINETUNE_MOBILITY
+        from robot_gym.envs.go2w.go2w_config import FINETUNE_COMMANDS, FINETUNE_MOBILITY, FINETUNE_PRECISION
 
-        if finetune not in ("coverage", "coverage_mobility"):
+        if finetune not in ("coverage", "coverage_mobility", "precision_clearance"):
             raise ValueError(f"Unknown Go2-W finetune: {finetune}")
         expected = {
             "env_cfg.go2w_finetune": finetune,
@@ -149,6 +149,30 @@ def check_training_continuation(
         }
         if finetune == "coverage_mobility":
             expected.update({f"env_cfg.rewards.{key}": value for key, value in FINETUNE_MOBILITY.items()})
+        if finetune == "precision_clearance":
+            saved = yaml.safe_load(Path(config_path).read_text())
+            if any(saved[key].get("go2w_finetune") != "coverage" for key in ("env_cfg", "train_cfg")):
+                raise ValueError("precision_clearance requires the saved coverage A parent")
+            parent_values = {
+                "rewards.tracking_sigma_yaw": None,
+                "rewards.clearance_sigma": .02,
+                "rewards.clearance_activation_height": .01,
+                "rewards.scales.foot_swing_clearance": .12,
+                "domain_rand.kp_scale_range": [.9, 1.1],
+                "domain_rand.kd_scale_range": [.9, 1.1],
+                "domain_rand.action_delay_steps_range": [0, 1],
+            }
+            for path, value in parent_values.items():
+                actual = saved["env_cfg"]
+                for part in path.split("."):
+                    actual = actual.get(part)
+                if actual != value:
+                    raise ValueError(f"Coverage parent value mismatch: {path}")
+            expected.update({f"env_cfg.{key}": value for key, value in FINETUNE_PRECISION.items()})
+            # Coverage is already present in A: never permit a sampler migration here.
+            for key in FINETUNE_COMMANDS:
+                if saved["env_cfg"]["commands"].get(key) != FINETUNE_COMMANDS[key]:
+                    raise ValueError(f"Coverage parent sampler mismatch: {key}")
         resolved = {"env_cfg": env_cfg, "train_cfg": train_cfg}
         if any(cfg.get("go2w_profile") != "step_recovery_v1" for cfg in resolved.values()):
             raise ValueError("Finetune continuation requires the step_recovery_v1 profile")
@@ -166,6 +190,9 @@ def check_training_continuation(
         and train_cfg["algorithm"]["entropy_coef"] == entropy_coef
     ):
         allowed.add("train_cfg.algorithm.entropy_coef")
+    if finetune == "precision_clearance":
+        allowed.discard("env_cfg.rewards.tracking_sigma_x")
+        allowed.discard("train_cfg.algorithm.entropy_coef")
     # Only the agreed two-update smoke may reduce the source batch size.
     if env_cfg["env"]["num_envs"] == 64 and train_cfg["runner"]["max_iterations"] == 2:
         allowed.add("env_cfg.env.num_envs")

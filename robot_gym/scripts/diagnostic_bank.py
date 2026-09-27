@@ -703,3 +703,210 @@ def evaluate_bank(env, runner, args, out):
                 f"{name}: {sum(m['fell'] for m in metrics)}/{len(metrics)} fell; saved per-condition results",
                 flush=True,
             )
+
+
+def precision_schedule(dr=False):
+    zero = (0., 0., 0.)
+    if dr:
+        return {"dynamics": [(2, zero), (4, (.5, 0, 0)), (4, (0, 0, .4)),
+                             (4, (0, 0, -.4)), (4, (0, .15, 0)), (4, (0, -.15, 0)), (4, zero)]}
+    cases = {"rolling_reverse": [(2, zero), (3, (.1, 0, 0)), (4, (.5, 0, 0)),
+                                  (3, (-.25, 0, 0)), (3, zero)]}
+    for sign, name in ((1, "positive"), (-1, "negative")):
+        cases[f"yaw_{name}"] = [(2, zero), (3, (0, 0, sign*.03)), (3, (0, 0, sign*.1)),
+                                (4, (0, 0, sign*.4)), (4, (0, 0, sign*.75)), (3, zero)]
+        cases[f"lateral_{name}"] = [(2, zero), (4, (0, sign*.1, 0)), (4, (0, sign*.2, 0)), (3, zero)]
+    return {name: cases[name] for name in ("rolling_reverse", "yaw_positive", "yaw_negative", "lateral_positive", "lateral_negative")}
+
+
+def precision_conditions():
+    nominal = condition_bank()[0]
+    changes = [{}, {"friction": .6, "heading": np.pi/2}, {"friction": 1.2, "heading": -np.pi/2},
+               {"added_mass": 1.5, "com": [.015, 0, 0]}, {"kp": .85, "kv": .85},
+               {"kp": 1.15, "kv": 1.15}, {"delay": 1}, {"delay": 2}]
+    names = ("nominal", "friction_low_heading", "friction_high_heading", "payload", "gain_low", "gain_high", "delay_1", "delay_2")
+    return [dict(nominal, **dict(change, id=name)) for name, change in zip(names, changes)]
+
+
+def rollout_precision(env, policy, schedule):
+    """Policy-rate tensor capture; terminal rows retained, later rows explicitly invalid."""
+    rows, layout = [], {}
+    active = torch.ones(env.num_envs, dtype=torch.bool, device=env.device)
+    episode = env.episode_length_buf.clone()
+    step = 0
+    with torch.no_grad():
+        for phase, (seconds, command) in enumerate(schedule):
+            for _ in range(round(seconds / env.dt)):
+                env.commands[:] = env.commands.new_tensor(command)
+                env.compute_observations()
+                raw = policy(env.get_observations())
+                finite_policy = torch.isfinite(raw).all(dim=1)
+                # A nonfinite proposal is censored before it can enter the solver.
+                env.step(torch.where(finite_policy[:, None], raw, torch.zeros_like(raw)))
+                state = env.transition_state
+                values = {key: state[key] for key in (
+                    "commands", "base_pos", "base_quat", "base_lin_vel", "base_ang_vel", "rpy",
+                    "dof_pos", "dof_vel", "torques", "actions", "applied_actions", "foot_pos",
+                    "foot_contacts", "wheel_normal_force", "loaded_wheels", "wheel_clearance",
+                    "wheel_link_quat", "wheel_reposition_velocity_body", "fallen", "time_out_buf",
+                    "reset_buf", "episode_length_buf", "nonfoot_contact_count")}
+                finite = torch.stack([torch.isfinite(v).reshape(env.num_envs, -1).all(1) for v in values.values()]).all(0) & finite_policy
+                reset = state["reset_buf"].bool() | (state["episode_length_buf"] != episode + step + 1)
+                failed = ~finite | reset | state["fallen"].bool() | (state["nonfoot_contact_count"] > 0)
+                values.update(raw_actions=raw, valid=active.clone(), failure=active & failed,
+                              nonfinite=~finite, phase=env.commands.new_full((env.num_envs,), phase))
+                if not layout:
+                    offset = 0
+                    for key, value in values.items():
+                        width = value[0].numel()
+                        layout[key] = (offset, offset + width, tuple(value.shape[1:]))
+                        offset += width
+                rows.append(torch.cat([v.reshape(env.num_envs, -1).float() for v in values.values()], dim=1))
+                active &= ~failed
+                step += 1
+                if not bool(active.any()):
+                    break
+            if not bool(active.any()):
+                break
+    packed = torch.stack(rows).cpu().numpy()
+    return {key: packed[:, :, a:b].reshape((len(rows), env.num_envs, *shape))
+            for key, (a, b, shape) in layout.items()}
+
+
+def precision_metrics(data, schedule, dt, metadata, initial):
+    from robot_gym.scripts.evaluate import swing_events, velocity_window_metrics
+    from robot_gym.utils.diagnostics import wheel_axles_body
+    from robot_gym.envs.go2w.go2w_symmetry import joint_reflection
+
+    results = []
+    for index in range(data["valid"].shape[1]):
+        d = {key: value[:, index][data["valid"][:, index].astype(bool)] for key, value in data.items()}
+        n = len(d["phase"])
+        if d["nonfinite"].any():
+            results.append({"condition_index": index, "recorded_steps": n, "duration_s": n*dt,
+                            "failure": True, "nonfinite": True, "phases": [], "swings": {},
+                            "reason": "Nonfinite terminal data retained in NPZ; tracking not summarized"})
+            continue
+        velocity = np.concatenate((d["base_lin_vel"], d["base_ang_vel"]), axis=-1)
+        world_velocity = rotate_wxyz(torch.tensor(d["base_quat"]), torch.tensor(d["base_lin_vel"])).numpy()
+        heading = np.unwrap(heading_wxyz(torch.tensor(d["base_quat"])).numpy())
+        inverse = torch.tensor(d["base_quat"]); inverse[:, 1:] *= -1
+        feet = rotate_wxyz(inverse[:, None], torch.tensor(d["foot_pos"] - d["base_pos"][:, None])).numpy()
+        axles = wheel_axles_body(torch.tensor(d["base_quat"]), torch.tensor(d["wheel_link_quat"]),
+                                torch.tensor(metadata["wheel_joint_axes"], dtype=torch.float32)).numpy()
+        result = {"condition_index": index, "recorded_steps": n, "duration_s": n*dt,
+                  "failure": bool(d["failure"].any()), "falls": int(d["fallen"].sum()),
+                  "nonwheel_contact_steps": int((d["nonfoot_contact_count"] > 0).sum()),
+                  "timeouts": int(d["time_out_buf"].sum()), "nonfinite": bool(d["nonfinite"].any()),
+                  "phases": [], "swings": {}}
+        offset = 0
+        for phase, (seconds, command) in enumerate(schedule):
+            count = round(seconds/dt); end = min(offset+count, n)
+            if end <= offset:
+                result["phases"].append({"phase": phase, "command": command, "censored": True, "samples": 0})
+                offset += count
+                continue
+            sl = slice(offset, end); tail = slice(max(offset, end-round(1/dt)), end)
+            start_position = initial["base_pos"][index] if offset == 0 else d["base_pos"][offset-1]
+            start_heading = float(heading_wxyz(torch.tensor(initial["base_quat"][index]))) if offset == 0 else heading[offset-1]
+            path = np.concatenate((start_position[None, :2], d["base_pos"][sl, :2]))
+            legs = metadata["leg_indices"]
+            error = d["dof_pos"][tail][:, legs] - np.asarray(metadata["nominal_position"])[legs]
+            perm, signs = joint_reflection(metadata["joint_order"])
+            mirror_error = d["dof_pos"][tail] - d["dof_pos"][tail][:, perm]*signs
+            wheels = metadata["wheel_indices"]
+            force = d["torques"][sl][:, wheels]
+            targets = d["applied_actions"][sl]*np.asarray(metadata["action_scale"])
+            targets[:, wheels] = np.clip(targets[:, wheels], -metadata["wheel_target_limit"], metadata["wheel_target_limit"])
+            p = {"phase": phase, "command": command, "samples": end-offset,
+                 "censored": end < offset+count or bool(d["failure"][sl].any()),
+                 "last_second": velocity_window_metrics(velocity[tail], np.asarray(command)),
+                 "whole_phase": velocity_window_metrics(velocity[sl], np.asarray(command)),
+                 "xy_rms": float(np.sqrt(np.mean(np.sum(velocity[tail, :2]**2, axis=-1)))),
+                 "yaw_rms": float(np.sqrt(np.mean(velocity[tail, 5]**2))),
+                 "displacement_xy_m": float(np.linalg.norm(path[-1]-path[0])),
+                 "path_xy_m": float(np.linalg.norm(np.diff(path, axis=0), axis=-1).sum()),
+                 "heading_change_rad": float(heading[end-1]-start_heading),
+                 "heading_change_abs_rad": float(abs(heading[end-1]-start_heading)),
+                 "leg_error_rms_per_joint": np.sqrt(np.mean(error**2, axis=0)).tolist(),
+                 "stance_width_front_rear_m": (feet[tail][:, [0, 2], 1]-feet[tail][:, [1, 3], 1]).mean(0).tolist(),
+                 "tilt_rms_rad": np.sqrt((d["rpy"][tail, :2]**2).mean(0)).tolist(),
+                 "wheel_camber_mean_rad": np.arcsin(np.clip(axles[tail, :, 2], -1, 1)).mean(0).tolist(),
+                 "wheel_toe_mean_rad": np.arctan2(-axles[tail, :, 0], axles[tail, :, 1]).mean(0).tolist(),
+                 "world_velocity_mean": world_velocity[tail].mean(0).tolist(),
+                 "front_rear_pose_rms_rad": [float(np.sqrt(np.mean(error[:, group]**2))) for group in (slice(0,6),slice(6,12))],
+                 "front_rear_mirror_rms_rad": [float(np.sqrt(np.mean(mirror_error[:, group]**2))) for group in (legs[:6], legs[6:])],
+                 "physical_target_slew_rms_per_joint": np.sqrt(np.mean((np.diff(targets, axis=0)/dt)**2, axis=0)).tolist() if len(targets)>1 else None,
+                 "wheel_opposing_force_left_right_mean_Nm": (np.minimum(np.abs(force[:, :2]), np.abs(force[:, 2:]))*(force[:, :2]*force[:, 2:]<0)).mean(0).tolist(),
+                 "raw_action_saturation_per_joint": (np.abs(d["raw_actions"][sl]) >= 1).mean(0).tolist(),
+                 "force_limit_fraction_per_joint": (np.abs(d["torques"][sl]) >= .99*np.asarray(metadata["force_limits"])).mean(0).tolist(),
+                 "max_abs_force_ratio": float(np.max(np.abs(d["torques"][sl])/np.asarray(metadata["force_limits"])))}
+            p["last_second"]["mean_error_vx_vy_yaw"] = (velocity[tail][:, [0,1,5]].mean(0)-command).tolist()
+            p["one_second_windows"] = [velocity_window_metrics(velocity[start:min(start+round(1/dt),end)], np.asarray(command))
+                                       for start in range(offset, end, round(1/dt))]
+            result["phases"].append(p)
+            offset += count
+        for limb, name in enumerate(metadata["wheel_order"]):
+            events = swing_events(d["wheel_normal_force"][:, limb], d["wheel_clearance"][:, limb], feet[:, limb], dt)
+            complete = [e for e in events if e["completed"] and e["geometric_lift"]]
+            summary = {"events": events, "completed_geometric_count": len(complete),
+                       "rate_hz": len(complete)/(n*dt),
+                       "completed_load_only_count": sum(e["completed"] and not e["geometric_lift"] for e in events)}
+            for key in ("peak_clearance_m", "horizontal_displacement_body_m", "duration_s"):
+                summary[key+"_p50_p90_max"] = np.percentile([e[key] for e in complete], [50,90,100]).tolist() if complete else None
+            summary["fraction_ge_2_3_4cm"] = [float(np.mean([e["peak_clearance_m"] >= h for e in complete])) for h in (.02,.03,.04)] if complete else None
+            result["swings"][name] = summary
+        results.append(result)
+    return results
+
+
+def evaluate_precision(env, policy, out, dr=False):
+    import xml.etree.ElementTree as ET
+
+    tree = ET.parse(env.urdf_reader.robot_file_path_absolute).getroot()
+    metadata = {"joint_order": env.joint_names, "wheel_order": env.cfg.asset.foot_link_names,
+                "leg_indices": env.leg_action_indices, "wheel_indices": env.wheel_action_indices,
+                "wheel_joint_axes": [[float(x) for x in tree.find(f"joint[@name='{env.joint_names[i]}']/axis").get("xyz").split()]
+                                     for i in env.wheel_action_indices],
+                "nominal_position": env.default_dof_pos[0].cpu().tolist(),
+                "action_scale": env.action_scale.reshape(-1).cpu().tolist(),
+                "force_limits": env.torque_limits.cpu().tolist(),
+                "position_limits": [[float(v) if np.isfinite(v) else None for v in pair]
+                                    for pair in env.dof_pos_limits.cpu().tolist()],
+                "position_limits_semantics": "null denotes an unbounded continuous joint",
+                "wheel_target_limit": env.cfg.control.wheel_velocity_target_limit}
+    report = {"mode": "precision_dr" if dr else "precision_screen", "dt": env.dt, **metadata,
+              "schedule": precision_schedule(dr), "tests": {}, "heavy_recorder": False,
+              "trace_semantics": "Post-step pre-reset. valid includes first terminal row only; later rows invalid. Policy-rate forces, no substep maxima. Targets = delayed action * saved scale (+ nominal for legs), wheel targets limited as recorded. Stop displacement/path includes braking.",
+              "swing_semantics": "6/10 N hysteresis, >=2 mm geometric peak, no dwell filter; completed and boundary-censored events separate",
+              "wall_clock_s": {"rollout": 0., "postprocessing": 0.}}
+    nominal = loaded_properties(env) if dr else None
+    for name, schedule in precision_schedule(dr).items():
+        started = perf_counter()
+        env.reset()
+        if dr:
+            conditions = precision_conditions()
+            apply_conditions(env, conditions, nominal)
+            report["conditions"] = conditions
+            applied = loaded_properties(env)
+            write_json(out / "applied_properties.json", applied)
+            def tensor(values):
+                return torch.tensor(values, device=env.device, dtype=torch.float32)
+            base = [env.base_link_idx]
+            torch.testing.assert_close(applied["mass"][:, base], nominal["mass"][:, base] + tensor([c["added_mass"] for c in conditions])[:, None])
+            torch.testing.assert_close(applied["com_local"][:, base], nominal["com_local"][:, base] + tensor([c["com"] for c in conditions])[:, None])
+            torch.testing.assert_close(applied["wheel_friction_ratio"], tensor([c["friction"] for c in conditions])[:, None].expand_as(applied["wheel_friction_ratio"]))
+            for key, factor, gains in (("kp", "kp", env.base_p_gains), ("kv", "kv", env.base_d_gains)):
+                torch.testing.assert_close(applied[key], tensor([c[factor] for c in conditions])[:, None]*gains)
+            assert env.action_history.shape[1] >= 3 and not bool(env.action_history.any())
+            assert env.action_delay_steps.tolist() == [c["delay"] for c in conditions]
+        initial = {key: getattr(env, key).cpu().numpy().copy() for key in ("base_pos", "base_quat")}
+        data = rollout_precision(env, policy, schedule)
+        report["wall_clock_s"]["rollout"] += perf_counter()-started
+        started = perf_counter()
+        np.savez_compressed(out / f"{name}.npz", **data, **{f"initial_{key}": value for key,value in initial.items()}, dt=env.dt)
+        report["tests"][name] = precision_metrics(data, schedule, env.dt, metadata, initial)
+        report["wall_clock_s"]["postprocessing"] += perf_counter()-started
+        write_json(out / "metrics.json", report)
+        print(f"{name}: steps={[r['recorded_steps'] for r in report['tests'][name]]}, failures={[r['failure'] for r in report['tests'][name]]}", flush=True)
+    return report

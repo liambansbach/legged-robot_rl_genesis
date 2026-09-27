@@ -117,9 +117,12 @@ class Go2WEnv(Go2Env):
                 link_reposition_velocity,
             )
 
+            wheel_quat = self.robot.get_links_quat(self.foot_link_indices_local)
+            if getattr(self.cfg.env, "capture_precision", False):
+                self.wheel_link_quat = wheel_quat
             self.wheel_clearance[:] = cylinder_clearance(
                 self.foot_pos,
-                self.robot.get_links_quat(self.foot_link_indices_local),
+                wheel_quat,
                 *self.wheel_geometry,
             )
             # Genesis 1.4.1 defaults to authored link origins (not COM), in world axes.
@@ -357,6 +360,13 @@ class Go2WEnv(Go2Env):
         contacts = self.loaded_wheels if self.step_recovery else self.foot_contacts
         relaxation = getattr(self.cfg.rewards, "wheel_air_relaxation", 0.75)
         return (1 - relaxation * self._mobility_gate()) * (~contacts).float().mean(dim=1)
+
+    def _reward_tracking_ang_vel(self):
+        denominator = getattr(self.cfg.rewards, "tracking_sigma_yaw", None)
+        if denominator is None:
+            return super()._reward_tracking_ang_vel()
+        error = self.commands[:, 2] - self.base_ang_vel[:, 2]
+        return torch.exp(-error.square() / denominator)
 
     def _reward_foot_swing_clearance(self):
         if not self.step_recovery:
