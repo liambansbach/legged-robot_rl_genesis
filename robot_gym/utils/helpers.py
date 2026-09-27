@@ -119,8 +119,9 @@ def update_cfg_from_args(env_cfg, cfg_train, args):
             raise ValueError("--go2w_profile is specific to go2w")
         if getattr(args, "zero_command_brake", False):
             raise ValueError("Go2-W step recovery requires zero-command braking disabled")
-        if getattr(args, "tracking_sigma_x", None) not in (None, 0.25) or getattr(args, "entropy_coef", None) not in (None, 0.001):
-            raise ValueError("step_recovery_v1 fixes tracking_sigma_x=0.25 and entropy_coef=0.001")
+        entropy = 0.003 if profile == "event_step_v1" else 0.001
+        if getattr(args, "tracking_sigma_x", None) not in (None, 0.25) or getattr(args, "entropy_coef", None) not in (None, entropy):
+            raise ValueError(f"{profile} fixes tracking_sigma_x=0.25 and entropy_coef={entropy}")
         from robot_gym.envs.go2w.go2w_config import apply_go2w_profile
 
         apply_go2w_profile(env_cfg, cfg_train, profile)
@@ -181,7 +182,7 @@ def get_args():
     custom_parameters = [
         {"name": "--go2w_finetune", "choices": ["coverage", "coverage_mobility", "precision_clearance"], "default": None, "help": "Explicit step_recovery_v1 continuation/evaluation design; unset preserves sampling and rewards"},
         {"name": "--no_export", "action": "store_true", "help": "Playback: skip automatic policy export; source selection still uses --load_run"},
-        {"name": "--go2w_profile", "choices": ["step_recovery_v1"], "default": None, "help": "Explicit Go2-W action/reward/training profile; unset preserves the baseline"},
+        {"name": "--go2w_profile", "choices": ["step_recovery_v1", "event_step_v1"], "default": None, "help": "Explicit Go2-W action/reward/training profile; unset preserves the baseline"},
         {"name": "--zero_command_brake", "action": "store_true", "help": "Go2-W inference only: blend wheel targets to zero for a complete zero body command"},
         {"name": "--entropy_coef", "type": float, "default": None, "help": "Go2-W entropy weight; unset preserves the registered config"},
         {"name": "--tracking_sigma_x", "type": float, "default": None, "help": "Go2-W forward squared-error denominator; unset preserves the registered config"},

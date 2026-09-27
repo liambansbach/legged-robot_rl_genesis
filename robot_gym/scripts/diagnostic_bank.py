@@ -705,7 +705,7 @@ def evaluate_bank(env, runner, args, out):
             )
 
 
-def precision_schedule(dr=False):
+def precision_schedule(dr=False, event_step=False):
     zero = (0., 0., 0.)
     if dr:
         return {"dynamics": [(2, zero), (4, (.5, 0, 0)), (4, (0, 0, .4)),
@@ -716,7 +716,12 @@ def precision_schedule(dr=False):
         cases[f"yaw_{name}"] = [(2, zero), (3, (0, 0, sign*.03)), (3, (0, 0, sign*.1)),
                                 (4, (0, 0, sign*.4)), (4, (0, 0, sign*.75)), (3, zero)]
         cases[f"lateral_{name}"] = [(2, zero), (4, (0, sign*.1, 0)), (4, (0, sign*.2, 0)), (3, zero)]
-    return {name: cases[name] for name in ("rolling_reverse", "yaw_positive", "yaw_negative", "lateral_positive", "lateral_negative")}
+    result = {name: cases[name] for name in ("rolling_reverse", "yaw_positive", "yaw_negative", "lateral_positive", "lateral_negative")}
+    if event_step:
+        for sign, name in ((1, "positive"), (-1, "negative")):
+            result[f"expanded_lateral_{name}"] = [(2, zero), (4, (0, sign*.05, 0)),
+                                                  (4, (0, sign*.4, 0)), (4, (0, sign*.5, 0)), (3, zero)]
+    return result
 
 
 def precision_conditions():
@@ -750,6 +755,8 @@ def rollout_precision(env, policy, schedule):
                     "foot_contacts", "wheel_normal_force", "loaded_wheels", "wheel_clearance",
                     "wheel_link_quat", "wheel_reposition_velocity_body", "fallen", "time_out_buf",
                     "reset_buf", "episode_length_buf", "nonfoot_contact_count")}
+                if getattr(env, "event_step", False):
+                    values.update({key: value for key, value in state.items() if key.startswith("event_")})
                 finite = torch.stack([torch.isfinite(v).reshape(env.num_envs, -1).all(1) for v in values.values()]).all(0) & finite_policy
                 reset = state["reset_buf"].bool() | (state["episode_length_buf"] != episode + step + 1)
                 failed = ~finite | reset | state["fallen"].bool() | (state["nonfoot_contact_count"] > 0)
@@ -855,6 +862,16 @@ def precision_metrics(data, schedule, dt, metadata, initial):
             for key in ("peak_clearance_m", "horizontal_displacement_body_m", "duration_s"):
                 summary[key+"_p50_p90_max"] = np.percentile([e[key] for e in complete], [50,90,100]).tolist() if complete else None
             summary["fraction_ge_2_3_4cm"] = [float(np.mean([e["peak_clearance_m"] >= h for e in complete])) for h in (.02,.03,.04)] if complete else None
+            if "event_valid" in d:
+                summary["fraction_ge_5cm"] = float(np.mean([e["peak_clearance_m"] >= .05 for e in complete])) if complete else None
+                selected = d["event_valid"][:, limb].astype(bool)
+                summary["command_qualified"] = {
+                    "count": int(selected.sum()),
+                    "censored_count": int(d["event_censored_count"][-1, limb]),
+                    "events": [{key: float(d["event_" + key][i, limb])
+                                for key in ("peak_actual", "peak_use", "duration", "reposition", "quality", "payment", "gate")}
+                               for i in np.flatnonzero(selected)],
+                }
             result["swings"][name] = summary
         results.append(result)
     return results
@@ -875,13 +892,17 @@ def evaluate_precision(env, policy, out, dr=False):
                                     for pair in env.dof_pos_limits.cpu().tolist()],
                 "position_limits_semantics": "null denotes an unbounded continuous joint",
                 "wheel_target_limit": env.cfg.control.wheel_velocity_target_limit}
+    schedules = precision_schedule(dr, getattr(env, "event_step", False))
     report = {"mode": "precision_dr" if dr else "precision_screen", "dt": env.dt, **metadata,
-              "schedule": precision_schedule(dr), "tests": {}, "heavy_recorder": False,
+              "schedule": schedules, "tests": {}, "heavy_recorder": False,
               "trace_semantics": "Post-step pre-reset. valid includes first terminal row only; later rows invalid. Policy-rate forces, no substep maxima. Targets = delayed action * saved scale (+ nominal for legs), wheel targets limited as recorded. Stop displacement/path includes braking.",
               "swing_semantics": "6/10 N hysteresis, >=2 mm geometric peak, no dwell filter; completed and boundary-censored events separate",
               "wall_clock_s": {"rollout": 0., "postprocessing": 0.}}
     nominal = loaded_properties(env) if dr else None
-    for name, schedule in precision_schedule(dr).items():
+    if getattr(env, "event_step", False):
+        report["expanded_envelope"] = "Additional +/-0.05/0.4/0.5 lateral checks; no matching A baseline assumed"
+        report["completed_training_updates"] = env.completed_updates
+    for name, schedule in schedules.items():
         started = perf_counter()
         env.reset()
         if dr:

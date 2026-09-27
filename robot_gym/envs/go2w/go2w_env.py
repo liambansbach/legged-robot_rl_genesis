@@ -8,7 +8,7 @@ from robot_gym.envs.go2.go2_env import Go2Env
 
 class Go2WEnv(Go2Env):
     def enable_zero_command_brake(self):
-        if getattr(self.cfg, "go2w_profile", None) == "step_recovery_v1":
+        if getattr(self.cfg, "go2w_profile", None) in ("step_recovery_v1", "event_step_v1"):
             raise ValueError(
                 "Go2-W step recovery requires zero-command braking disabled"
             )
@@ -24,11 +24,13 @@ class Go2WEnv(Go2Env):
 
     def reset_idx(self, env_ids):
         super().reset_idx(env_ids)
-        if getattr(self, "step_recovery", False):
+        if getattr(self, "wheel_geometry_enabled", getattr(self, "step_recovery", False)):
             self.wheel_clearance[env_ids] = 0
             self.wheel_normal_force[env_ids] = 0
             self.loaded_wheels[env_ids] = False
             self.wheel_reposition_velocity_body[env_ids] = 0
+        if hasattr(self, "step_events"):
+            self.step_events.reset(env_ids)
         brake = getattr(self, "zero_command_brake", None)
         if brake is not None:
             brake.reset(env_ids)
@@ -46,6 +48,13 @@ class Go2WEnv(Go2Env):
         self.step_recovery = (
             getattr(self.cfg, "go2w_profile", None) == "step_recovery_v1"
         )
+        self.event_step = getattr(self.cfg, "go2w_profile", None) == "event_step_v1"
+        self.wheel_geometry_enabled = self.step_recovery or self.event_step
+        if self.event_step:
+            self.completed_updates = 0
+            self.hip_indices = [i for i, n in enumerate(self.joint_names) if n.endswith("_hip_joint")]
+            self.sagittal_indices = [i for i, n in enumerate(self.joint_names)
+                                     if n.endswith(("_thigh_joint", "_calf_joint"))]
         self.leg_action_indices = [
             i
             for i, n in enumerate(self.joint_names)
@@ -73,7 +82,7 @@ class Go2WEnv(Go2Env):
             self.diagnostic_command_families = torch.full(
                 (self.num_envs,), -1, dtype=torch.long, device=self.device
             )
-            if getattr(self.cfg, "go2w_finetune", None):
+            if getattr(self.cfg, "go2w_finetune", None) or self.event_step:
                 self.diagnostic_long_moving_commands = torch.zeros(
                     self.num_envs, dtype=torch.bool, device=self.device
                 )
@@ -86,7 +95,7 @@ class Go2WEnv(Go2Env):
 
     def _init_buffers(self):
         super()._init_buffers()
-        if self.step_recovery:
+        if self.wheel_geometry_enabled:
             from robot_gym.utils.diagnostics import wheel_cylinders
 
             self.wheel_geometry = wheel_cylinders(
@@ -98,6 +107,10 @@ class Go2WEnv(Go2Env):
             self.wheel_normal_force = torch.zeros_like(self.wheel_clearance)
             self.loaded_wheels = torch.zeros_like(self.foot_contacts)
             self.wheel_reposition_velocity_body = torch.zeros_like(self.foot_pos)
+            if self.event_step:
+                from .step_events import WheelStepEvents
+                self.step_events = WheelStepEvents(self.num_envs, self.device,
+                                                   self.cfg.rewards.event_step, self.wheel_geometry)
 
     def _update_wheel_support(self, contacts):
         from robot_gym.utils.diagnostics import summed_normal_force
@@ -111,14 +124,14 @@ class Go2WEnv(Go2Env):
 
     def _update_robot_state(self):
         super()._update_robot_state()
-        if self.step_recovery:
+        if self.wheel_geometry_enabled:
             from robot_gym.utils.diagnostics import (
                 cylinder_clearance,
                 link_reposition_velocity,
             )
 
             wheel_quat = self.robot.get_links_quat(self.foot_link_indices_local)
-            if getattr(self.cfg.env, "capture_precision", False):
+            if self.event_step or getattr(self.cfg.env, "capture_precision", False):
                 self.wheel_link_quat = wheel_quat
             self.wheel_clearance[:] = cylinder_clearance(
                 self.foot_pos,
@@ -175,6 +188,17 @@ class Go2WEnv(Go2Env):
         pure_lateral = (low + (high - low) * lateral_sample.abs()) * torch.where(
             lateral_sample < 0, -1.0, 1.0
         )
+        if self.event_step:
+            from .step_events import lateral_high
+            cfg = self.cfg.commands
+            # One uniform supplies independent sign and a mixture quantile.
+            u = lateral_sample.abs()
+            split = 1 - cfg.lateral_tail_probability
+            magnitude = torch.where(u < split, low + (high - low) * u / split,
+                                    high + (lateral_high(self.completed_updates, cfg) - high) * (u - split) / (1 - split))
+            pure_lateral = magnitude * torch.where(lateral_sample < 0, -1.0, 1.0)
+            lo, hi = cfg.mixed_lateral_range
+            cmd[:, 1] = lo + (hi - lo) * (lateral_sample + 1) / 2
         cmd[:, 1] = torch.where(families == 5, pure_lateral, cmd[:, 1])
         # Most commands use wheels and yaw. Lateral demand is explicit and uncommon.
         cmd[:, 1] *= families >= 5
@@ -190,7 +214,7 @@ class Go2WEnv(Go2Env):
         ).unsqueeze(1)
         cmd[:, 2] *= cmd[:, 2].abs() > self.cfg.commands.yaw_deadzone
         self.commands[env_ids] = cmd
-        if self.step_recovery:
+        if self.step_recovery or self.event_step:
             stand_ids = env_ids[families == 0]
             long_ids = stand_ids[
                 torch.rand(len(stand_ids), device=self.device)
@@ -199,7 +223,7 @@ class Go2WEnv(Go2Env):
             self.command_steps_left[long_ids] = self._sample_interval_steps(
                 self.cfg.commands.long_stand_duration_range, len(long_ids), self.dt
             )
-        if getattr(self.cfg, "go2w_finetune", None):
+        if getattr(self.cfg, "go2w_finetune", None) or self.event_step:
             cfg = self.cfg.commands
             mixed_ids = env_ids[families == 6]
             zero_yaw = torch.rand(len(mixed_ids), device=self.device) < cfg.mixed_zero_yaw_probability
@@ -217,6 +241,49 @@ class Go2WEnv(Go2Env):
                 self.diagnostic_long_moving_commands[env_ids] = (
                     (families != 0) & (self.command_steps_left[env_ids] > round(3 / self.dt))
                 )
+        if hasattr(self, "step_events"):
+            self.step_events.command_changed(self.commands)
+
+    def set_fixed_command(self, command):
+        super().set_fixed_command(command)
+        if hasattr(self, "step_events"):
+            self.step_events.command_changed(self.commands)
+
+    def _update_step_events(self):
+        finite = torch.stack([torch.isfinite(value).reshape(self.num_envs, -1).all(dim=1)
+                              for value in (self.dof_pos, self.dof_vel, self.base_lin_vel,
+                                            self.base_ang_vel, self.torques, self.actions)]).all(dim=0)
+        self.step_events.update(self.dt, self.commands, self.base_pos, self.base_quat,
+                                self.foot_pos, self.wheel_link_quat, self.wheel_normal_force,
+                                self.reset_buf.bool() | (self.nonfoot_contact_count > 0) | ~finite)
+
+    def _step_demand(self):
+        from .step_events import step_demand
+        return step_demand(self.commands)
+
+    def _reward_step_event(self):
+        return self.step_events.payment.sum(dim=1)
+
+    def compute_reward(self):
+        if self.event_step:
+            if getattr(self, "_event_reward_step", None) == self.common_step_counter:
+                return
+            self._event_reward_step = self.common_step_counter
+        super().compute_reward()
+
+    def _reward_hip_pose(self):
+        error = (self.dof_pos - self.default_dof_pos)[:, self.hip_indices]
+        return (1 - 0.5 * self._step_demand()) * error.square().mean(dim=1)
+
+    def _reward_sagittal_pose(self):
+        error = (self.dof_pos - self.default_dof_pos)[:, self.sagittal_indices]
+        return (1 - 0.8 * self._step_demand()) * error.square().mean(dim=1)
+
+    def _reward_prolonged_unloading(self):
+        return ((self.step_events.unloaded_time - 0.60) / 0.20).clamp(0, 1).square().mean(dim=1)
+
+    def _reward_insufficient_support(self):
+        return torch.relu(2 - (self.wheel_normal_force > 6).sum(dim=1)).square()
 
     def compute_observations(self):
         # Keep this construction explicit so simulator velocity can later be replaced by an estimate.
@@ -305,6 +372,8 @@ class Go2WEnv(Go2Env):
         return (1 - 0.7 * self._pose_relaxation_gate()) * err
 
     def _reward_leg_motion(self):
+        if self.event_step:
+            return (1 - self._step_demand()) * self.dof_vel[:, self.leg_action_indices].square().mean(dim=1)
         return (1 - 0.7 * self._mobility_gate()) * self.dof_vel[
             :, self.leg_action_indices
         ].square().mean(dim=1)
@@ -356,12 +425,19 @@ class Go2WEnv(Go2Env):
         return self.nonfoot_contact_count.clamp(max=4)
 
     def _reward_unnecessary_wheel_air(self):
+        if self.event_step:
+            return (1 - self._step_demand()) * self.step_events.unloaded.float().mean(dim=1)
         # Retain a contact preference even when stepping is allowed.
         contacts = self.loaded_wheels if self.step_recovery else self.foot_contacts
         relaxation = getattr(self.cfg.rewards, "wheel_air_relaxation", 0.75)
         return (1 - relaxation * self._mobility_gate()) * (~contacts).float().mean(dim=1)
 
     def _reward_tracking_ang_vel(self):
+        if self.event_step:
+            error = (self.commands[:, 2] - self.base_ang_vel[:, 2]).square()
+            mixture = self.cfg.rewards.yaw_tracking_mixture
+            weight = mixture["broad_weight"]
+            return weight * torch.exp(-error / mixture["broad_sigma"]) + (1 - weight) * torch.exp(-error / mixture["precise_sigma"])
         denominator = getattr(self.cfg.rewards, "tracking_sigma_yaw", None)
         if denominator is None:
             return super()._reward_tracking_ang_vel()

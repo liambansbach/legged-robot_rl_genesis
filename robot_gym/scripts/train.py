@@ -198,6 +198,10 @@ def train(args):
         )
         completed = True
     finally:
+        if profile == "event_step_v1":
+            from robot_gym.envs.go2w.step_events import lateral_high
+            metadata["completed_updates_total"] = env.completed_updates
+            metadata["lateral_high"] = lateral_high(env.completed_updates, env.cfg.commands)
         if parent:
             metadata["status"] = "completed" if completed else "failed"
             metadata["completed_additional_updates"] = (

@@ -264,6 +264,9 @@ class TaskRegistry:
         runner.add_git_repo_to_log(__file__)
 
         runner.checkpoint_path = resume_path
+        if getattr(env.cfg, "go2w_profile", None) == "event_step_v1":
+            from robot_gym.envs.go2w.step_events import install_event_training
+            install_event_training(runner, env)
         if resume_path is not None: 
             print(f"Loading model from: {resume_path}")
             runner.load(resume_path)

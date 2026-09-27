@@ -397,7 +397,7 @@ def evaluate(args):
             cfg.domain_rand.action_delay_steps_range = [0, 2]
             cfg.sim.batch_links_info = cfg.sim.batch_dofs_info = True
         from robot_gym.scripts.diagnostic_bank import precision_schedule
-        print("Precision schedule: " + json.dumps(precision_schedule(args.eval_mode == "precision_dr")), flush=True)
+        print("Precision schedule: " + json.dumps(precision_schedule(args.eval_mode == "precision_dr", args.go2w_profile == "event_step_v1")), flush=True)
     elif args.eval_mode == "closed_loop":
         if cfg.env.num_envs != 1 or args.seed != 1 or args.zero_command_brake:
             raise ValueError("Closed-loop evaluation requires one environment, explicit seed 1 and no brake")

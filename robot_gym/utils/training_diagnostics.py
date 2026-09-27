@@ -331,6 +331,14 @@ class TrainingDiagnostics:
             },
             "slew_definition": "Consecutive clipped/scaled targets on sampled rollout states, excluding reset boundaries; mean path is a counterfactual at those same states; no extra policy calls",
         }
+        if getattr(self.env, "event_step", False):
+            from robot_gym.envs.go2w.step_events import lateral_high
+            row["event_step_v1"] = {
+                "completed_updates": self.env.completed_updates,
+                "lateral_high": lateral_high(self.env.completed_updates, self.env.cfg.commands),
+                "cache_updates": self.env.step_events.update_count,
+                "censored_attempts_since_reset": self.env.step_events.censored_count.sum(),
+            }
         if self.coverage is not None:
             long_moving, mixed, mixed_zero_yaw = self.coverage.tolist()
             row["coverage_time_exposure"] = {

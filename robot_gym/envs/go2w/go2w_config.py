@@ -76,6 +76,59 @@ def apply_go2w_finetune(env_cfg, train_cfg, name):
 
 def apply_go2w_profile(env_cfg, train_cfg, name):
     """One explicit candidate; never mutate the registered config or its dictionaries."""
+    if name == "event_step_v1":
+        if env_cfg is not None and getattr(env_cfg, "go2w_profile", None) != name:
+            env_cfg.go2w_profile = name
+            scales = {"hip": 0.30, "thigh": 0.35, "calf": 0.40, "foot": 18.0}
+            env_cfg.control.action_scale = {
+                joint: scales[joint.split("_")[1]] for joint in LEG_JOINTS + WHEEL_JOINTS
+            }
+            env_cfg.commands.long_stand_probability = 0.25
+            env_cfg.commands.long_stand_duration_range = [3.0, 6.0]
+            env_cfg.commands.mixed_zero_yaw_probability = 0.50
+            env_cfg.commands.moving_long_probability = 0.05
+            env_cfg.commands.moving_long_duration_range = [8.0, 15.0]
+            env_cfg.commands.pure_lateral_magnitude_range = [0.03, 0.30]
+            env_cfg.commands.ranges.lin_vel_y = [-0.50, 0.50]
+            env_cfg.commands.mixed_lateral_range = [-0.30, 0.30]
+            env_cfg.commands.lateral_tail_probability = 0.20
+            env_cfg.commands.lateral_curriculum_updates = [500, 1500]
+            env_cfg.commands.lateral_tail_high_range = [0.30, 0.50]
+            env_cfg.rewards.event_step = {
+                "unload_force": 6.0, "reload_force": 10.0,
+                "unload_dwell": 0.04, "reload_dwell": 0.06, "prior_support": 0.12,
+                "duration_range": [0.10, 0.60], "minimum_height": 0.008,
+                "minimum_reposition": 0.010, "full_reposition": 0.040,
+                "target_base": 0.025, "target_gate": 0.025, "limb_factor": 2.0,
+                "overshoot_band": 0.020, "credit_cap": 1.0,
+            }
+            env_cfg.rewards.discrete_reward_names = ["step_event"]
+            env_cfg.rewards.yaw_tracking_mixture = {"broad_weight": 0.25, "broad_sigma": 0.25, "precise_sigma": 0.04}
+            for key, value in {
+                "foot_swing_clearance": 0.0, "default_pose": 0.0,
+                "hip_pose": -2.0, "sagittal_pose": -0.6, "step_event": 0.60 / 4,
+                "prolonged_unloading": -0.20, "insufficient_support": -1.0,
+                "lin_vel_z": -1.0, "ang_vel_xy": -0.25, "stand_still": -2.0,
+            }.items():
+                setattr(env_cfg.rewards.scales, key, value)
+            env_cfg.domain_rand.kp_scale_range = [0.85, 1.15]
+            env_cfg.domain_rand.kd_scale_range = [0.85, 1.15]
+            env_cfg.domain_rand.action_delay_steps_range = [0, 2]
+            check_target_intervals(env_cfg)
+        if train_cfg is not None and getattr(train_cfg, "go2w_profile", None) != name:
+            train_cfg.go2w_profile = name
+            train_cfg.actor.distribution_cfg = {
+                "class_name": "GaussianDistribution", "init_std": 0.40,
+                "std_type": "log", "std_range": [0.10, 0.70], "learn_std": True,
+            }
+            train_cfg.algorithm.entropy_coef = 0.003
+            train_cfg.algorithm.learning_rate = 3e-4
+            train_cfg.algorithm.gamma = 0.995
+            train_cfg.runner.num_steps_per_env = 64
+            train_cfg.runner.experiment_name = "go2w_event_step_v1"
+            train_cfg.runner.max_iterations = 2000
+            train_cfg.runner.save_interval = 500
+        return
     if name != "step_recovery_v1":
         raise ValueError(f"Unknown Go2-W profile: {name}")
     if env_cfg is not None and getattr(env_cfg, "go2w_profile", None) != name:

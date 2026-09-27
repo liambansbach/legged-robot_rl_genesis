@@ -407,3 +407,91 @@ Optional owner GUI comparison (not executed; playback retains its 20 s episode t
 & $Python -m robot_gym.scripts.play @Common --go2w_finetune coverage --load_run $A --checkpoint 1798 --num_envs 1 --steps 1000 --command_vx 0 --command_vy 0 --command_yaw 0.4 --no_export
 & $Python -m robot_gym.scripts.play @Common --go2w_finetune precision_clearance --load_run $Candidate --checkpoint 2397 --num_envs 1 --steps 1000 --command_vx 0 --command_vy 0 --command_yaw 0.4 --no_export
 ```
+
+## Fresh event-step preparation — 27 September 2026
+
+`event_step_v1` is an opt-in movement-objective redesign from reviewed `testing` HEAD `2479ffd36d9fe04a40e2e1b3ba76cbece973482d`. It replaces the planned transfer work. **Implementation and the fresh learning smoke pass; loaded 5 cm lift feasibility remains unresolved. No long training was launched.** The single prescribed physical check collected valid evidence but its support/controller trajectories did not lift as intended. This is not evidence of insufficient motor power. No gains, limits, height thresholds or experimental settings were retuned. Coverage A remains the comparison/fallback and was never loaded into the new experiment. Its checkpoint/config hashes still match `02fe2fe814b2b82e35253097b2ff8976cf699b0f42be06dd70c03f202f2eeb25` / `8f88bb3ab44423e01aa3c2b7a19be9f49e82bd377862315fa47825627bb644d7`; URDF SHA-256 is `794ad4adaec16bc7a1eebab3d838e1955f37113192689361aff4733e99c9e9c5`.
+
+The explicit profile preserves the plane/URDF, 0.415 m height objective, nominal angles, 50/200 Hz timing, 56 observations, 16 actor-selected actions, offset scales 0.30/0.35/0.40 rad and wheel scale 18 rad/s, normalized clip 1, wheel target limit 20 rad/s, Kp/Kd 40/1, wheel Kv 1 and actual URDF limits. Actor/critic remain [512,256,128] ELU with trained observation normalization and sagittal augmentation, without mirror loss. Cached cylinder geometry and summed ground loads work without PhysicsDiagnostics. Old profile values and sampler RNG paths are preserved, including coverage and precision/clearance. Historical checkpoints are rejected by the new selector and native loading guard.
+
+`G=max(clamp((abs(vy)-.01)/.04,0,1), clamp((abs(yaw)-.10)/.15,0,1))`, independent of vx. The old instantaneous `foot_swing_clearance` and averaged `default_pose` are disabled. Weighted **rate** terms are hip pose `-2*(1-.5G)*mean(error²)`, thigh/calf pose `-.6*(1-.8G)*mean(error²)`, leg motion `-.02*(1-G)*mean(velocity²)`, wheel air `-.25*(1-G)*mean(unloaded)`, prolonged unloading `-.20*mean(clamp((time-.60)/.20,0,1)²)`, and insufficient support `-relu(2-count(load>6))²`. Vertical velocity becomes -1.0 and roll/pitch rate -0.25; orientation -1.2, height -8 and stand -2 remain. Linear tracking remains `exp(-ex²/.25-ey²/.04)`; yaw becomes `.8*(.25*exp(-e²/.25)+.75*exp(-e²/.04))`, ungated. Action rate, acceleration, effort, limits, crossover, collision and termination are unchanged. Generic slide/airtime/survival/wheel-speed bonuses stay off. The new discrete reward alone skips dt; legacy positive clipping and termination scaling remain unchanged.
+
+One vectorized tracker updates after state/contacts/termination and before rewards and command sampling. Summed loads use <=6 / >=10 N hysteresis, .04/.06 s dwell and .12 s confirmed prior support. Initial unknown support must first reach 10 N. Onset pose, command generation and body-relative wheel centers are saved at the first unloading sample; touchdown position/duration use the first reload sample. Valid swings last .10–.60 s, reach at least .008 m actual **and** usable peak, move >=.010 m net, retain >=2 wheels with summed loads >6 N through the sampled swing, and have no failure, timeout, nonfinite state or non-wheel contact. These are modest sampled guards, not stability certification. Command changes censor attempts and credit; identical fixed writes do not. Flicker, invalid/overlong completion and resets consume credit. Reading a reward/observation does not advance the tracker, and repeated reward accumulation is idempotent per transition.
+
+Limb lift reattaches the current base-relative wheel transform to the **frozen takeoff base** and measures the cylinder lower-surface increase. `h_use=min(max(h_actual,0),2*max(h_limb,0))`; factor 2 is explicit in config. This spin-invariant kinematic proxy rejects rigid trunk motion, but does not identify causal ground-force work. Target `h=.025+.025*G_takeoff` is frozen. With `u=clamp((peak_use-.008)/(h-.008),0,1)`, height quality is `(.15+.85*u²)*exp(-(relu(peak_actual-h-.020)/.020)²)`; multiply by `clamp(net_xy/.040,0,1)`. Invalid attempts have zero quality. Each wheel starts with zero credit, accumulates `G*dt` up to 1 s, and consumes it once. The final dimensionless payment is `.15*sum(Q*b)`, with no unloaded-wheel normalization. Consequently total payment cannot exceed `.15*sum_i(credited demand time_i)`. No completion means no payment. This training history is hidden from the unchanged 56-value actor/critic observation; it is not a new robot sensor requirement.
+
+A's seven probabilities, stand/duration mixture, signed vx [-.35,1.10], yaw [-1.4,1.4] and exact zero yaw in half of Mixed are retained. Pure lateral is 80% U(.03,.30), 20% U(.30,high), with balanced signs. `high=.30` through completed update 500, linearly .50 at 1500, then .50. Mixed stays [-.30,.30]. The degenerate initial tail is exactly .30. A native update wrapper increments completed updates; checkpoint `infos.event_step_v1`, diagnostics and preparation metadata save the count and high limit. Resume restores it before resampling; fixed evaluation stays fixed. Native iteration labels are not curriculum counters.
+
+The intended fresh run is 4096×64×2000, seed 1, experiment `go2w_event_step_v1`, saves every 500. Native PPO retains 5 epochs, 8 minibatches, clip .20, lambda .95, desired KL .01, clipped value loss weight 1 and max grad norm 1; gamma is .995, initial LR 3e-4 with the native adaptive scheduler. Rollout duration is 1.28 s. Learned log std starts .40, bounds [.10,.70], entropy .003. Initial physical target std is .12/.14/.16 rad and 7.2 rad/s before clipping. A native Adam post-step hook projects raw log std under no_grad without resetting moments, changing means or drawing randomness; it remains installed on resume. Friction [.6,1.2], base mass delta [-.5,1.5] kg, COM ±.015 m, coherent gain factors [.85,1.15], delay {0,1,2} policy ticks with three-slot action history, physical pushes and existing noise are retained. This actuator delay is not observation latency. These choices do not guarantee event discovery or sim2real success.
+
+The CPU cycle calculation below assumes 1.2 s, G=1, perfect matched tracking, a .4 s swing with 4 cm net repositioning, and prescribed loads leaving 2/3 supports. Hip/sagittal errors during swing are sinusoidal with peaks .12/.05 rad for shuffle and .04/.20 for the step. Bobbing is a rigid 5 cm sin² trunk translation; imposed loads are a mathematical counterexample, not a physically consistent contact simulation. All affected rate integrals are listed; unchanged actuator costs are held equal and excluded. This is neither PPO advantage nor a learned-return forecast.
+
+| Integral / event | Shuffle 1 / 2 legs | 5 cm step 1 / 2 legs | Rigid bob 1 / 2 legs |
+|---|---:|---:|---:|
+| Linear tracking | 1.2 / 1.2 | 1.2 / 1.2 | 1.2 / 1.2 |
+| Yaw tracking | .96 / .96 | .96 / .96 | .96 / .96 |
+| Hip pose | -.000720 / -.001440 | -.000080 / -.000160 | 0 / 0 |
+| Sagittal pose | -.000015 / -.000030 | -.000240 / -.000480 | 0 / 0 |
+| Leg motion; wheel air | 0 / 0 | 0 / 0 | 0 / 0 |
+| Prolonged unloading; insufficient support | 0 / 0 | 0 / 0 | 0 / 0 |
+| Vertical velocity | 0 / 0 | 0 / 0 | -.030843 / -.030843 |
+| Roll/pitch rate; orientation; stand | 0 / 0 | 0 / 0 | 0 / 0 |
+| Height | 0 / 0 | 0 / 0 | -.003 / -.003 |
+| Removed default-pose; instantaneous clearance | 0 / 0 | 0 / 0 | 0 / 0 |
+| Completed event total | .019599 / .039197 | .129000 / .258000 | 0 / 0 |
+| Affected total | 2.178864 / 2.197727 | 2.288680 / 2.417360 | 2.126157 / 2.126157 |
+
+The shuffle apex is 1 cm. Height remains graded; full quality at G=1 requires 5 cm and overshoot is penalized. Matched event payments at dt .01/.02/.04 differ only by dwell/credit quantization (at most .006 here). Splitting .8 s credited time into 1/2/4 unit-quality completions always gives .12 per wheel; invalid attempts only discard budget. No claim is made that more frequent events preserve otherwise unused capped credit.
+
+Full URDF FK/IK checks a smooth 5 cm cylinder lift with 2 cm lateral displacement for every leg, with all targets inside the unchanged hard limits. Half the lateral displacement occurs at the apex and the rest by touchdown. Pure-lift front calf changes for 5/6/8/10 cm are -.335131/-.395925/-.513060/-.625218 rad (rear -.337579/-.398630/-.516118/-.628445). Minimum target margins at 5 cm are .064869 front / .062421 rear rad; 6 cm leaves only .004075/.001370. 8 and 10 cm exceed the target envelope; they are read-only probes, not required targets. Full inward 2 cm displacement **at** the 5 cm apex exceeds the calf target by .001151 front / .003462 rear rad. That restrictive pose is recorded explicitly; it is not the tested smooth trajectory and no limit was widened.
+
+Exactly **one nominal GPU feasibility process**, exit **0**, collected four 5 s free-base trials (20.10 s including reset settling steps), gravity/contact/limits active, zero wheel targets, no PPO. Support targets request 25 mm longitudinal and 30 mm lateral trunk transfer away from the swinging limb. Target angles stay within the action envelope. **Collection succeeded; the commanded lift behavior failed.** Planned-swing measurements, excluding initial settling:
+
+| Limb | Cylinder apex, mm | Minimum wheel load, N / loaded wheels | Max roll/pitch, deg | Trunk z range, m | Maximum substep effort / limit |
+|---|---:|---|---|---|---:|
+| FL | .322 | 0 / 3 | 5.514 / 3.439 | .3818–.4084 | .3641 |
+| FR | .322 | 0 / 3 | 5.514 / 3.439 | .3818–.4084 | .3641 |
+| RL | -.085 | 13.447 / 4 | 4.551 / 1.822 | .4042–.4161 | .2608 |
+| RR | -.085 | 13.443 / 4 | 4.550 / 1.822 | .4042–.4161 | .2608 |
+
+All four reload/retain load afterward; there are no falls or non-wheel contacts. Negative clearance is the small cylinder/solver contact overlap, not a successful lift. Whole-trial target tracking RMS [hip,thigh,calf] is approximately [.02484,.05663,.12776] rad front and [.02659,.03762,.13609] rear. Whole-trial 9.322/7.503 mm maxima occur during initial settling and are **not** evidence of a completed commanded lift. Force maxima use readings after every .005 s substep; all 16 values are retained. Trunk settling/load transfer and PD tracking confound the test, with no measured force saturation. This cannot establish a motor-power limit or confirm useful loaded 5 cm stepping. No physical retest or automatic adjustment followed.
+
+The **one independent fresh 64×64×2 smoke**, exit **0**, saved `logs/go2w_event_step_v1_smoke/event_step_smoke_seed1_20260927_2026-09-27_16-58-18/model_1.pt`, SHA-256 `6e9d7c86d080bad994f5000f40a3793292f50641b427b4caf5410bb2ac8cc57a`. Fresh actor/critic/normalizers/optimizer/std were verified before updating. Exactly 128 transitions and 80 Adam steps had finite rewards, losses, parameters and gradients; event-cache count advanced exactly once per transition. Native save/reload matches all learned state, restores completed count 2 and retains the hook. Initial LR was .0003; native adaptive scheduling reached .00001 in this tiny smoke and was not altered. All 16 std parameters have **0% lower/upper boundary occupancy**; effective [hip,thigh,calf; wheel] std after update 2:
+
+| FL | FR | RL | RR |
+|---|---|---|---|
+| .400093,.400322,.400254; .399680 | .400417,.400281,.400115; .400115 | .400342,.399783,.400531; .400055 | .400536,.399616,.399945; .399908 |
+
+DR readback spans effective friction .600898–1.176502, mass delta -.448253–1.473088 kg and maximum COM shift .014947 m, with coherent gains and all three delays. Actual delayed actions match history; selective reset preserves the other environments' properties/delays. Genesis is destroyed and its initialization flag cleared. This smoke proves implementation operation, not learned stepping. Its checkpoint must never initialize the intended run.
+
+Validation: **20 focused CPU tests pass**. Six unittest invocations have exits **1,1,0,0,0,0**: initial dtype/fixture/Windows-handle errors were repaired; the second invocation exposed the restrictive inward-apex pose described above; the smooth path then passed. Final review initialized unknown contact as unloaded until a genuine reload threshold is reached, followed by all 19 then-existing CPU checks passing; one additional lightweight summary test checks separate physical and qualified counts. This final reset-edge repair was CPU-tested after the successful smoke, without another GPU process. Ruff error checks, compilation and `git diff --check` pass. Large reports, arrays and every failed log remain in `.migration-audit/event-step-20260927/`. No historical evaluation suite, bank, finetune, checkpoint search, export, navigation/hardware command or transfer was run.
+
+The later `precision_screen` retains common schedules and historical 2/3/4 cm metrics, adds 5 cm physical fractions plus separate command-qualified event records, and adds bilateral .05/.4/.5 lateral schedules explicitly marked expanded envelope without an invented A baseline. It records policy-rate geometry, net repositioning, posture, clipping, stops and terminal failures. Reuse A's saved common screens/closed-loop evidence. Judge repeated per-leg swings across directions alongside quiet stand, low-speed vx, reverse, yaw/lateral tracking and stops; do not promote height alone. Closed-loop/DR follow-up is conditional on a useful nominal candidate and is not part of this preparation.
+
+Exact **unexecuted** intended fresh run (physical lift feasibility remains unresolved). The dated run name is new; no checkpoint, optimizer, normalizer or old std is loaded:
+
+```powershell
+Set-Location 'C:\Users\Liamb\SynologyDrive\TUM\3_Semester\dodo_alive\legged-robot_rl_genesis'
+$Python = 'C:\Users\Liamb\anaconda3\envs\genesis-gpu\python.exe'
+$env:NUMBA_CACHE_DIR = "$PWD/.migration-audit/diagnostics-20260925/numba-cache"
+$env:GS_CACHE_FILE_PATH = "$env:TEMP/go2w-diagnostics-genesis"
+$env:QD_OFFLINE_CACHE_FILE_PATH = "$env:TEMP/go2w-diagnostics-quadrants"
+$env:PYTHONIOENCODING = 'utf-8'
+$env:PYTHONUNBUFFERED = '1'
+$RunName = 'event_step_v1_seed1_20260927_prepared'
+& $Python -m robot_gym.scripts.train --task go2w --go2w_profile event_step_v1 --experiment_name go2w_event_step_v1 --run_name $RunName --num_envs 4096 --max_iterations 2000 --seed 1 --headless --logger tensorboard --training_diagnostics
+```
+
+After that run only, select its exact unique name and verify the final completed counter (the fresh smoke verified native label 1 after 2 updates; the intended final label is 1999). The following lightweight evaluation and optional playback are **not executed here**; never use `latest`:
+
+```powershell
+$Runs = @(Get-ChildItem -LiteralPath "$PWD/logs/go2w_event_step_v1" -Directory | Where-Object { $_.Name.StartsWith("${RunName}_") })
+if ($Runs.Count -ne 1) { throw 'Expected exactly one run with the specified unique name' }
+$Run = $Runs[0].FullName
+$Meta = Get-Content -LiteralPath "$Run/preparation.json" -Raw | ConvertFrom-Json
+if ($Meta.status -ne 'completed' -or $Meta.completed_updates_total -ne 2000 -or $Meta.last_iteration_label -ne 1999) { throw 'Final completed-update counter does not match' }
+& $Python -m robot_gym.scripts.evaluate --task go2w --go2w_profile event_step_v1 --experiment_name go2w_event_step_v1 --load_run $Run --checkpoint 1999 --eval_mode precision_screen --num_envs 1 --seed 1 --headless --logger tensorboard --output "evaluation/$RunName/final_screen"
+& $Python -m robot_gym.scripts.play --task go2w --go2w_profile event_step_v1 --experiment_name go2w_event_step_v1 --load_run $Run --checkpoint 1999 --num_envs 1 --seed 1 --steps 1000 --command_vx 0 --command_vy 0.05 --command_yaw 0 --no_export
+```
+
+Conceptual references: [IsaacLab v2.3.2 first-contact airtime reward](https://github.com/isaac-sim/IsaacLab/blob/v2.3.2/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/mdp/rewards.py), [Walk These Ways](https://arxiv.org/abs/2212.03238), and [Advanced Skills through Multiple Adversarial Motion Priors](https://arxiv.org/abs/2203.14912). This custom event-apex objective reproduces neither their parameter sets, gait clocks nor AMP implementations, and its command gate changes preference rather than proving each step physically necessary.

@@ -101,6 +101,9 @@ class LeggedRobot(BaseTask):
         self._update_robot_state()
         self.check_termination()
 
+        if getattr(self, "event_step", False):
+            self._update_step_events()
+
         if not getattr(self.cfg.env, "play_mode", False):
             self.compute_reward()
 
@@ -114,12 +117,16 @@ class LeggedRobot(BaseTask):
             if getattr(self.cfg.env, "capture_closed_loop", False):
                 # Preserve the issued/delayed action and cached loads before reset clears them.
                 self.transition_state["applied_actions"] = self.applied_actions.clone()
-                if getattr(self, "step_recovery", False):
+                if getattr(self, "wheel_geometry_enabled", getattr(self, "step_recovery", False)):
                     self.transition_state["wheel_normal_force"] = self.wheel_normal_force.clone()
                     self.transition_state["loaded_wheels"] = self.loaded_wheels.clone()
             if getattr(self.cfg.env, "capture_precision", False):
                 for name in ("wheel_clearance", "wheel_link_quat", "wheel_reposition_velocity_body"):
                     self.transition_state[name] = getattr(self, name).clone()
+                if getattr(self, "event_step", False):
+                    for name in ("completed", "valid", "censored", "censored_count", "peak_actual",
+                                 "peak_use", "reposition", "duration", "quality", "payment", "gate"):
+                        self.transition_state["event_" + name] = getattr(self.step_events, name).clone()
             if getattr(self, "physics_diagnostics", None) is not None:
                 self.transition_state.update(self.physics_diagnostics.capture())
         # Reward the command that generated this transition, then choose the next command.
@@ -318,7 +325,7 @@ class LeggedRobot(BaseTask):
             with_entity=self.ground_floor_entity,
             is_padded=True,
         )
-        if getattr(self, "step_recovery", False):
+        if getattr(self, "wheel_geometry_enabled", getattr(self, "step_recovery", False)):
             self._update_wheel_support(contacts)
         if getattr(self, "physics_diagnostics", None) is not None:
             self.physics_diagnostics.contacts(contacts)
@@ -838,7 +845,7 @@ class LeggedRobot(BaseTask):
             scale = self.reward_scales[key]
             if scale==0:
                 self.reward_scales.pop(key) 
-            else:
+            elif key not in getattr(self.cfg.rewards, "discrete_reward_names", ()):
                 self.reward_scales[key] *= self.dt
         # prepare list of functions
         self.reward_functions = []
