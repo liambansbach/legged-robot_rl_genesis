@@ -790,7 +790,7 @@ def precision_metrics(data, schedule, dt, metadata, initial):
         velocity = np.concatenate((d["base_lin_vel"], d["base_ang_vel"]), axis=-1)
         world_velocity = rotate_wxyz(torch.from_numpy(d["base_quat"]), torch.from_numpy(d["base_lin_vel"])).numpy()
         heading = np.unwrap(heading_wxyz(torch.from_numpy(d["base_quat"])).numpy())
-        inverse = torch.from_numpy(d["base_quat"]); inverse[:, 1:] *= -1
+        inverse = torch.from_numpy(d["base_quat"]).clone(); inverse[:, 1:] *= -1
         feet = rotate_wxyz(inverse[:, None], torch.from_numpy(d["foot_pos"] - d["base_pos"][:, None])).numpy()
         axles = wheel_axles_body(torch.from_numpy(d["base_quat"]), torch.from_numpy(d["wheel_link_quat"]),
                                 torch.tensor(metadata["wheel_joint_axes"], dtype=torch.float32, device="cpu")).numpy()

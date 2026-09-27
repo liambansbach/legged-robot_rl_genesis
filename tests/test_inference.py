@@ -75,6 +75,9 @@ class InferenceTests(unittest.TestCase):
                  for joint in ("hip", "thigh", "calf", "foot")]
         data["foot_pos"] = data["foot_pos"].reshape(5,2,4,3)
         data["wheel_link_quat"] = data["wheel_link_quat"].reshape(5,2,4,4)
+        quaternion = np.array([np.cos(.15), 0, 0, np.sin(.15)], dtype=np.float32)
+        data["base_quat"][:] = quaternion
+        data["wheel_link_quat"][:] = quaternion
         metadata = dict(joint_order=names, wheel_order=["FL","FR","RL","RR"],
                         wheel_joint_axes=[[0,1,0]]*4, leg_indices=[i for i in range(16) if i%4!=3],
                         wheel_indices=[3,7,11,15], nominal_position=[0]*16,
@@ -91,6 +94,7 @@ class InferenceTests(unittest.TestCase):
         self.assertTrue(result[0]["phases"][0]["censored"])
         self.assertEqual(result[0]["phases"][1]["samples"], 0)
         self.assertFalse(result[1]["failure"])
+        np.testing.assert_allclose(result[1]["phases"][0]["wheel_toe_mean_rad"], 0, atol=1e-6)
         self.assertEqual(result[1]["phases"][0]["last_second"]["mean_error_vx_vy_yaw"], [-.1,0,0])
         json.dumps(result, allow_nan=False)
 
