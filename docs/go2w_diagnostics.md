@@ -581,3 +581,97 @@ The first unchanged-versus-unchanged baseline tracker timings were 4.867/5.050 m
 Validation: two focused unittest invocations, 3 and 6 tests, exits **0/0** (eight distinct checks, one repeated after reverting action telemetry). Original/optimized tracker state is bit-exact for all 5,650 CPU trace inputs, reset/command/nonfinite/failure fixtures and 96×4096 GPU replay inputs with sparse resets, including credit and censor bookkeeping. Comparing reconstructed CPU events to the saved GPU cache gives exact decisions/durations/censor counts; maximum geometric float difference is 7.1e-8 m and payment difference 3.0e-7 before the .15 scale. Telemetry counts are exact; reordered sum comparisons pass 5e-7 relative/1e-5 absolute tolerance. Both GPU replay processes and the corrected offline analysis exit **0**. Two initial local script launches were stopped during prolonged startup without the documented cache environment (exit **-1/-1**); cached retries succeeded. The first offline reconstruction also exposed an analysis-only redundant command-cancellation call; matching the actual evaluator's direct command writes removed all censor mismatches. Original logs are retained. Compilation and `git diff --check` pass. `python -m ruff` was unavailable (exit **1**); the existing base-environment `ruff.exe` passes E9/F63/F7/F82 checks (exit **0**), without installing anything. No simulation was rerun, no PPO update or checkpoint continuation occurred, and no export/bank/hardware work was performed.
 
 **One next learning recommendation, not implemented or launched:** a single bounded **500-update continuation from this exact model_1999.pt**, retaining its optimizer, normalizers, std, native scheduler and completed curriculum state. Change only sagittal stance retention to `-(2.0*(1-G)+.12*G)*mean(thigh/calf error²)`, restoring -2.0 at G=0 while preserving -.12 at full demand; keep event qualification/payment and all physical settings unchanged. This addresses saturated forward posture while retaining learned rolling and real lifts. Inspect only that continuation's final checkpoint on the same nominal screen: require improved forward height/target margin without worse stand, reverse, bilateral tracking/stops or useful per-leg events. Do not simply extend the unchanged objective, invent a four-foot equality rule or infer deployment readiness. A remains the fallback.
+
+## Sagittal stance continuation — 28 September 2026
+
+**Partial result; keep CK1999 and A as fallbacks.** The single continuation improves rolling posture and repeated bilateral rear-leg lifts, but does not recover front-thigh target reserve. Initial stand drift, low-speed/reverse tracking and the positive-lateral stop also regress. It is a useful development artifact, not an unconditional replacement. No further training or evaluation is launched.
+
+Reviewed clean `a101722119ceb4da34b4687391ff928f8c99c6b6`; implementation, training and evaluation use clean `adc612d67a09c52f967c4b91b8642fdce9208298` (`tighten go2w rolling posture`). The opt-in `--sagittal_stance_weight 2.0` is restricted to `event_step_v1`. Its weighted sagittal **rate** is `-(2*(1-G)+.12*G)*E`, with coefficients -2/-1.06/-.12 at G=0/.5/1 and one .02 s multiplication. The unset path retains the historical calculation. Saved train/evaluation/play contracts reject a missing or different stance selection and unrelated continuation changes. Event rules, full-demand cost, physical interface, tracking, PPO and DR remain unchanged; saved environment configs differ only at this field, and nominal loaded physics readbacks are identical.
+
+Parent: `logs/go2w_event_step_v1/event_step_v1_seed1_20260927_prepared_2026-09-28_10-30-59/model_1999.pt`, with the checkpoint/config hashes recorded above verified exactly. Native resume verification matched actor, critic, both normalizers, raw log-std, Adam tensors and both LR representations before either smoke or real updates. Loaded LR was .00038443359375000017; Adam started at 80000. Completed count 2000 was restored before command sampling, retaining lateral high .50 and the projection hook. The newly seeded simulator/RNG history is not a replay of the parent.
+
+The real run is `logs/go2w_event_step_v1/sagittal_retention_seed1_20260928_172600_2026-09-28_17-27-35`: exactly 4096×64×500 additional updates, seed 1. Native final **model_2498.pt** has completed count **2500**, lateral high **.50**, Adam **100000** and cache count **32001**. Final checkpoint SHA-256 is `4de494271a999c33ca6a8a06913b1facb92eede58c92d7297762671b2b1080e8`; adjacent config is `340a8998d3015b810c46e4d808cfb173837d20aa2a2e1028a6004e198b8ff25d`. Continuation and end-of-run manifests record the original parent and override. The smoke was never a parent.
+
+One final `precision_screen` is saved at `evaluation/sagittal_retention_seed1_20260928_172600/final_screen`. It matches the archived parent's seven schedules, one environment, seed, nominal physics, disabled observation noise/push/brake, 30 s timeout and 50 Hz capture. Both screens contain 113 simulated seconds/5650 ticks, with zero recorded falls, resets, timeouts, nonfinite states or non-wheel contacts. The identical initial stand repeated across each screen is not independent robustness evidence. All 15 protected parent/A/checkpoint/config/URDF/screen files retain their original hashes.
+
+Final-second primary measurements:
+
+| +.5 m/s measurement | Parent | Continuation | Development target |
+|---|---:|---:|---|
+| Actual vx, m/s | .506223 | .510135 | Error <=.03: met |
+| Base height, m | .376622 | .399191 | >=.400: missed by .000809 |
+| Front-thigh nominal RMS, rad | .460926 | .277795 | 39.7% reduction; >=25% met |
+| FL/FR lower target saturation | 100%/100% | 100%/100% | <=20% each: missed |
+| FL/FR target reserve, rad | 0/0 | 0/0 | No improvement |
+| Roll/pitch RMS, rad | .00235/.02666 | .00056/.04437 | Pitch increased |
+
+All four thighs below use actual q and delayed-action targets, in radians. Parent→continuation; saturation is final-second target-bound occupancy. Nominals remain .70 front/.75 rear.
+
+| Limb | Initial stand q | Initial target (upper saturation) | +.5 q | +.5 target (lower saturation) | +.5 thigh/calf RMS |
+|---|---|---|---|---|---|
+| FL | .7984→.7951 | .6507→.6123 (0→0%) | .2397→.4223 | .3500→.3500 (100→100%) | .3390→.2253 |
+| FR | .7977→.7945 | .6486→.6127 (0→0%) | .2385→.4221 | .3500→.3500 (100→100%) | .3403→.2244 |
+| RL | 1.0012→.8352 | 1.1000→1.0144 (100→0%) | .9820→.8646 | .9495→.9928 (0→0%) | .2754→.1416 |
+| RR | 1.0015→.8335 | 1.1000→1.0117 (100→0%) | .9903→.8625 | .9564→.9910 (0→0%) | .2825→.1410 |
+
+Forward raw front-thigh means remain -1.1123/-1.1087, beyond the action bound. Actual-minus-target errors change from about -.111 to +.072 rad; improved state posture does not establish target reserve or a motor-limit change. Initial rear-thigh saturation is removed, with .0856/.0883 rad target reserve. Initial stand height changes .414523→.410465 m; final rolling stand height .407328→.407742 m. Initial stand XY RMS worsens .002197→.007962 m/s, chiefly +vx drift. Final rolling stand vx changes -.012120→+.009424 m/s.
+
+Tracking below is final-second requested-axis velocity, parent→continuation; yaw is rad/s, translation m/s. Expanded lateral checks have no invented A baseline.
+
+| Command | Positive / forward | Negative / reverse |
+|---|---|---|
+| vx +.10 / -.25 | .102751→.110116 | -.242753→-.228220 |
+| yaw ±.03 | .004987→.009024 | -.005107→-.009197 |
+| yaw ±.10 | .101707→.093278 | -.103982→-.096027 |
+| yaw ±.40 | .402496→.414566 | -.402923→-.412605 |
+| yaw ±.75 | .771131→.735427 | -.764931→-.727220 |
+| vy ±.05, expanded | .048446→.047120 | -.048034→-.047875 |
+| vy ±.10 | .101913→.102354 | -.100391→-.100904 |
+| vy ±.20 | .180963→.186364 | -.175478→-.189122 |
+| vy ±.40, expanded | .314230→.350974 | -.310948→-.348036 |
+| vy ±.50, expanded | .304760→.451616 | -.329729→-.436101 |
+
+Final-stop XY/yaw RMS and maximum of phase-final-second roll/pitch RMS, parent→continuation. These use the existing metrics, not newly tightened acceptance limits.
+
+| Schedule | Stop XY, m/s | Stop yaw, rad/s | Max phase roll/pitch RMS, rad |
+|---|---|---|---|
+| Rolling/reverse | .01295→.00943 | .01715→.00082 | .0147/.0327→.0006/.0444 |
+| Yaw + | .00908→.00989 | .03489→.00419 | .0708/.0423→.0691/.0483 |
+| Yaw - | .00747→.00542 | .01400→.00591 | .0743/.0411→.0696/.0490 |
+| Lateral + | .01417→.00587 | .00374→.02913 | .0350/.0327→.0632/.0498 |
+| Lateral - | .01898→.00732 | .05254→.00757 | .0355/.0327→.0613/.0475 |
+| Expanded lateral + | .01161→.01024 | .03717→.03396 | .0340/.0473→.0507/.0301 |
+| Expanded lateral - | .02319→.01186 | .03872→.02241 | .0353/.0484→.0578/.0326 |
+
+Physical completed lifts and paid events remain distinct. Full-screen per-limb counts retain all historical thresholds; apex distributions include all completed geometric intervals >=2 mm. Paid amounts below are final dimensionless contributions `.15*sum(Q*b)`, without dt.
+
+| Limb | Physical >=2/3/4/5 cm, parent→new | Apex p50/p90/max, mm, parent→new | Paid count, parent→new | Paid amount, parent→new |
+|---|---|---|---|---|
+| FL | 6/0/0/0→12/3/0/0 | 5.9/20.2/28.2→10.8/25.7/32.0 | 12→27 | .3169→.6483 |
+| FR | 10/0/0/0→14/3/0/0 | 6.0/25.2/29.7→12.3/26.8/31.6 | 10→28 | .2844→.6852 |
+| RL | 19/17/15/4→39/27/24/16 | 13.7/48.7/54.3→26.7/60.3/66.6 | 13→34 | .6573→2.1023 |
+| RR | 19/17/15/7→42/26/24/14 | 15.0/52.0/58.6→27.7/58.4/65.6 | 14→28 | .9441→1.9080 |
+
+Qualified usable-height medians FL/FR/RL/RR are 19.5/20.4/26.7/28.5→18.4/19.2/27.4/29.5 mm; qualified net-displacement medians are 86.5/83.9/152.1/136.8→66.2/73.9/143.8/149.0 mm. At +.20, RR completes five paid actual/usable peaks 58.6–65.6 mm with 166–174 mm net repositioning; at -.20, RL completes five paid 57.3–66.6 mm peaks with 167–171 mm net repositioning. Each passes sampled support and .26–.30 s duration. The opposite front limb still earns no lateral payment. At yaw ±.40, previously zero paid events become five FL plus one RR / five FR plus three RL events; this does not establish balanced coordination.
+
+Totals: physical geometric intervals 203→257, load-only intervals 405→362, physical boundary-censored intervals 28→28; paid events 49→117, paid amounts 2.202857→5.343807. Physical >=5 cm counts rise **11→30**, paid events at that actual height **4→21**. Of the other nine new >=5 cm lifts, six confirmed attempts fail sampled support, two have no armed attempt, and one is command-censored. Reward completions are 161→206, flicker cancellations 72→81, overlong cancellations 4→0, command cancellations 12→14. Nonexclusive completion-rejection counts actual height/usable height/net displacement/duration/support are 92/99/14/10/19→59/59/13/10/30. Guards were not relaxed. CPU reconstruction matches every saved completion/valid/censor decision; largest geometric difference is 8.2e-8 m and unscaled payment difference 3.6e-7. Substep support and robustness remain unmeasured.
+
+Training wall time was **3018.777 s** including process startup/shutdown: 131,072,000 transitions, 43,419/s overall. Entry-point startup was 76.100 s; learning/logging/final save 2927.349 s. Matched last-250-label windows (parent 1750–1999, continuation 2249–2498) give collection **4.1351→4.5960 s**, learning including diagnostic flush **.8650→.9018 s**, and **52,427→47,681 transitions/s** from mean blocks. Adjacent logged wall intervals give **52,012→47,160/s**, with unassigned logger/save/other residual .0413→.0611 s/update. These are native host/end-to-end measurements, not synchronized kernel timings; different learned states, the changed objective and uncontrolled system load prevent causal attribution. There is **no measured end-to-end speed gain** from the earlier tensor optimization in this comparison. TensorBoard has all 500 labels and finite values; diagnostics has 499 rows, missing **2189**, with all available counters/cache updates correct. No row was filled. Final LR remains .00038443359375000017; all 76 saved tensors are finite, final raw std matches diagnostics, and the 499 recorded update-end vectors have zero bound/outside occupancy. Within-update occupancy is not recorded.
+
+Validation/process record: three focused CPU test methods; first invocation exit **1** because the lightweight rate fixture lacked `reward_scales` (two methods passed), repaired rate-only invocation **0**, and extended progress/contract-only invocation **0**. One 64×64×2 original-parent smoke exited **0** (144.013 s), verified exact initialization, finite state/loss/gradients, rate endpoints, once-only cache updates, projection and native save/reload at count 2002/Adam 80080. One real training process **0**, one final-screen process **0** (317.303 s external wall), no simulator reruns. Offline summary initially exited **1** on an incorrect assumption of 500 diagnostic rows; preserving the missing row and checking available labels repaired it (**0**). Physical reconstruction, summaries, saved-state/config/hash checks and E9/F63/F7/F82/whitespace checks pass (**0**). Failure logs, exact PowerShell launch/exit records and detailed arrays remain ignored in `.migration-audit/sagittal-retention-20260928/`; no large artifacts are committed.
+
+Commands actually used (the unique output already exists; do not repeat the training): CPU selector `-m unittest tests.test_go2w_event_step.SagittalContinuationCPU -v`, then its `.test_weighted_rates_and_legacy_path` and `.test_only_declared_continuation_difference` methods individually. Smoke selector `-m unittest tests.test_go2w_event_step.SagittalContinuationSmoke.test_original_parent_two_updates -v`, with `GO2W_EVENT_GPU=sagittal`. With the documented `genesis-gpu` Python/cache setup, training was `-m robot_gym.scripts.train --task go2w --go2w_profile event_step_v1 --sagittal_stance_weight 2.0 --experiment_name go2w_event_step_v1 --load_run $Parent --checkpoint 1999 --reference_config "$Parent/config.yaml" --resume --run_name sagittal_retention_seed1_20260928_172600 --num_envs 4096 --max_iterations 500 --seed 1 --headless --logger tensorboard --training_diagnostics`; `$Parent` is the exact parent directory above. Evaluation was `-m robot_gym.scripts.evaluate --task go2w --go2w_profile event_step_v1 --sagittal_stance_weight 2.0 --experiment_name go2w_event_step_v1 --load_run $Run --checkpoint 2498 --reference_config "$Run/config.yaml" --eval_mode precision_screen --num_envs 1 --seed 1 --headless --logger tensorboard --output evaluation/sagittal_retention_seed1_20260928_172600/final_screen`.
+
+Optional GUI playback below is **not launched**. It selects the exact saved choice and disables export; it is not an additional qualification screen.
+
+```powershell
+Set-Location 'C:\Users\Liamb\SynologyDrive\TUM\3_Semester\dodo_alive\legged-robot_rl_genesis'
+$Python = 'C:\Users\Liamb\anaconda3\envs\genesis-gpu\python.exe'
+$env:NUMBA_CACHE_DIR = "$PWD/.migration-audit/diagnostics-20260925/numba-cache"
+$env:GS_CACHE_FILE_PATH = "$env:TEMP/go2w-diagnostics-genesis"
+$env:QD_OFFLINE_CACHE_FILE_PATH = "$env:TEMP/go2w-diagnostics-quadrants"
+$env:PYTHONIOENCODING = 'utf-8'
+$env:PYTHONUNBUFFERED = '1'
+$Run = "$PWD/logs/go2w_event_step_v1/sagittal_retention_seed1_20260928_172600_2026-09-28_17-27-35"
+& $Python -m robot_gym.scripts.play --task go2w --go2w_profile event_step_v1 --sagittal_stance_weight 2.0 --experiment_name go2w_event_step_v1 --load_run $Run --checkpoint 2498 --reference_config "$Run/config.yaml" --num_envs 1 --seed 1 --steps 750 --command_vx 0.5 --command_vy 0 --command_yaw 0 --no_export
+```
