@@ -357,6 +357,37 @@ class EventStepCPU(unittest.TestCase):
         self.assertEqual(f.total,0.)
         self.assertLess(float(f.tracker.reposition.max()),1e-6)
 
+    def test_correlated_command_refresh_cancels_swing(self):
+        results = {}
+        for mode in ("identical", "during_swing", "throughout"):
+            f = EventFixture(gate_command=(.5, .05, 0.))
+            for k in range(20):
+                if mode == "throughout" and k % 5 == 0:
+                    f.commands[:, 0] += .001
+                f.sample()
+            for k in range(18):
+                if k % 5 == 0:
+                    # Refresh vx at 10 Hz; lateral demand and G remain unchanged.
+                    if mode == "throughout" or (mode == "during_swing" and k > 0):
+                        f.commands[:, 0] += .001
+                    else:
+                        f.commands.copy_(f.commands.clone())
+                swing = k < 15
+                f.sample(load=0. if swing else 30.,
+                         height=.03 * math.sin(math.pi*k/14)**2 if swing else 0.,
+                         move=.04 * min(k/15, 1.))
+                self.assertEqual(float(step_demand(f.commands)), 1.)
+            results[mode] = f
+        fixed, changed, stream = (results[k] for k in ("identical", "during_swing", "throughout"))
+        self.assertEqual((fixed.valid, changed.valid, stream.valid), (1, 0, 0))
+        self.assertAlmostEqual(float(fixed.tracker.duration[0, 0]), .3, places=6)
+        self.assertGreater(fixed.total, 0.)
+        self.assertEqual((changed.total, stream.total), (0., 0.))
+        self.assertEqual(int(changed.tracker.censored_count.sum()), 1)
+        self.assertEqual(int(stream.tracker.censored_count.sum()), 0)
+        self.assertAlmostEqual(float(changed.tracker.credit[0, 0]), .06, places=6)
+        self.assertLess(float(stream.tracker.support_time[0, 0]), .12)
+
     def test_mirrored_events(self):
         left, right = EventFixture(legs=(0,2)), EventFixture(legs=(1,3),gate_command=(0,-.05,0))
         self.assertAlmostEqual(left.cycle(), right.cycle(distance=-.04), places=6)

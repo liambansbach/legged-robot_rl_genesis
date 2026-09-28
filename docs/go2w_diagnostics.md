@@ -675,3 +675,89 @@ $env:PYTHONUNBUFFERED = '1'
 $Run = "$PWD/logs/go2w_event_step_v1/sagittal_retention_seed1_20260928_172600_2026-09-28_17-27-35"
 & $Python -m robot_gym.scripts.play --task go2w --go2w_profile event_step_v1 --sagittal_stance_weight 2.0 --experiment_name go2w_event_step_v1 --load_run $Run --checkpoint 2498 --reference_config "$Run/config.yaml" --num_envs 1 --seed 1 --steps 750 --command_vx 0.5 --command_vy 0 --command_yaw 0 --no_export
 ```
+
+## Rolling-first objective review — 28 September 2026
+
+Reviewed clean `d6afbde8be8749d6013cb68c0de114ea00697ede`. This offline review reuses both exact 113 s screens and their verified event reconstructions. CK2498, CK1999, A, their configs, URDF and screen files retain all 27 checked hashes. Production settings are unchanged; no simulator/profiler or optimizer ran. Detailed arrays and scripts are ignored under `.migration-audit/rolling-objective-20260928`.
+
+**Better state posture has not recovered target headroom.** At +.5 vx, final-second thigh q/target changes `.2397/.3500 -> .4223/.3500` (FL), `.2385/.3500 -> .4221/.3500` (FR). Both lower targets remain saturated for 100% of samples; CK2498 raw means are -1.1123/-1.1087. Actual-minus-target error reverses from about -.111 to +.072 rad. Height improves .376622→.399191 m at vx .506223→.510135 m/s, but a penalty on actual posture does not directly penalize saturated targets or sustained opposing wheel effort.
+
+Full final-second leg q and **applied delayed-action** targets, hip/thigh/calf radians:
+
+| Limb | CK1999 q | CK1999 target | CK2498 q | CK2498 target |
+|---|---|---|---|---|
+| FL | .0159/.2397/-1.4642 | -.0486/.3500/-1.3126 | .0328/.4223/-1.4863 | .0005/.3500/-1.4112 |
+| FR | -.0167/.2385/-1.4666 | .0475/.3500/-1.3141 | -.0357/.4221/-1.4832 | -.0035/.3500/-1.4095 |
+| RL | .0175/.9820/-1.6229 | -.0481/.9495/-1.4820 | .0019/.8646/-1.4743 | -.1096/.9928/-1.2458 |
+| RR | -.0139/.9903/-1.6293 | .0511/.9564/-1.4861 | -.0010/.8625/-1.4746 | .1108/.9910/-1.2452 |
+
+The joint order is FL, FR, RL, RR, each hip/thigh/calf/wheel, verified against saved names. Mean signed control moments below are `get_dofs_control_force` at 50 Hz, not total contact moments or substep maxima. Loads are summed wheel-ground normal forces.
+
+| Limb | CK1999 hip/thigh/calf/wheel, Nm | CK2498 hip/thigh/calf/wheel, Nm | Mean load, N, old→new |
+|---|---|---|---|
+| FL | -2.581/4.417/6.059/-.0733 | -1.297/-2.895/3.002/-1.3763 | 41.646→44.657 |
+| FR | 2.571/4.465/6.098/-.0689 | 1.291/-2.884/2.950/-1.3629 | 41.744→44.310 |
+| RL | -2.630/-1.303/5.631/.0663 | -4.462/5.128/9.142/1.3717 | 53.715→51.159 |
+| RR | 2.603/-1.362/5.726/.0733 | 4.473/5.138/9.179/1.3699 | 54.415→51.396 |
+
+The supplied wheel-moment observation is confirmed: summed absolute mean moments increase .282→5.481 Nm (19.5×), while the signed sum stays near zero. Old wheel targets are 5.830/5.843/5.949/5.961 rad/s against actual 5.903/5.912/5.883/5.888; new targets are 4.483/4.498/7.366/7.366 against 5.859/5.860/5.994/5.996. With Kv=1, this is consistent with sustained front braking/rear driving under load, a descriptive preload finding. It does not identify electrical consumption or prove which actuator caused the posture change. The first movement second already has opposing moments, but acceleration makes it unsuitable as a static comparison; its old/new vectors are [-.417,-.409,1.754,1.747]/[-.930,-.926,2.140,2.135] Nm.
+
+Neither mechanical-position nor force saturation explains the final-second target saturation: minimum hard-position margin across all leg samples is .6254→.6354 rad; front-thigh hard limits remain [-1.5708,3.4907], far outside the .35 action target. No sampled force reaches its limit; maximum effort/limit is .1920→.2586, with CK2498 wheels <=.0582. Final-second normalized-effort **rate** is only -.000585→-.000969 versus height -.011783→-.001999, orientation -.000859→-.002362, hip -.000517→-.001179 and sagittal -.057973→-.070530 under their respective saved weights. Tracking is 1.799800→1.799588; action slew is effectively zero. Static bias is cheap under these terms. A stronger actual-angle scalar or higher gains alone offers no demonstrated mechanism for recovering target reserve. The event bonus is already zero at G=0; reducing it cannot directly repair this issue.
+
+**Step discovery and a rolling-first objective differ.** Current full-demand height quality at 2/3/5 cm is .2194/.3832/1, with full credit through 7 cm, assuming usable=actual height and full net repositioning. This is neither an exact-height constraint nor a test of whether lifting was necessary. Physical >=5 cm completions remain 11→30, versus only 4→21 paid events at that height; all-height paid counts are 49→117. Those are capability measurements, not a controller ranking. Existing support, duration and boundary rejections remain unchanged.
+
+CK2498 weighted components integrated over recorded movement families follow. Tracking deficit means `1.8*T - tracking`, not an added penalty. Pose combines hip/sagittal costs; motion combines effort, leg speed, action slew and joint acceleration. Body combines height/orientation/vertical and angular motion/stand; guards include support, unloading, limits, crossover, collisions and termination. Values are before positive-reward clipping. Rates receive dt once; event totals are discrete, with no extra dt. The first .02 s of each trace lacks prior action/velocity and is omitted from rate sums (112.86 s total); physical counts still cover all 113 s.
+
+| Family (moving commands grouped) | Seconds | Tracking / deficit | Pose | Motion | Body / guards | Event |
+|---|---:|---|---:|---:|---|---:|
+| Stand, including stops | 34.86 | 62.224/.524 | 1.619 | .120 | .916/.249 | 0 |
+| Forward +.1/+.5 | 7 | 12.585/.015 | .322 | .010 | .017/0 | 0 |
+| Reverse -.25 | 3 | 5.327/.073 | .136 | .009 | .005/.003 | 0 |
+| Yaw + | 14 | 24.654/.546 | .493 | .045 | .198/0 | .333 |
+| Yaw - | 14 | 24.644/.556 | .497 | .045 | .198/0 | .352 |
+| Lateral +.1/+.2 | 8 | 13.914/.486 | .359 | .051 | .316/.132 | 1.552 |
+| Lateral -.1/-.2 | 8 | 13.899/.501 | .361 | .051 | .318/.140 | 1.538 |
+| Expanded lateral +.05/+.4/+.5 | 12 | 19.775/1.825 | .552 | .113 | .645/.201 | .724 |
+| Expanded lateral -.05/-.4/-.5 | 12 | 19.791/1.809 | .556 | .115 | .674/.333 | .845 |
+
+Per-limb entries are **event / pose cost / motion cost**, preserving independent contributions rather than assigning body tracking to particular limbs:
+
+| Family | FL | FR | RL | RR |
+|---|---|---|---|---|
+| Stand | 0/.385/.026 | 0/.432/.024 | 0/.401/.034 | 0/.400/.036 |
+| Forward | 0/.106/.001 | 0/.106/.001 | 0/.055/.004 | 0/.055/.004 |
+| Reverse | 0/.039/.002 | 0/.039/.002 | 0/.029/.002 | 0/.029/.002 |
+| Yaw + | .306/.094/.014 | 0/.097/.008 | 0/.165/.008 | .026/.137/.016 |
+| Yaw - | 0/.099/.008 | .296/.094/.014 | .056/.138/.016 | 0/.166/.007 |
+| Lateral + | .223/.037/.014 | 0/.253/.008 | .257/.033/.013 | 1.073/.036/.015 |
+| Lateral - | 0/.255/.008 | .230/.037/.014 | 1.079/.036/.015 | .230/.033/.013 |
+| Expanded lateral + | .082/.106/.026 | .013/.313/.022 | .279/.047/.025 | .349/.086/.039 |
+| Expanded lateral - | .037/.316/.022 | .147/.104/.027 | .432/.089/.041 | .230/.047/.025 |
+
+On ordinary positive/negative lateral segments, bonuses 1.552/1.538 exceed the combined tracking deficits and all penalties 1.345/1.371; none of these samples is affected by positive clipping. RR alone earns 1.073 against its own .051 pose+motion cost while FR receives zero and incurs .262. Thus independent productive limbs can compensate for another limb's dragging/posture cost. This arithmetic is not PPO advantage or evidence that each lift helped propulsion. Parent ordinary lateral payments were 1.060/.642; more event return is not automatically improved usefulness.
+
+Only three mathematical alternatives were compared: current `.15*Q*b`; same shape at `.05*Q*b`; and `.05*Qb*b`, with `Qb=(.15+.85*clamp((h_use-.008)/.017,0,1)^2)*exp(-(relu(h_actual-.05)/.02)^2)*clamp(net/.04,0,1)`. The latter reaches a broad 2.5–5 cm plateau, then falls smoothly. All retain the same validity mask and credited time. Per-wheel payments with b=1 s, G=1, actual=usable apex and net=.04 m:
+
+| Completed apex | Current quality | Current .15 | Same shape .05 | Broad plateau .05 |
+|---|---:|---:|---:|---:|
+| 2 cm | .2194 | .03291 | .01097 | .02868 |
+| 2.5 cm | .2893 | .04339 | .01446 | .05000 |
+| 3 cm | .3832 | .05748 | .01916 | .05000 |
+| 5 cm | 1 | .15000 | .05000 | .05000 |
+| 7 cm | 1 | .15000 | .05000 | .01839 |
+
+The broad alternative is a deliberate reweighting, not uniformly smaller: it modestly increases a clean 2.5 cm event over current payment. On unchanged saved valid events, current/smaller/broad totals are CK1999 **2.20286/.73429/1.39556**, CK2498 **5.34381/1.78127/2.83396**. CK2498 yaw +/- broad totals are .260/.264; ordinary lateral .671/.667; expanded lateral .477/.495. No rejected event becomes payable. These are counterfactual rescoring hypotheses, not rollouts, advantages or predictions of learning.
+
+Seven small CPU tracker cases confirm clean 2 cm and tall 5 cm completions, each consuming .86 s credit, pay .02830/.12900 currently and .02466/.04300 under the broad arithmetic. No-step rolling pays zero at G=0 and G=1 even with capped credit; a 5 cm rigid-body bob has usable height <5e-8 m and pays zero; 4 mm dragging and alternating 20 ms unload/reload chatter also pay zero. Splitting the same .8 s total credit among 1/2/4 hypothetical unit-quality events gives the same .12 current/.04 reduced budget; this is algebra, not an assertion that all spacings pass dwell/duration. The cap bounds frequency incentives, but a capped unused budget can still favor occasional steps over never stepping.
+
+**Command timing is incompatible with naive 10 Hz interpolation.** The current sampler holds commands piecewise constant: moving durations .5–1 s (70%), 1.5–3 s (25%), 8–15 s (5%); stand retains its 25% 3–6 s replacement. Fixed-command writes bypass sampling. `command_changed` checks exact inequality on any component: every different vector increments generation and clears active/confirmed attempts, credit and prior-support time; identical writes do nothing. A CPU fixture with .4 s initial support, a valid .3 s/3 cm/.04 m swing, unchanged vy=.05 and vx refreshed by just +.001 every .1 s gives: identical writes **one paid event**; changes during swing **zero, one censored attempt**; changes throughout support and swing **zero, no attempt armed** because .1 s < .12 s prior support. Old credit is cleared; .06 s after the last change is newly accumulated credit, not retained credit.
+
+For a future correlated stream, the smallest compatible design would freeze quality/demand at takeoff and let same-direction magnitude refreshes retain the attempt and support history; genuine stop or reversal would still cancel and clear credit. Accumulate current G*dt once, capped, without minting credit on refresh. Define reversal/compatibility explicitly before such an experiment. This is a future reward-semantics change, not interpolation added here or a change to frozen-policy inference; it needs no RNN, estimator or actor input.
+
+Runtime attribution remains **unresolved**. Existing matched last-250 blocks give collection/learning 4.1351/.8650 s parent versus 4.5960/.9018 s continuation at 4096×64, with different policy states/settings and uncontrolled load. They cannot separate actor, physics, state reads, events and telemetry; startup and host logging are reported above. No new simulator or microbenchmark was justified or run, and no performance improvement is claimed.
+
+**One prioritized future intervention, not implemented or launched:** make the event bonus a smaller sufficient-clearance auxiliary objective, using the declared broad 2.5–5 cm quality and .05 coefficient. Bound one continuation from this exact CK2498/native state to **250 additional updates, 4096×64, seed 1**, then only its final existing precision screen against the archived results. Retain stance weight 2, PPO, curriculum, physical interface and all event guards. This tests reducing incentives to chase taller lateral lifts while retaining discovered stepping; it is an objective redesign, not a coefficient ablation. It does not claim to fix G=0 preload/headroom. Judge tracking, stand/stops, posture/headroom and repeated useful bilateral lifts; 5 cm is a diagnostic threshold, not universal acceptance.
+
+For that single proposal, keep tracking/stopping, posture/body and actuator/contact limits, completed-touchdown hysteresis/dwell, support/failure checks, frozen-base limb attribution, net displacement and bounded time credit. Replace the demand-scaled apex target and its 5–7 cm full-credit band; old instantaneous clearance/airtime bonuses stay disabled. Keep apex/count thresholds, per-limb imbalance and signed preload measurements diagnostic-only, with no equal-step-count rule. CK1999 and A remain fallbacks. The G=0 target-versus-state mismatch remains a separate unresolved control-objective issue, not grounds for silently raising gains or the sagittal scalar.
+
+Executed with the documented Windows Python/cache setup above: `& $Python .migration-audit/rolling-objective-20260928/review.py` (saved-array rates/decomposition, exit **0**); `& $Python .migration-audit/rolling-objective-20260928/counterfactuals.py` (seven CPU cases and arithmetic, exit **0**); `& $Python -m unittest tests.test_go2w_event_step.EventStepCPU.test_correlated_command_refresh_cancels_swing -v` (one test, three timing cases, exit **0**). `& 'C:\Users\Liamb\anaconda3\Scripts\ruff.exe' check tests/test_go2w_event_step.py --select E9,F63,F7,F82`, `git diff --check`, and the 27-file SHA-256 recheck all exit **0**. No test failed or required a rerun. Only this test and this report are tracked changes; no historical suite, learning smoke or screen was repeated.
