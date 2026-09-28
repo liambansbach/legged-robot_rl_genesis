@@ -495,3 +495,89 @@ if ($Meta.status -ne 'completed' -or $Meta.completed_updates_total -ne 2000 -or 
 ```
 
 Conceptual references: [IsaacLab v2.3.2 first-contact airtime reward](https://github.com/isaac-sim/IsaacLab/blob/v2.3.2/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/mdp/rewards.py), [Walk These Ways](https://arxiv.org/abs/2212.03238), and [Advanced Skills through Multiple Adversarial Motion Priors](https://arxiv.org/abs/2203.14912). This custom event-apex objective reproduces neither their parameter sets, gait clocks nor AMP implementations, and its command gate changes preference rather than proving each step physically necessary.
+
+## Event-step result and rollout overhead — 28 September 2026
+
+Reviewed clean `testing` at `4733792200e10d41660e786f78bb7296bc614405`. Run `logs/go2w_event_step_v1/event_step_v1_seed1_20260927_prepared_2026-09-28_10-30-59` completed 2,000 fresh updates: native label 1999, saved curriculum count 2000/high .50. Checkpoint/config SHA-256 match `eda85fba4f0b3911ed3051e9011b68ddcfb215c9c698f113f109b9b0a9b0ccc2` / `43a949f8084a0b0fb3fafc1928dd01ae13997d204f939b9d6124be6ec232013e`. Its matching evaluation manifest identifies `evaluation/event_step_v1_seed1_20260927_prepared/final_screen`; no latest-run selection was used. All seven original traces, reports, checkpoint/config, URDF and A were preserved and hashed before/after. Scripts, full joint/window tables, reconstructed attempts and timing samples remain local in `.migration-audit/event-review-20260928/`.
+
+The existing screen contains 750/950/950/650/650/850/850 transitions: **113 nominal simulated seconds, no recorded falls, resets, timeouts, nonfinite states or non-wheel contacts**. The initial two-second stand states/actions are identical across files, not seven independent trials. There are **11 completed physical >=5 cm lifts**, including repeated rear-leg lifts, and four >=5 cm reward-qualified completions. Thus the earlier unresolved scripted trial is superseded as a statement about whether the learned policy can lift 5 cm. That trial itself remains unsuccessful scripted control, not evidence of weak motors. These traces do not establish robustness or transfer readiness.
+
+Rolling tracks +.1/+.5/-.25 at final-second vx .102751/.506223/-.242753 m/s. The +.5 posture deteriorates while tracking improves:
+
+| Rolling phase/window | vx, m/s | Base z, m | Front thigh q FL/FR, rad | Front wheel x FL/FR, m | Rear wheel x RL/RR, m |
+|---|---:|---:|---|---|---|
+| Initial stand, last second | .000394 | .414523 | .7984/.7977 | .1697/.1701 | -.2762/-.2761 |
+| +.1, first / last second | .094276 / .102751 | .417681 / .414062 | .7572/.7566 → .6417/.6417 | .1802/.1806 → .2213/.2219 | -.2799/-.2796 → -.2884/-.2899 |
+| +.5, first / last second | .477586 / .506223 | .410162 / .376622 | .4584/.4564 → .2397/.2385 | .2818/.2827 → .3558/.3563 | -.2637/-.2651 → -.2352/-.2365 |
+| -.25, first / last second | -.139960 / -.242753 | .388681 / .388548 | .5447/.5449 → .9672/.9997 | .2712/.2713 → .1423/.1330 | -.2519/-.2541 → -.2118/-.2103 |
+| Final stand, last second | -.012120 | .407328 | .7881/.8001 | .1781/.1785 | -.2710/-.2819 |
+
+Wheel positions above are centers relative to the current base. Exact joint order is `[FL,FR,RL,RR] × [hip,thigh,calf,foot]`; wheel outputs are velocity targets, not joint-position targets. Nominal leg triples are `[0,.70,-1.33]` front and `[0,.75,-1.31]` rear. Targets were reconstructed from **applied** actions and saved scales; applied and issued clipped actions happen to match throughout this nominal rolling trace. At +.5, final-second raw front-thigh means are -1.2103/-1.2221, both saturated for 100% of samples: target .350/.350, actual .2397/.2385, nominal error -.4603/-.4615 and target error -.1103/-.1115 rad. Front calf q is -1.4642/-1.4666 versus targets -1.3126/-1.3141; rear thigh/calf q is [.9820,-1.6229]/[.9903,-1.6293]. Mean wheel loads are [41.65,41.74,53.71,54.42] N. Front-thigh measured policy-rate forces are +4.417/+4.465 Nm; maximum force/limit over all joints is .192. The closest hard joint-limit margin is .6254 rad; front thighs have hard limits [-1.5708,3.4907]. **Action-target saturation, PD state error and mechanical limits are separate.**
+
+Initial stand has rear-thigh raw means 1.0311/1.0319 and 100% positive target saturation in its last second: target 1.100, actual 1.0012/1.0015, nominal .750 rad. Their hard limits are [-.5236,4.5379], and the minimum margin over all leg joints is .5573 rad. Mean wheel loads are [54.49,54.49,41.42,41.20] N; maximum policy-rate force/limit is .258. These are not substep force maxima.
+
+Original reward methods evaluated on recorded states give the following **weighted mean rates**. Multiply by .02 for a policy-step contribution; each one-second integral has the same numeric value. Event payment is discrete, with no extra dt; it is zero in these rolling windows. Slew uses consecutive issued clipped actions, as training does, not q-target tracking error.
+
+| Rate | Initial stand, last second | +.5, first second | +.5, last second | Reverse, last second |
+|---|---:|---:|---:|---:|
+| Linear / yaw tracking | .999981 / .799999 | .982779 / .799961 | .999832 / .799968 | .999507 / .799733 |
+| Sagittal / hip pose | -.014383 / -.000010 | -.018034 / -.000246 | -.057973 / -.000517 | -.037775 / -.002048 |
+| Height / orientation | -.000003 / -.001285 | -.000532 / -.000840 | -.011783 / -.000859 | -.005618 / -.000606 |
+| Normalized effort | -.000820 | -.000967 | -.000585 | -.001208 |
+| Leg / wheel action slew | <.000001 magnitude | -.000446 / -.000324 | <.000001 magnitude | <.000001 magnitude |
+| Vertical / roll-pitch velocity | -.000003 / -.000012 | -.000321 / -.001360 | -.000173 / <.000001 | <.000001 / -.000036 |
+
+The stationary folded posture is inexpensive relative to near-maximal tracking, and costs almost no action slew. A's saved `evaluation/precision_20260927_132600/A_screen/rolling_reverse.npz` has the identical command schedule/joint order: at +.5 its final vx/z are .463569/.424165, front-thigh q .6386/.6340 and targets .6080/.6093, with no front-thigh saturation. Event-step improves rolling speed accuracy while losing this posture margin; this cross-policy comparison does not isolate causality. Offline rescoring +.5's final second with G=0 sagittal weights -.6/-1.2/-2.0 gives -.057973/-.115947/-.193244, holding every state and other term fixed. This is reward arithmetic, not a policy rollout, PPO advantage or proof of causal improvement. Per-limb stance/swing relaxation could eventually discourage a dragging stance limb while another swings, but introduces contact-state coupling and more choices. Restoring stronger G≈0 stance retention is the simpler justified first intervention.
+
+Event audit below uses **O/A/C/V**: raw unloading opportunities / eligible reward attempts / completed geometric lifts (existing >=2 mm, no dwell metric) / valid paid completions, assigned to their onset command. Numbers after `;` are final dimensionless `.15*sum(Q*b)` contributions. Physical completion and reward confirmation need not coincide. Rolling and ±.03/±.10 yaw have zero O/A/C/V for every limb; their G is zero.
+
+| Command | FL | FR | RL | RR |
+|---|---|---|---|---|
+| vy +.10 | 3/3/3/3; .0959 | 26/4/0/0; 0 | 18/4/4/0; 0 | 3/3/3/3; .2408 |
+| vy -.10 | 26/4/0/0; 0 | 3/3/3/3; .0982 | 3/3/3/3; .2503 | 21/4/3/0; 0 |
+| vy +.20 | 4/4/4/4; .1572 | 29/4/0/0; 0 | 13/4/5/2; .0522 | 4/4/4/4; .5138 |
+| vy -.20 | 27/4/0/0; 0 | 4/4/4/3; .1308 | 4/4/4/1; .1380 | 21/5/4/1; .0246 |
+| yaw +.40 | 7/7/4/0; 0 | 0/0/0/0; 0 | 15/5/0/0; 0 | 11/7/1/0; 0 |
+| yaw -.40 | 0/0/0/0; 0 | 7/7/4/0; 0 | 9/7/1/0; 0 | 16/6/0/0; 0 |
+| yaw +.75 | 8/8/8/4; .0529 | 6/5/0/0; 0 | 19/7/0/0; 0 | 12/7/8/0; 0 |
+| yaw -.75 | 8/6/0/0; 0 | 8/8/8/4; .0554 | 13/8/8/0; 0 | 11/7/0/0; 0 |
+| vy +.05* | 1/1/1/0; 0 | 6/1/0/0; 0 | 6/2/1/0; 0 | 1/1/1/1; .0280 |
+| vy -.05* | 5/1/0/0; 0 | 1/1/1/0; 0 | 1/1/1/1; .0282 | 5/2/1/0; 0 |
+| vy +.40* | 11/6/6/1; .0109 | 24/5/12/0; 0 | 6/5/6/1; .0235 | 11/6/5/1; .0427 |
+| vy -.40* | 17/5/9/0; 0 | 12/5/6/0; 0 | 5/5/5/2; .0952 | 8/5/6/1; .0208 |
+| vy +.50* | 22/6/8/0; 0 | 16/5/8/0; 0 | 5/5/5/2; .0460 | 14/5/5/0; 0 |
+| vy -.50* | 18/5/13/0; 0 | 21/5/5/0; 0 | 9/5/5/1; .0239 | 5/5/5/3; .0733 |
+
+`*` Expanded-envelope checks without an A baseline. Final-second vy at ±.50 is only +.304760/-.329729 m/s. Across the screen there are 203 completed geometric intervals, 405 completed load-only intervals, 28 physical boundary-censored intervals, and 49 valid reward events totaling 2.202857. Reward attempts separately comprise 161 confirmed completions, 72 flicker cancellations, four overlong cancellations and 12 command cancellations. Prior-support/dwell requirements explain why many raw unloadings never arm. The initial settling transition before recording is unavailable; boundary motion remains censored. No failure cancellation occurs in these traces.
+
+At vy +.20, RR actual/usable peaks are 58.59/47.85/52.54/53.09 mm, duration .24/.24/.26/.26 s and net repositioning 143/129/137/137 mm. Height quality is 1/.9151/1/1, reposition quality 1 throughout, and consumed credits .78/.88/.92/.92 s. FR's sole confirmed attempt reaches only 1.06 mm; its other three attempts flicker. Negative lateral mirrors the front dragging imbalance, but not payment: RL peaks 52.73/51.89/46.40/47.05 mm have three legitimate sampled-support rejections. Each rejected swing contains a sample with only one wheel >6 N (indices 334/427/474); usable height, .26 s duration and 129–141 mm repositioning otherwise pass. Two good-height RL swings at -.40 also fail sampled support. Do not relax this guard to manufacture payment. Support between 50 Hz samples remains unknown.
+
+Both yaw ±.40 already have G=1. Their first FL/FR swings reach 11.104/11.565 mm actual height but only 1.893/2.346 mm usable height, with .18 s duration, 61.94/63.13 mm displacement and valid sampled support. **Usable height alone rejects those two events**; later attempts mostly fail actual/usable height, some duration or net displacement. Across all paid events height quality spans .1500–1, reposition quality .9728–1 and consumed credit .48–1 s. The additive independent-foot objective permits productive limbs to earn credit while another drags; the +.20 result shows this directly. It does not require four useful steps, and no equality/symmetry penalty or guard relaxation was added. Quiet initial stand is retained, but stops are imperfect: final yaw residuals after positive/negative yaw are -.0341/+.0133 rad/s, and after negative lateral +.0514 rad/s with vy +.0148 m/s.
+
+All 2,000 `diagnostics.jsonl` rows exist; cache counts are exactly `1+64*completed_updates`. TensorBoard is missing event label 285; A has 15 missing labels, including 13 in its last 250-label window. No rows were filled. From labels 1500–1749 to 1750–1999, mean episode reward rises 28.3757→29.4955, raw nonterminal reward/transition .028039→.029158 and episode-normalized step-event contribution .005125→.009685. These are stochastic training statistics, not intermediate-checkpoint behavior. Last-250 scheduler KL mean/p95 is .015157/.019403; LR min/mean/max is .00007594/.00034590/.00038443, final .00038443. Native adaptation exceeded the initial .0003 as allowed. Time shares stand/straight/arc/yaw/precision/lateral/mixed are 18.378/19.240/19.155/14.375/9.584/12.539/6.729%. Training logs do not contain cumulative valid-event counts; `censored_attempts_since_reset=13793` is a reset-dependent snapshot, not a total.
+
+Final learned normalized std, matching the checkpoint, is per joint below. All 2,000 logged update-end vectors have 0% lower/upper/outside-bound occupancy; within-update boundary occupancy was not recorded. Mean std alone would obscure the low front-calf exploration.
+
+| Limb | Hip | Thigh | Calf | Wheel |
+|---|---:|---:|---:|---:|
+| FL | .164007 | .231504 | .113757 | .307831 |
+| FR | .164073 | .231396 | .113655 | .307844 |
+| RL | .144321 | .130716 | .165026 | .260323 |
+| RR | .144353 | .130674 | .164915 | .260122 |
+
+Historical runtime does **not** show a 2× per-transition slowdown. Last-250 event means are 4.13514 s collection + .86501 s learning for 4096×64, or 15.774/3.300 µs per environment transition. A's available 237 rows in labels 1549–1798 give 3.29076 + .77332 s for 4096×48, or 16.738/3.933 µs. Different runs, learning settings and system load prevent attributing that difference to the tracker. Native host timers include action/reward telemetry in collection and diagnostic flush in learning; they are not synchronized kernel profiles. Inter-row residual wall time averages .0413 s event/.0584 s A for adjacent available rows, including logger/save/other overhead. Startup and individual logging/flush costs were not separately instrumented and cannot be recovered exactly.
+
+One baseline and one candidate **pure tensor GPU replay process**, RTX 4070 Ti, batch 4096, reused recorded inputs (no actor, simulator or optimizer). Each component had 32 warmup calls then four blocks of 64, timed with CUDA events and host wall time synchronized before/after each block. Paired candidate-process medians, ms/call:
+
+| Component | Original CUDA / wall | Accepted CUDA / wall |
+|---|---:|---:|
+| Event update, including command handling | 5.514 / 5.514 | 3.567 / 3.568 |
+| Empty tracker reset | .752 / .752 | .00077 / .00107 |
+| Reward telemetry | 2.355 / 2.355 | 1.831 / 1.832 |
+| Sparse tracker reset | .871 / .871 | .887 / .888 |
+
+The first unchanged-versus-unchanged baseline tracker timings were 4.867/5.050 ms, showing run variability. The accepted changes replace dynamic takeoff/touchdown gathers with fixed-shape masks, reuse clearance refreshed immediately before the one event update, skip empty resets and keep new-profile hip/sagittal indices on-device. Isolated duplicate clearance costs .286 ms; Python-list/CUDA indexing costs .0395/.0113 ms. Same-command handling (.148→.155 ms) and sparse reset show no useful gain alone. An action-telemetry masking candidate (.843→.886 ms wall) was reverted. Gate/finite/transform calculations otherwise remain unchanged: no speculative cache invalidation scheme, telemetry reduction or physics shortcut. **The 35% tracker and 22% reward-telemetry savings are component measurements, not a measured end-to-end training gain.**
+
+Validation: two focused unittest invocations, 3 and 6 tests, exits **0/0** (eight distinct checks, one repeated after reverting action telemetry). Original/optimized tracker state is bit-exact for all 5,650 CPU trace inputs, reset/command/nonfinite/failure fixtures and 96×4096 GPU replay inputs with sparse resets, including credit and censor bookkeeping. Comparing reconstructed CPU events to the saved GPU cache gives exact decisions/durations/censor counts; maximum geometric float difference is 7.1e-8 m and payment difference 3.0e-7 before the .15 scale. Telemetry counts are exact; reordered sum comparisons pass 5e-7 relative/1e-5 absolute tolerance. Both GPU replay processes and the corrected offline analysis exit **0**. Two initial local script launches were stopped during prolonged startup without the documented cache environment (exit **-1/-1**); cached retries succeeded. The first offline reconstruction also exposed an analysis-only redundant command-cancellation call; matching the actual evaluator's direct command writes removed all censor mismatches. Original logs are retained. Compilation and `git diff --check` pass. `python -m ruff` was unavailable (exit **1**); the existing base-environment `ruff.exe` passes E9/F63/F7/F82 checks (exit **0**), without installing anything. No simulation was rerun, no PPO update or checkpoint continuation occurred, and no export/bank/hardware work was performed.
+
+**One next learning recommendation, not implemented or launched:** a single bounded **500-update continuation from this exact model_1999.pt**, retaining its optimizer, normalizers, std, native scheduler and completed curriculum state. Change only sagittal stance retention to `-(2.0*(1-G)+.12*G)*mean(thigh/calf error²)`, restoring -2.0 at G=0 while preserving -.12 at full demand; keep event qualification/payment and all physical settings unchanged. This addresses saturated forward posture while retaining learned rolling and real lifts. Inspect only that continuation's final checkpoint on the same nominal screen: require improved forward height/target margin without worse stand, reverse, bilateral tracking/stops or useful per-leg events. Do not simply extend the unchanged objective, invent a four-foot equality rule or infer deployment readiness. A remains the fallback.

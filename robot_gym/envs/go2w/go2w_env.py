@@ -23,6 +23,8 @@ class Go2WEnv(Go2Env):
         )
 
     def reset_idx(self, env_ids):
+        if len(env_ids) == 0:
+            return
         super().reset_idx(env_ids)
         if getattr(self, "wheel_geometry_enabled", getattr(self, "step_recovery", False)):
             self.wheel_clearance[env_ids] = 0
@@ -52,9 +54,10 @@ class Go2WEnv(Go2Env):
         self.wheel_geometry_enabled = self.step_recovery or self.event_step
         if self.event_step:
             self.completed_updates = 0
-            self.hip_indices = [i for i, n in enumerate(self.joint_names) if n.endswith("_hip_joint")]
-            self.sagittal_indices = [i for i, n in enumerate(self.joint_names)
-                                     if n.endswith(("_thigh_joint", "_calf_joint"))]
+            self.hip_indices = torch.tensor([i for i, n in enumerate(self.joint_names)
+                                             if n.endswith("_hip_joint")], device=self.device)
+            self.sagittal_indices = torch.tensor([i for i, n in enumerate(self.joint_names)
+                                                  if n.endswith(("_thigh_joint", "_calf_joint"))], device=self.device)
         self.leg_action_indices = [
             i
             for i, n in enumerate(self.joint_names)
@@ -255,7 +258,8 @@ class Go2WEnv(Go2Env):
                                             self.base_ang_vel, self.torques, self.actions)]).all(dim=0)
         self.step_events.update(self.dt, self.commands, self.base_pos, self.base_quat,
                                 self.foot_pos, self.wheel_link_quat, self.wheel_normal_force,
-                                self.reset_buf.bool() | (self.nonfoot_contact_count > 0) | ~finite)
+                                self.reset_buf.bool() | (self.nonfoot_contact_count > 0) | ~finite,
+                                actual_clearance=self.wheel_clearance)
 
     def _step_demand(self):
         from .step_events import step_demand

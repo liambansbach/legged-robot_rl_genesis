@@ -211,7 +211,7 @@ class TrainingDiagnostics:
             {name: self.command_families == i for i, name in enumerate(self.families)}
         )
         for name, mask in masks.items():
-            values = raw[mask].detach()
+            values = torch.where(mask, raw.detach(), 0)
             summary = torch.stack(
                 (
                     mask.sum(),

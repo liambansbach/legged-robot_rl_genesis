@@ -453,6 +453,112 @@ class EventStepCPU(unittest.TestCase):
                    Path("logs/go2w_step_recovery_v1/coverage_seed1_20260926_231000_2026-09-26_23-15-39/config.yaml")]}))
 
 
+class EventRefactorTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # Compare against the reviewed implementation, without keeping a second tracker.
+        cls.original = {}
+        for name, path in (("events", "robot_gym/envs/go2w/step_events.py"),
+                           ("diagnostics", "robot_gym/utils/training_diagnostics.py")):
+            source = subprocess.run(
+                ["git", "show", f"4733792200e10d41660e786f78bb7296bc614405:{path}"],
+                cwd=URDF.parents[4], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, check=True,
+            ).stdout
+            namespace = {}
+            exec(compile(source, path, "exec"), namespace)
+            cls.original[name] = namespace
+
+    def assert_state_equal(self, old, new):
+        self.assertEqual(vars(old).keys(), vars(new).keys())
+        for name, value in vars(old).items():
+            if torch.is_tensor(value):
+                torch.testing.assert_close(getattr(new, name), value, rtol=0, atol=0, equal_nan=True)
+        self.assertEqual(old.update_count, new.update_count)
+
+    def test_tracker_masks_cache_and_edges(self):
+        f = EventFixture()
+        old = self.original["events"]["WheelStepEvents"](4, "cpu", f.tracker.cfg, f.geometry)
+        new = WheelStepEvents(4, "cpu", f.tracker.cfg, f.geometry)
+        for i in range(160):
+            command = f.commands.repeat(4, 1)
+            if 55 <= i < 75:
+                command[1] = 0
+            if i >= 110:
+                command[2, 1] *= -1
+            base, quat = f.base.repeat(4, 1), f.quat.repeat(4, 1)
+            pos, wq = f.wheels.repeat(4, 1, 1), f.wheel_quat.repeat(4, 1, 1)
+            loads = torch.full((4, 4), 30.)
+            phase = i % 50
+            if 20 <= phase < 40:
+                loads[:, 0] = 0
+                pos[:, 0, 2] += .05 * math.sin(math.pi * (phase-20)/20)**2
+                pos[:, 0, 1] += .04 * (phase-20)/20
+                loads[2, 1:3] = 0  # Support loss; independent simultaneous attempts.
+            elif phase >= 40:
+                pos[:, 0, 1] += .04
+            if phase == 10:
+                loads[3, 0] = 0  # Flicker before unloading dwell.
+            if phase == 25:
+                loads[1, 0] = 8  # Hysteresis retains unloading.
+            failed = torch.tensor([False, i == 88, False, False])
+            if i == 87:
+                base[3, 2] = float("nan")
+            actual = cylinder_clearance(pos, wq, *f.geometry)
+            old.update(.02, command, base, quat, pos, wq, loads, failed)
+            new.update(.02, command, base, quat, pos, wq, loads, failed, actual_clearance=actual)
+            self.assert_state_equal(old, new)
+            if i in (51, 90, 140):
+                old.command_changed(command); new.command_changed(command)
+                self.assert_state_equal(old, new)
+                ids = torch.tensor([1, 3]) if i != 51 else torch.empty(0, dtype=torch.long)
+                old.reset(ids); new.reset(ids)
+                self.assert_state_equal(old, new)
+
+    def test_reward_cache_hook_and_named_indices(self):
+        e = contract.ContractTests().make_env(4, "event_step_v1")
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        e.step_events = SimpleNamespace(update=Mock())
+        for name, shape in (("dof_pos", (4,16)), ("dof_vel", (4,16)), ("actions", (4,16)),
+                            ("torques", (4,16)), ("base_lin_vel", (4,3)), ("base_ang_vel", (4,3)),
+                            ("base_pos", (4,3)), ("base_quat", (4,4)), ("foot_pos", (4,4,3)),
+                            ("wheel_link_quat", (4,4,4)), ("wheel_normal_force", (4,4)),
+                            ("wheel_clearance", (4,4)), ("reset_buf", (4,)), ("nonfoot_contact_count", (4,))):
+            setattr(e, name, torch.zeros(shape))
+        e._update_step_events()
+        self.assertIs(e.step_events.update.call_args.kwargs["actual_clearance"], e.wheel_clearance)
+        self.assertEqual(e.step_events.update.call_count, 1)
+        self.assertEqual(e.hip_indices.device, e.commands.device)
+        self.assertEqual(e.sagittal_indices.tolist(), [1,2,5,6,9,10,13,14])
+        e.reset_idx(torch.empty(0, dtype=torch.long))
+
+    def test_diagnostic_masks_preserve_counts_and_sums(self):
+        from robot_gym.utils.training_diagnostics import TrainingDiagnostics
+        env = contract.ContractTests().make_env(17, "event_step_v1")
+        pair = []
+        for cls in (self.original["diagnostics"]["TrainingDiagnostics"], TrainingDiagnostics):
+            d = cls.__new__(cls)
+            d.env = env
+            d.command_families = torch.arange(17) % 7
+            d.previous_mean = d.previous_sample = None
+            d.previous_valid = torch.ones(17, dtype=torch.bool)
+            d.reset_aggregates()
+            pair.append(d)
+        values = torch.linspace(-1.7, 1.7, 17*16).reshape(17, 16)
+        for i in range(8):
+            for d in pair:
+                d.previous_valid = (torch.arange(17) % 3 != 0) if i != 3 else torch.zeros(17, dtype=torch.bool)
+                d.record_actions(values * (1 + i*.01), values * .9)
+                d.reward(torch.linspace(-.1, .2, 17), env.commands)
+            for name, (total, count) in pair[0].rollout.items():
+                actual, actual_count = pair[1].rollout[name]
+                self.assertEqual(int(actual_count), int(count))
+                torch.testing.assert_close(actual, total, rtol=5e-7, atol=1e-5)
+            for name, expected in pair[0].rewards.items():
+                torch.testing.assert_close(pair[1].rewards[name], expected, rtol=5e-7, atol=1e-6)
+
+
 def gpu_args(count, smoke=False):
     argv = ["event-preparation", "--task", "go2w", "--go2w_profile", "event_step_v1",
             "--num_envs", str(count), "--headless", "--seed", "1", "--logger", "tensorboard"]

@@ -43,6 +43,8 @@ class WheelStepEvents:
 
     def reset(self, ids):
         # All per-environment history, including settling and credit, is discarded.
+        if len(ids) == 0:
+            return
         for value in vars(self).values():
             if torch.is_tensor(value):
                 value[ids] = 0
@@ -54,13 +56,14 @@ class WheelStepEvents:
         self.censored[:] = self.active & changed[:, None]
         self.censored_count += self.censored.long()
         self.generation += changed.long()
-        self.active[changed] = False
-        self.confirmed[changed] = False
-        self.credit[changed] = 0
-        self.support_time[changed] = 0
+        self.active.masked_fill_(changed[:, None], False)
+        self.confirmed.masked_fill_(changed[:, None], False)
+        self.credit.masked_fill_(changed[:, None], 0)
+        self.support_time.masked_fill_(changed[:, None], 0)
         self.commands.copy_(commands)
 
-    def update(self, dt, commands, base_pos, base_quat, wheel_pos, wheel_quat, loads, failed):
+    def update(self, dt, commands, base_pos, base_quat, wheel_pos, wheel_quat, loads, failed,
+               actual_clearance=None):
         self.update_count += 1
         self.command_changed(commands)
         c = self.cfg
@@ -70,13 +73,15 @@ class WheelStepEvents:
         self.completed.zero_()
         self.valid.zero_()
         self.credit[:] = (self.credit + gate[:, None] * dt).clamp(max=c["credit_cap"])
-        self.credit[gate == 0] = 0
+        self.credit.masked_fill_(gate[:, None] == 0, 0)
 
         inverse = inv_quat(base_quat)
         relative_pos = rotate_wxyz(inverse[:, None], wheel_pos - base_pos[:, None])
         relative_quat = transform_quat_by_quat(wheel_quat, inverse[:, None].expand_as(wheel_quat))
         center = relative_pos + rotate_wxyz(relative_quat, self.geometry[0])
-        actual = cylinder_clearance(wheel_pos, wheel_quat, *self.geometry)
+        # The environment already refreshed this geometry for this transition.
+        actual = (cylinder_clearance(wheel_pos, wheel_quat, *self.geometry)
+                  if actual_clearance is None else actual_clearance)
         finite = (torch.isfinite(base_pos).all(dim=-1) & torch.isfinite(base_quat).all(dim=-1)
                   & torch.isfinite(wheel_pos).all(dim=(1, 2)) & torch.isfinite(wheel_quat).all(dim=(1, 2))
                   & torch.isfinite(loads).all(dim=1) & torch.isfinite(commands).all(dim=1))
@@ -89,23 +94,23 @@ class WheelStepEvents:
         eligible = start & (self.support_time >= c["prior_support"] - 1e-7) & (gate[:, None] > 0) & ~failed[:, None]
         self.unloaded_time[:] = torch.where(self.unloaded, self.unloaded_time + dt, 0)
         self.reload_time[:] = torch.where(~self.unloaded, self.reload_time + dt, 0)
-        self.supported[self.unloaded] = False
+        self.supported.masked_fill_(self.unloaded, False)
         self.supported |= self.reload_time >= c["reload_dwell"] - 1e-7
         self.support_time[:] = torch.where(self.supported, self.support_time + dt, 0)
 
         self.elapsed += self.active * dt
         self.active |= eligible
-        self.elapsed[eligible] = 0
-        self.onset_base[eligible] = base_pos[:, None].expand_as(self.onset_base)[eligible]
-        self.onset_quat[eligible] = base_quat[:, None].expand_as(self.onset_quat)[eligible]
-        self.takeoff[eligible] = center[eligible]
-        self.onset_height[eligible] = actual[eligible]
-        self.onset_commands[eligible] = commands[:, None].expand_as(self.onset_commands)[eligible]
-        self.onset_generation[eligible] = self.generation[:, None].expand_as(self.onset_generation)[eligible]
-        self.gate[eligible] = gate[:, None].expand_as(self.gate)[eligible]
-        self.peak_actual[eligible] = 0
-        self.peak_use[eligible] = 0
-        self.support_valid[eligible] = True
+        self.elapsed.masked_fill_(eligible, 0)
+        self.onset_base.copy_(torch.where(eligible[..., None], base_pos[:, None], self.onset_base))
+        self.onset_quat.copy_(torch.where(eligible[..., None], base_quat[:, None], self.onset_quat))
+        self.takeoff.copy_(torch.where(eligible[..., None], center, self.takeoff))
+        self.onset_height.copy_(torch.where(eligible, actual, self.onset_height))
+        self.onset_commands.copy_(torch.where(eligible[..., None], commands[:, None], self.onset_commands))
+        self.onset_generation.copy_(torch.where(eligible, self.generation[:, None], self.onset_generation))
+        self.gate.copy_(torch.where(eligible, gate[:, None], self.gate))
+        self.peak_actual.masked_fill_(eligible, 0)
+        self.peak_use.masked_fill_(eligible, 0)
+        self.support_valid.masked_fill_(eligible, True)
         self.confirmed |= self.active & (self.unloaded_time >= c["unload_dwell"] - 1e-7)
 
         frozen_pos = self.onset_base + rotate_wxyz(self.onset_quat, relative_pos)
@@ -118,8 +123,8 @@ class WheelStepEvents:
         enough = (loads > c["unload_force"]).sum(dim=1) >= 2
         self.support_valid &= ~sampling | enough[:, None]
         first_reload = self.active & previous_unloaded & ~self.unloaded
-        self.touchdown[first_reload] = center[first_reload]
-        self.duration[first_reload] = self.elapsed[first_reload]
+        self.touchdown.copy_(torch.where(first_reload[..., None], center, self.touchdown))
+        self.duration.copy_(torch.where(first_reload, self.elapsed, self.duration))
         # A first reload sample is retained while its dwell is confirmed.
         self.completed[:] = self.active & self.supported
         delta = rotate_wxyz(self.onset_quat, self.touchdown - self.takeoff)
@@ -139,11 +144,11 @@ class WheelStepEvents:
         cancel = (self.active & ((~self.confirmed & ~self.unloaded)
                   | (self.unloaded & (self.elapsed > high + 1e-7)))) | failed[:, None]
         end = cancel | self.completed
-        self.active[end] = False
-        self.confirmed[end] = False
-        self.credit[end] = 0
-        self.support_time[cancel] = 0
-        self.payment[failed] = 0
+        self.active.masked_fill_(end, False)
+        self.confirmed.masked_fill_(end, False)
+        self.credit.masked_fill_(end, 0)
+        self.support_time.masked_fill_(cancel, 0)
+        self.payment.masked_fill_(failed[:, None], 0)
 
 
 def project_log_std(optimizer, distribution):
