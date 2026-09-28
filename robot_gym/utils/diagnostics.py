@@ -106,7 +106,8 @@ def check_reference_contract(config_path, env_cfg, train_cfg, finetune_continuat
     # Playback/evaluation must explicitly select the saved finetune design.
     # Training checks its exact allowed transition separately below.
     if not finetune_continuation:
-        for key in ("env_cfg.go2w_finetune", "train_cfg.go2w_finetune"):
+        for key in ("env_cfg.go2w_finetune", "train_cfg.go2w_finetune",
+                    "env_cfg.rewards.sagittal_stance_weight"):
             if key in differences:
                 mismatches[key] = differences[key]
     if mismatches:
@@ -122,7 +123,8 @@ def check_reference_contract(config_path, env_cfg, train_cfg, finetune_continuat
 
 
 def check_training_continuation(
-    config_path, env_cfg, train_cfg, sigma_x=None, entropy_coef=None, finetune=None
+    config_path, env_cfg, train_cfg, sigma_x=None, entropy_coef=None, finetune=None,
+    sagittal_stance_weight=None,
 ):
     """Go2-W continuation: every unexplained config difference is an error."""
     reference = check_reference_contract(config_path, env_cfg, train_cfg, finetune_continuation=True)
@@ -193,6 +195,14 @@ def check_training_continuation(
     if finetune == "precision_clearance":
         allowed.discard("env_cfg.rewards.tracking_sigma_x")
         allowed.discard("train_cfg.algorithm.entropy_coef")
+    if sagittal_stance_weight is not None:
+        saved = yaml.safe_load(Path(config_path).read_text())
+        if (not np.isfinite(sagittal_stance_weight) or sagittal_stance_weight <= 0
+                or any(cfg.get("go2w_profile") != "event_step_v1"
+                       for cfg in (env_cfg, train_cfg, saved["env_cfg"], saved["train_cfg"]))
+                or env_cfg["rewards"].get("sagittal_stance_weight") != sagittal_stance_weight):
+            raise ValueError("Invalid declared event_step_v1 sagittal stance continuation")
+        allowed.add("env_cfg.rewards.sagittal_stance_weight")
     # Only the agreed two-update smoke may reduce the source batch size.
     if env_cfg["env"]["num_envs"] == 64 and train_cfg["runner"]["max_iterations"] == 2:
         allowed.add("env_cfg.env.num_envs")

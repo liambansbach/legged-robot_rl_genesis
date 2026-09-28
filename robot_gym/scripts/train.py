@@ -73,7 +73,17 @@ def prepare_go2w_continuation(args, env_cfg, train_cfg):
         args.tracking_sigma_x,
         args.entropy_coef,
         getattr(args, "go2w_finetune", None),
+        getattr(args, "sagittal_stance_weight", None),
     )
+    if getattr(args, "sagittal_stance_weight", None) is not None:
+        import torch
+        state = torch.load(checkpoint, map_location="cpu", weights_only=False)
+        progress = (state.get("infos") or {}).get("event_step_v1", {})
+        count = progress.get("completed_updates")
+        if type(count) is not int or count < 0:
+            raise ValueError("Missing event_step_v1 completed-update state")
+        # Restore runtime progress before even the new scene's first command draw.
+        env_cfg._event_completed_updates = count
     saved_git = checkpoint.parent / "git" / f"{Path(ROBOT_GYM_ROOT_DIR).name}.diff"
     source_snapshot = None
     if saved_git.is_file():
@@ -92,12 +102,14 @@ def prepare_go2w_continuation(args, env_cfg, train_cfg):
 
 
 def train(args):
+    from time import perf_counter
+    started = perf_counter()
     if getattr(args, "zero_command_brake", False):
         raise ValueError("--zero_command_brake is inference-only; training is not supported")
     from pathlib import Path
     from robot_gym import ROBOT_GYM_ROOT_DIR
-    from robot_gym.utils.helpers import update_cfg_from_args
-    from robot_gym.utils.diagnostics import source_identity, write_json, sha256
+    from robot_gym.utils.helpers import update_cfg_from_args, class_to_dict
+    from robot_gym.utils.diagnostics import source_identity, write_json, sha256, manifest
     from robot_gym.utils.training_diagnostics import (
         TrainingDiagnostics,
         verify_resume_state,
@@ -107,6 +119,8 @@ def train(args):
     update_cfg_from_args(env_cfg, train_cfg, args)
     if getattr(args, "go2w_finetune", None) and not train_cfg.runner.resume:
         raise ValueError("Go2-W finetune requires explicit full-state --resume")
+    if getattr(args, "sagittal_stance_weight", None) is not None and not train_cfg.runner.resume:
+        raise ValueError("Sagittal stance continuation requires explicit full-state --resume")
     profile = getattr(args, "go2w_profile", None)
     if profile and not train_cfg.runner.resume and (
         args.load_run is not None or args.checkpoint is not None
@@ -152,6 +166,7 @@ def train(args):
                 "tracking_sigma_x": args.tracking_sigma_x,
                 "entropy_coef": args.entropy_coef,
                 "go2w_finetune": getattr(args, "go2w_finetune", None),
+                "sagittal_stance_weight": getattr(args, "sagittal_stance_weight", None),
             },
             "planned_additional_updates": train_cfg.runner.max_iterations,
             "completed_additional_updates": 0,
@@ -161,14 +176,14 @@ def train(args):
             "initialization": "Matched new seeded simulator; checkpoint does not restore historical simulator/RNG state",
             "iteration_labels": "RSL-RL 5.5.1 starts at saved iter; N additional updates end at saved iter + N - 1",
         }
+        if profile == "event_step_v1":
+            metadata["completed_updates_before"] = env.completed_updates
         write_json(out / "continuation.json", metadata)
         print(
             f"Verified original learning state: {parent['checkpoint']}; LR={loaded['loaded_learning_rate']}",
             flush=True,
         )
     elif profile:
-        from robot_gym.utils.helpers import class_to_dict
-        from robot_gym.utils.diagnostics import manifest
         from robot_gym.utils.training_diagnostics import std_parameters
 
         if ppo_runner.checkpoint_path is not None or ppo_runner.alg.optimizer.state:
@@ -191,6 +206,7 @@ def train(args):
         }
         write_json(out / "preparation.json", metadata)
     completed = False
+    learning_started = perf_counter()
     try:
         ppo_runner.learn(
             num_learning_iterations=train_cfg.runner.max_iterations,
@@ -203,6 +219,10 @@ def train(args):
             metadata["completed_updates_total"] = env.completed_updates
             metadata["lateral_high"] = lateral_high(env.completed_updates, env.cfg.commands)
         if parent:
+            metadata["wall_clock_s"] = {"startup": learning_started - started,
+                                        "learning_and_logging": perf_counter() - learning_started}
+            metadata["optimizer_step_counts_after"] = sorted({int(s["step"]) for s in ppo_runner.alg.optimizer.state.values()
+                                                               if "step" in s})
             metadata["status"] = "completed" if completed else "failed"
             metadata["completed_additional_updates"] = (
                 train_cfg.runner.max_iterations
@@ -217,6 +237,14 @@ def train(args):
                 if completed
                 else None
             )
+            if completed:
+                provenance = manifest(
+                    ROBOT_GYM_ROOT_DIR, metadata["final_checkpoint"], env.urdf_reader.robot_file_path_absolute,
+                    class_to_dict(env_cfg), class_to_dict(train_cfg), vars(args), None,
+                )
+                provenance["training_overrides"] = provenance.pop("eval_overrides")
+                provenance["parent"] = parent
+                write_json(out / "manifest.json", provenance)
             write_json(out / "continuation.json", metadata)
         elif profile:
             metadata["status"] = "completed" if completed else "failed"

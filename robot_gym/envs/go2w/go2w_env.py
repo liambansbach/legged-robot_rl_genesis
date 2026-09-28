@@ -53,7 +53,7 @@ class Go2WEnv(Go2Env):
         self.event_step = getattr(self.cfg, "go2w_profile", None) == "event_step_v1"
         self.wheel_geometry_enabled = self.step_recovery or self.event_step
         if self.event_step:
-            self.completed_updates = 0
+            self.completed_updates = getattr(self.cfg, "_event_completed_updates", 0)
             self.hip_indices = torch.tensor([i for i, n in enumerate(self.joint_names)
                                              if n.endswith("_hip_joint")], device=self.device)
             self.sagittal_indices = torch.tensor([i for i, n in enumerate(self.joint_names)
@@ -281,6 +281,11 @@ class Go2WEnv(Go2Env):
 
     def _reward_sagittal_pose(self):
         error = (self.dof_pos - self.default_dof_pos)[:, self.sagittal_indices]
+        stance = getattr(self.cfg.rewards, "sagittal_stance_weight", None)
+        if stance is not None:
+            gate = self._step_demand()
+            # The existing -0.6 scale and policy dt are applied by the accumulator.
+            return ((stance * (1 - gate) + 0.12 * gate) / 0.6) * error.square().mean(dim=1)
         return (1 - 0.8 * self._step_demand()) * error.square().mean(dim=1)
 
     def _reward_prolonged_unloading(self):

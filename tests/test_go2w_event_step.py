@@ -778,5 +778,175 @@ class EventStepSmoke(unittest.TestCase):
             destroy_genesis()
 
 
+SAGITTAL_PARENT = Path(__file__).resolve().parents[1] / "logs/go2w_event_step_v1/event_step_v1_seed1_20260927_prepared_2026-09-28_10-30-59"
+SAGITTAL_AUDIT = Path(__file__).resolve().parents[1] / ".migration-audit/sagittal-retention-20260928"
+
+
+def sagittal_args():
+    args = gpu_args(64)
+    args.resume, args.max_iterations, args.training_diagnostics = True, 2, True
+    args.load_run, args.checkpoint = str(SAGITTAL_PARENT), 1999
+    args.run_name = "sagittal_retention_smoke_seed1_20260928"
+    args.experiment_name = "go2w_event_step_v1"
+    args.sagittal_stance_weight = 2.0
+    return args
+
+
+class SagittalContinuationCPU(unittest.TestCase):
+    def test_weighted_rates_and_legacy_path(self):
+        e = contract.ContractTests().make_env(4, "event_step_v1")
+        e.default_dof_pos = torch.zeros(1, 16)
+        e.dof_pos = torch.full((4, 16), .2)
+        e.dof_pos[3] = 0
+        e.commands[:, 1] = torch.tensor([0., .03, .05, .05])
+        old = e._reward_sagittal_pose() * e.cfg.rewards.scales.sagittal_pose
+        e.cfg.rewards.sagittal_stance_weight = 2.
+        e.reward_scales = {"sagittal_pose": e.cfg.rewards.scales.sagittal_pose}
+        e._prepare_reward_function()
+        actual = e._reward_sagittal_pose() * e.reward_scales["sagittal_pose"]
+        expected = -torch.tensor([2., 1.06, .12, .12]) * torch.tensor([.04,.04,.04,0.]) * e.dt
+        torch.testing.assert_close(actual, expected, rtol=2e-6, atol=1e-9)
+        torch.testing.assert_close(actual[2:], old[2:] * e.dt, rtol=2e-6, atol=1e-9)
+        self.assertTrue((actual[:3] < 0).all())
+        del e.cfg.rewards.sagittal_stance_weight
+        torch.testing.assert_close(e._reward_sagittal_pose() * -.6, old, rtol=0, atol=0)
+        self.assertFalse(hasattr(config()[0].rewards, "sagittal_stance_weight"))
+
+    def test_cli_and_saved_inference_choice(self):
+        from robot_gym.utils.helpers import update_cfg_from_args
+        args = sagittal_args()
+        for bad in (0., -1., float("nan"), float("inf")):
+            args.sagittal_stance_weight = bad
+            with self.assertRaisesRegex(ValueError, "finite and positive"):
+                update_cfg_from_args(*task_registry.get_cfgs("go2w"), args)
+        args.sagittal_stance_weight, args.go2w_profile = 2., "step_recovery_v1"
+        with self.assertRaisesRegex(ValueError, "requires go2w"):
+            update_cfg_from_args(*task_registry.get_cfgs("go2w"), args)
+        args.go2w_profile = "event_step_v1"
+        e,t = update_cfg_from_args(*task_registry.get_cfgs("go2w"), args)
+        saved = {"env_cfg":class_to_dict(e), "train_cfg":class_to_dict(t)}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)/"config.yaml"; path.write_text(yaml.safe_dump(saved))
+            # Both evaluate and play use this same CLI resolution and contract check.
+            for mode in ("evaluation", "playback"):
+                with self.subTest(mode=mode):
+                    check_reference_contract(path, class_to_dict(e), class_to_dict(t))
+                    for weight in (None, 1.2):
+                        args.sagittal_stance_weight = weight
+                        other,train_cfg = update_cfg_from_args(*task_registry.get_cfgs("go2w"), args)
+                        with self.assertRaisesRegex(ValueError, "sagittal_stance_weight"):
+                            check_reference_contract(path, class_to_dict(other), class_to_dict(train_cfg))
+
+    def test_only_declared_continuation_difference(self):
+        from robot_gym.utils.diagnostics import check_training_continuation
+        from robot_gym.utils.helpers import update_cfg_from_args
+        args = sagittal_args()
+        e,t = update_cfg_from_args(*task_registry.get_cfgs("go2w"), args)
+        e.asset.joint_names = list(e.init_state.default_joint_angles)
+        e.seed = t.seed
+        ee,tt = class_to_dict(e),class_to_dict(t)
+        path = SAGITTAL_PARENT/"config.yaml"
+        check_training_continuation(path, ee, tt, sagittal_stance_weight=2.)
+        from robot_gym.scripts.train import prepare_go2w_continuation
+        prepare_go2w_continuation(args,e,t)
+        self.assertEqual(e._event_completed_updates,2000)
+        self.assertNotIn("_event_completed_updates",class_to_dict(e))
+        probe=contract.ContractTests().make_env(4,"event_step_v1")
+        probe.cfg._event_completed_updates=e._event_completed_updates
+        probe._build_control_tensors()
+        self.assertEqual(probe.completed_updates,2000)
+        with self.assertRaisesRegex(ValueError, "Unexplained"):
+            check_training_continuation(path, ee, tt)
+        for group,parts,value in (("env",("control","wheel_velocity_target_limit"),21.),
+                                  ("env",("env","num_observations"),57),
+                                  ("env",("domain_rand","friction_range"),[.5,1.2]),
+                                  ("env",("rewards","scales","sagittal_pose"),-2.),
+                                  ("train",("algorithm","gamma"),.99),
+                                  ("train",("algorithm","learning_rate"),.001)):
+            a,b=copy.deepcopy(ee),copy.deepcopy(tt);target=a if group=="env" else b
+            for key in parts[:-1]:target=target[key]
+            target[parts[-1]]=value
+            with self.subTest(path=parts), self.assertRaises(ValueError):
+                check_training_continuation(path,a,b,sagittal_stance_weight=2.)
+
+
+@unittest.skipUnless(os.environ.get("GO2W_EVENT_GPU") == "sagittal", "one original-parent two-update continuation")
+class SagittalContinuationSmoke(unittest.TestCase):
+    def test_original_parent_two_updates(self):
+        from robot_gym.scripts.train import train
+        from robot_gym.utils.training_diagnostics import verify_resume_state
+        from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+        original = task_registry.make_alg_runner
+        measured = {"optimizer_steps":0,"transitions":0}
+        def create(*args,**kwargs):
+            env=kwargs["env"]
+            resample=env._resample_commands
+            def sampled(ids):
+                self.assertEqual(env.completed_updates,2000)
+                return resample(ids)
+            env._resample_commands=sampled
+            runner,cfg=original(*args,**kwargs)
+            env._resample_commands=resample
+            measured["before"]=verify_resume_state(runner,SAGITTAL_PARENT/"model_1999.pt")
+            self.assertEqual(measured["before"]["optimizer_step_counts"],[80000])
+            self.assertEqual(env.completed_updates,2000)
+            self.assertEqual(lateral_high(env.completed_updates,env.cfg.commands),.5)
+            self.assertEqual(env.cfg.rewards.sagittal_stance_weight,2.)
+            commands=env.commands.clone()
+            error=(env.dof_pos-env.default_dof_pos)[:,env.sagittal_indices].square().mean(1)
+            for vy,weight in ((0.,2.),(.03,1.06),(.05,.12)):
+                env.commands[:]=env.commands.new_tensor([0.,vy,0.])
+                torch.testing.assert_close(env._reward_sagittal_pose()*env.reward_scales["sagittal_pose"],
+                                           -weight*error*env.dt,rtol=2e-6,atol=1e-8)
+            env.commands.copy_(commands)
+            step=env.step
+            def checked_step(actions):
+                count=env.step_events.update_count;result=step(actions)
+                self.assertEqual(env.step_events.update_count,count+1)
+                self.assertTrue(torch.isfinite(result[1]).all() and torch.isfinite(env.obs_buf).all())
+                measured["transitions"]+=1
+                return result
+            env.step=checked_step
+            def checked_optimizer(*_):
+                for group in runner.alg.optimizer.param_groups:
+                    for p in group["params"]:
+                        self.assertTrue(torch.isfinite(p).all())
+                        if p.grad is not None:self.assertTrue(torch.isfinite(p.grad).all())
+                distribution=runner.alg.actor.distribution
+                lo,hi=distribution.log_std_range
+                self.assertTrue(((distribution.log_std_param>=lo)&(distribution.log_std_param<=hi)).all())
+                measured["optimizer_steps"]+=1
+            runner.alg.optimizer.register_step_post_hook(checked_optimizer)
+            self.assertIn(runner.event_std_hook.id,runner.alg.optimizer._optimizer_step_post_hooks)
+            return runner,cfg
+        try:
+            self.assertEqual(sha256(SAGITTAL_PARENT/"model_1999.pt"),"eda85fba4f0b3911ed3051e9011b68ddcfb215c9c698f113f109b9b0a9b0ccc2")
+            self.assertEqual(sha256(SAGITTAL_PARENT/"config.yaml"),"43a949f8084a0b0fb3fafc1928dd01ae13997d204f939b9d6124be6ec232013e")
+            with patch.object(task_registry,"make_alg_runner",create):runner=train(sagittal_args())
+            self.assertEqual((measured["transitions"],measured["optimizer_steps"]),(128,80))
+            env=runner.env;out=Path(runner.logger.log_dir);checkpoint=out/"model_2000.pt"
+            self.assertEqual(env.completed_updates,2002)
+            measured["after"]=verify_resume_state(runner,checkpoint)
+            self.assertEqual(measured["after"]["optimizer_step_counts"],[80080])
+            env.completed_updates=0;runner.load(checkpoint)
+            verify_resume_state(runner,checkpoint)
+            self.assertEqual(env.completed_updates,2002)
+            self.assertIn(runner.event_std_hook.id,runner.alg.optimizer._optimizer_step_post_hooks)
+            rows=[json.loads(s) for s in (out/"diagnostics.jsonl").read_text().splitlines()]
+            self.assertEqual([r["event_step_v1"]["completed_updates"] for r in rows],[2001,2002])
+            events=EventAccumulator(str(out)).Reload()
+            losses={k:[x.value for x in events.Scalars(k)] for k in events.Tags()["scalars"] if k.startswith("Loss/")}
+            self.assertTrue(losses and all(len(v)==2 and np.isfinite(v).all() for v in losses.values()))
+            saved=yaml.safe_load((out/"config.yaml").read_text())
+            self.assertEqual(saved["env_cfg"]["rewards"]["sagittal_stance_weight"],2.)
+            measured.update(run=str(out),checkpoint_sha256=sha256(checkpoint),losses=losses,
+                            continuation=json.loads((out/"continuation.json").read_text()))
+            SAGITTAL_AUDIT.mkdir(exist_ok=True,parents=True)
+            write_json(SAGITTAL_AUDIT/"smoke.json",measured)
+            print("SAGITTAL CONTINUATION SMOKE PASS",out,flush=True)
+        finally:
+            destroy_genesis()
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -59,6 +59,8 @@ def verify_resume_state(runner, checkpoint):
         "optimizer_learning_rates": [
             g["lr"] for g in runner.alg.optimizer.param_groups
         ],
+        "optimizer_step_counts": sorted({int(s["step"]) for s in saved["optimizer_state_dict"]["state"].values()
+                                          if "step" in s}),
         "actor_and_critic_state_keys": {
             k: list(state[k]) for k in ("actor_state_dict", "critic_state_dict")
         },
