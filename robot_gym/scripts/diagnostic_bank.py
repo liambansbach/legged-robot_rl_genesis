@@ -352,7 +352,9 @@ def rollout_closed_loop(env, policy, nominal_velocity):
                 correction = torch.zeros_like(correction)
             env.commands[:] = command
             env.compute_observations()
-            raw = policy(env.get_observations())
+            observations = env.get_observations()
+            policy_observation = observations["policy"].clone()
+            raw = policy(observations)
             if not bool(torch.isfinite(raw).all()):
                 failure = "nonfinite_policy_before_step"
                 break
@@ -370,7 +372,8 @@ def rollout_closed_loop(env, policy, nominal_velocity):
                     values[key] = state[key]
             if getattr(env, "physics_diagnostics", None) is not None:
                 values.update(state)
-            values.update(raw_actions=raw, issued_commands=command, unclipped_commands=request,
+            values.update(policy_observation=policy_observation, raw_actions=raw,
+                          issued_commands=command, unclipped_commands=request,
                           position_correction_world=correction, reference_position_world=reference,
                           reference_velocity_world=torch.zeros_like(correction) if p0 is None else nominal_world * end_speed,
                           reference_heading=torch.zeros(1, device=env.device) if psi0 is None else psi0,
@@ -486,6 +489,10 @@ def evaluate_closed_loop(env, policy, out):
     if abs(env.max_episode_length * env.dt - 30) > 1e-6:
         raise ValueError("Closed-loop episode limit must be 30 s")
     report = {"mode": "closed_loop", "tests": {}, "joint_order": env.joint_names,
+              "position_limits": [[float(v) if np.isfinite(v) else None for v in pair]
+                                  for pair in env.dof_pos_limits.cpu().tolist()],
+              "position_limits_semantics": "null denotes an unbounded continuous joint",
+              "effort_limits": env.torque_limits.cpu().tolist(),
               "controller": {"position_gain_per_s": 1.0, "heading_gain_per_s": 1.5,
                              "command_bounds": CLOSED_LOOP_BOUNDS, "policy_hz": 50, "feedback_hz": 10,
                              "physics_step_s": .005, "physics_steps_per_policy": 4,
@@ -494,6 +501,7 @@ def evaluate_closed_loop(env, policy, out):
               "trace_semantics": "Post-step, pre-reset state; reference at sample time. Commands and requests held five steps. "
                                  "raw_actions: actor proposal; actions: clipped before delay; applied_actions: after delay. "
                                  "torques: existing policy-rate control-force getter, not substep maxima. "
+                                 "policy_observation: pre-step scaled actor input, before trained normalization. "
                                  "Reference anchors once after settling; no valid reference in phase 0.",
               "wall_clock_s": {"rollout": 0.0, "postprocessing": 0.0}}
     for name, velocity in CLOSED_LOOP_CASES.items():
@@ -510,6 +518,8 @@ def evaluate_closed_loop(env, policy, out):
         write_json(out / "metrics.json", report)
         print(f"Closed loop {name}: {result['recorded_steps']} steps, failure={failure}, "
               f"endpoint error={result['endpoint_error_m']}", flush=True)
+        if failure:
+            break
     return report
 
 

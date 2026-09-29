@@ -134,13 +134,18 @@ class InferenceTests(unittest.TestCase):
         self.assertGreater(float((request-issued).abs().max()), 1)
 
     def test_closed_loop_hold_censoring_and_light_recording(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from unittest.mock import Mock, patch
+        from robot_gym.scripts.diagnostic_bank import evaluate_closed_loop
+
         for failure in (None, 'fall', 'timeout', 'reset', 'nonfinite_state'):
             env = SimpleNamespace(dt=.02, device='cpu', num_envs=1, commands=torch.zeros(1, 3),
                                   base_pos=torch.tensor([[0., 0., .4]]), base_quat=torch.tensor([[1., 0., 0., 0.]]),
                                   episode_length_buf=torch.zeros(1, dtype=torch.long),
                                   cfg=SimpleNamespace(control=SimpleNamespace(decimation=4), sim=SimpleNamespace(dt=.005)))
             env.compute_observations = lambda: None
-            env.get_observations = lambda: torch.zeros(1, 56)
+            env.get_observations = lambda: TensorDict({"policy": torch.arange(56).float()[None]}, batch_size=[1])
 
             def step(action):
                 env.episode_length_buf += 1
@@ -166,6 +171,7 @@ class InferenceTests(unittest.TestCase):
             self.assertEqual(len(data['time_s']), 175 if failure else 1000)
             self.assertNotEqual(float(data['base_pos'][-1, 0]), -999)
             np.testing.assert_allclose(data['raw_actions'], 1.2)
+            np.testing.assert_array_equal(data['policy_observation'], np.tile(np.arange(56), (len(data['time_s']), 1)))
             np.testing.assert_allclose(data['actions'], 1)
             np.testing.assert_array_equal(data['issued_commands'][:100], 0)
             for start in range(100, len(data['time_s'])-4, 5):
@@ -185,6 +191,18 @@ class InferenceTests(unittest.TestCase):
             env.dt = .01
             with self.assertRaisesRegex(ValueError, '50 Hz'):
                 rollout_closed_loop(env, lambda obs: torch.zeros(1, 16), (.5, 0))
+        env.dt, env.max_episode_length = .02, 1500
+        env.joint_names = [str(i) for i in range(16)]
+        env.dof_pos_limits = torch.tensor([[-float('inf'), float('inf')]] * 16)
+        env.torque_limits = torch.ones(16)
+        env.reset = Mock()
+        with TemporaryDirectory() as out, patch(
+                'robot_gym.scripts.diagnostic_bank.rollout_closed_loop', return_value=(data, reason)) as rollout:
+            result = evaluate_closed_loop(env, None, Path(out))
+            self.assertEqual(list(result['tests']), ['straight'])
+            self.assertEqual(result['position_limits'], [[None, None]] * 16)
+            self.assertEqual(rollout.call_count, 1)
+            env.reset.assert_called_once()
         args = SimpleNamespace(eval_mode='closed_loop', diagnostic_trace=False,
                                go2w_profile='step_recovery_v1', zero_command_brake=False)
         self.assertFalse(use_physics_diagnostics(args))
