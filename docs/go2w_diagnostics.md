@@ -874,3 +874,108 @@ The ignored `train_once.ps1`/`evaluate_once.ps1` wrappers record exits/wall time
 ```powershell
 & $Python -m robot_gym.scripts.play --task go2w --go2w_profile event_step_v1 --sagittal_stance_weight 2.0 --event_quality_profile sufficient_clearance --experiment_name go2w_event_step_v1 --load_run $Run --checkpoint 2747 --reference_config "$Run/config.yaml" --num_envs 1 --seed 1 --steps 750 --command_vx 0.5 --command_vy 0 --command_yaw 0 --no_export
 ```
+
+
+## Frozen feedback candidates and portable inference — 29 September 2026
+
+**Keep P (CK2498) primary for controlled Linux comparison in this tested envelope; retain C (CK2747) as an alternative.** Both finish without failure or an observed hard-position violation. P has lower path/endpoint error with smaller corrections; C reduces moving yaw-rate variability and force peaks and retains straight front-thigh target reserve. C's weak small-lateral response still limits endpoint correction. Neither is an all-command, PhysX or hardware qualification; no controller gains or behavior changed.
+
+Started from clean public 318197eb5bc61c4c8039c30876890687c4fa46bf. Recorder source is clean e08bca9887b8fd65ce995d89221aded0e5bd6e28: only pre-step actor inputs and saved actual position/effort limits were added to the existing lightweight closed-loop record, plus stopping subsequent cases after the first failure. Existing q, policy-rate forces, terminal-before-reset capture and controller calculations are unchanged. P is exactly sagittal_retention_seed1_20260928_172600_2026-09-28_17-27-35/model_2498.pt, SHA-256 4de494271a999c33ca6a8a06913b1facb92eede58c92d7297762671b2b1080e8, config 340a8998d3015b810c46e4d808cfb173837d20aa2a2e1028a6004e198b8ff25d. C is exactly sufficient_clearance_seed1_20260929_111000_2026-09-29_11-10-47/model_2747.pt, SHA-256 a56063f324f46145c5baeb293bb89eee6b466fbe16a2c792924dc5b5217614db, config 9b5615803869ddac2e6d82319ff80ed4688b164aec63bcd6f3610f1d844fdbdd. Both use event_step_v1, stance 2.0; only C selects sufficient_clearance. URDF SHA-256 remains 794ad4adaec16bc7a1eebab3d838e1955f37113192689361aff4733e99c9e9c5. All 39 protected inputs, including CK1999, A and archived screens, remain unchanged.
+
+Cheap replay of the archived pure-lateral arrays confirms **actual** upper calf gaps, not soft penalties or action-target reserve: P FR at +.2, phase 2, 6.48 s has q=-.844524682 versus upper -.837759972, gap **.006764710 rad**; mirrored FL at -.2, 6.48 s has q=-.848728955, gap **.010968983**. C FR at +.2, 6.58 s is -.872869551, gap **.035109580**; FL at -.2, 6.60 s is -.875810862, gap **.038050890**. These minima occur during the transition into +/- .2 after 6 s. No crossing was recorded. Saved hard limits [-2.722700119,-.837759972] were used; 50 Hz samples cannot exclude between-sample violations.
+
+The unchanged experiment is straight [.5,0] and diagonals [.5,+/-.1], each 2 s settle, 12 s trapezoidal path with 1 s ramps, 3 s endpoint feedback and 3 s exact zero. Nominal properties match exactly between P/C; controller/schedule metadata match archived A. A was not rerun. Reference position/heading anchor once after settling; world feedback is transformed with the full inverse wxyz quaternion into body [vx,vy,yaw_rate]. Gains remain 1.0/1.5 per second, 10 Hz sample/hold, 50 Hz policy, four 5 ms physics steps. Bounds remain vx [-.25,.70], vy [-.20,.20], yaw [-.50,.50]. Seed 1, one environment, deterministic actor, noise/DR/push/brake off, 30 s timeout. Event command censoring remains training-reward bookkeeping and does not change frozen actor inference.
+
+Errors below use the established **2–20 s** window, including feedback removal; endpoint is at 17 s. Settling is excluded from anchored errors. No survivor filtering or missing cases: all six have 1000 rows, finite observations/actions/states, zero falls/resets/timeouts/non-wheel contacts. No heavy recorder, video, contact dump or substep trace ran.
+
+| Candidate / case | Position RMS/p95/max, mm | Cross-track RMS/p95/max, mm | Heading RMS/p95/max, deg | Endpoint, mm |
+|---|---|---|---|---|
+| P straight | 16.28/30.82/35.10 | 1.07/1.77/1.92 | 0.041/0.097/0.153 | 10.87 |
+| P diagonal_left | 19.45/35.80/47.53 | 11.85/18.94/19.39 | 1.266/3.520/3.590 | 7.58 |
+| P diagonal_right | 19.50/35.80/47.29 | 11.43/18.17/19.15 | 1.256/3.616/3.725 | 8.50 |
+| C straight | 19.45/39.27/46.84 | 1.99/3.82/3.96 | 0.081/0.185/0.200 | 14.03 |
+| C diagonal_left | 21.04/38.90/48.18 | 12.29/27.95/30.02 | 1.425/3.778/3.871 | 14.91 |
+| C diagonal_right | 21.18/38.97/49.71 | 12.18/27.59/29.31 | 1.585/4.199/4.229 | 14.69 |
+
+During feedback alone (2–17 s), maximum heading error is P .153/.866/.783 degrees versus C .200/1.359/1.598. Neither controller clips or touches a command bound. Mean requested/measured body velocities and tracking RMS include ramps and endpoint hold; columns are vx/vy/yaw in m/s, m/s, rad/s. Position/yaw correction peaks use m/s and rad/s respectively.
+
+| Candidate / case | Feedback mean command vx/vy/yaw | Measured mean vx/vy/yaw | Tracking RMS vx/vy/yaw | Peak position/yaw correction |
+|---|---|---|---|---|
+| P straight | 0.3587/-0.0009/-0.0005 | 0.3671/-0.0000/0.0000 | 0.0130/0.0010/0.0016 | 0.0346/0.0040 |
+| P diagonal_left | 0.3668/0.0657/0.0060 | 0.3667/0.0751/-0.0007 | 0.0247/0.0238/0.0336 | 0.0462/0.0227 |
+| P diagonal_right | 0.3665/-0.0663/-0.0063 | 0.3668/-0.0758/0.0009 | 0.0246/0.0236/0.0331 | 0.0460/0.0205 |
+| C straight | 0.3673/-0.0015/-0.0013 | 0.3675/-0.0001/0.0001 | 0.0142/0.0016/0.0021 | 0.0405/0.0052 |
+| C diagonal_left | 0.3559/0.0753/0.0085 | 0.3662/0.0741/-0.0014 | 0.0237/0.0209/0.0304 | 0.0480/0.0356 |
+| C diagonal_right | 0.3561/-0.0749/-0.0084 | 0.3663/-0.0739/0.0019 | 0.0235/0.0207/0.0312 | 0.0496/0.0418 |
+
+The established late hold is 15–17 s. P responds weakly to millimetres-per-second lateral corrections; C's signed lateral response is opposite its requested correction in both diagonal late holds. Both also have wrong-sign mean yaw response there. This is a residual correction limit, not proof of an exact deadband threshold. The existing .01 analysis tolerance detects no late-hold command or velocity reversals; it is not an actor deadzone. Moving diagonal yaw standard deviations are P .03689/.03654 versus C .03030/.03063 rad/s, with 131/129 versus 82/77 sign reversals above .01 over 12 s. These sampled oscillations are retained; no growing late-hold oscillation was observed, and no causal attribution to gait or feedback is established.
+
+| Candidate / case | Late-hold command vx/vy/yaw | Measured vx/vy/yaw | Command/velocity reversals above .01 | Heading range, deg |
+|---|---|---|---|---|
+| P straight | -0.0148/-0.0011/-0.0017 | -0.0048/-0.0001/0.0005 | [0, 0, 0]/[0, 0, 0] | 0.196 |
+| P diagonal_left | -0.0115/0.0040/0.0138 | -0.0054/0.0009/-0.0034 | [0, 0, 0]/[0, 0, 0] | 0.400 |
+| P diagonal_right | -0.0124/-0.0038/-0.0115 | -0.0053/-0.0008/0.0032 | [0, 0, 0]/[0, 0, 0] | 0.370 |
+| C straight | -0.0166/-0.0020/-0.0015 | -0.0040/-0.0001/-0.0001 | [0, 0, 0]/[0, 0, 0] | 0.015 |
+| C diagonal_left | -0.0126/0.0117/0.0326 | -0.0077/-0.0016/-0.0027 | [0, 0, 0]/[0, 0, 0] | 0.415 |
+| C diagonal_right | -0.0140/-0.0114/-0.0334 | -0.0081/0.0004/0.0053 | [0, 0, 0]/[0, 0, 0] | 0.605 |
+
+Exact-zero summaries retain both the first braking second and last residual second. Whole-stop displacement/path and signed heading span the full 17–20 s interval, starting at the pre-zero boundary. Removing feedback produces several degrees of diagonal heading change even though final yaw-rate RMS is small.
+
+| Candidate / case | First-zero-second XY/yaw RMS | Last-zero-second XY/yaw RMS | Whole-stop displacement/path, mm | Signed heading, deg |
+|---|---|---|---|---|
+| P straight | 0.00746/0.00065 | 0.00716/0.00077 | 21.98/22.01 | -0.125 |
+| P diagonal_left | 0.00471/0.03767 | 0.00517/0.00230 | 14.65/16.41 | -2.665 |
+| P diagonal_right | 0.00519/0.03590 | 0.00574/0.00253 | 15.88/17.89 | 3.035 |
+| C straight | 0.01131/0.00096 | 0.01064/0.00013 | 32.85/32.89 | 0.085 |
+| C diagonal_left | 0.00978/0.03333 | 0.00534/0.00231 | 19.74/21.25 | -2.627 |
+| C diagonal_right | 0.00988/0.03364 | 0.00573/0.00099 | 20.84/22.56 | 2.598 |
+
+Actual position margins and force ratios below use all recorded samples. Calf minima are upper-limit gaps; diagonal commands at P minima are [.52307,.09805,.00052] / [.51969,-.10145,-.00891], versus C [.48908,.10520,.00928] / [.49017,-.10443,-.00734]. Thus C's larger margin in pure-lateral screen transitions does **not** generalize to these diagonals: here its smallest gap is .127109 versus P .158113 rad. Both remain positive. Force ratios use the unchanged per-joint effort limits, not action bounds; no sample reaches 99%. They are current-state policy-rate control-force readings, not substep maxima, electrical power or measured ground propulsion. Cruise target statistics use the existing second_12 window (12–13 s, before deceleration).
+
+| Candidate / case | Minimum actual gap: joint, time, rad | Maximum force ratio: joint, time | Cruise front-thigh lower clipping FL/FR | Target reserve FL/FR, rad |
+|---|---|---|---|---|
+| P straight | RR_calf_joint, 0.02, 0.465064 | 0.4766, FR_thigh_joint, 0.08 | 100.0/100.0% | 0.0000/0.0000 |
+| P diagonal_left | FR_calf_joint, 4.00, 0.160551 | 0.7058, FL_hip_joint, 3.84 | 0.0/8.0% | 0.1956/0.2477 |
+| P diagonal_right | FL_calf_joint, 4.04, 0.158113 | 0.6891, FR_hip_joint, 10.32 | 10.0/0.0% | 0.2542/0.1991 |
+| C straight | RR_calf_joint, 0.04, 0.454322 | 0.4643, FL_thigh_joint, 0.08 | 0.0/0.0% | 0.0488/0.0557 |
+| C diagonal_left | FR_calf_joint, 4.58, 0.127109 | 0.6196, FR_thigh_joint, 4.58 | 0.0/4.0% | 0.1907/0.3644 |
+| C diagonal_right | FL_calf_joint, 4.60, 0.131800 | 0.6209, FL_thigh_joint, 4.60 | 2.0/0.0% | 0.3534/0.1867 |
+
+Maximum whole-case raw-action clipping fractions are P 49.0% (FL thigh, straight), 13.6% (FL hip, left), 13.4% (FR hip, right); C 0%, 17.6% (FL hip, left), 17.1% (FR hip, right). These target limits are separate from actual mechanical position gaps and force limits. P's straight front-thigh target reserve is still absent. The prior opposing wheel moments and open-loop weaknesses remain applicable; this probe does not erase them.
+
+**Selection limits:** use P first for a controlled, nominal flat-ground Linux reproduction of these .5 m/s straight/+/-.1 diagonal paths with the existing feedback bounds and stop phases. This is a comparison starting point, not a deployment envelope. Do not extrapolate it to pure-lateral .2 transitions (P's archived calf gap is only .006765 rad), stronger yaw, rough terrain, delays, estimator errors or hardware. Keep C to compare its straight target reserve, smaller force peaks and quieter moving yaw against its weaker fine corrections; neither dominates every property. Frozen A/CK1999 remain fallbacks. No cross-policy switching, new heading objective or learned navigation controller was added.
+
+Both failure-free candidates received separate, non-overwriting bundles using existing robot_gym.utils.export.export_policy, offline from the exact checkpoint and saved/read-back interface. Under logs/go2w_event_step_v1/exported/:
+
+- `feedback_P_ck2498_4de494271a99_20260929/` and matching .zip: archive SHA-256 `e3b5b9d689d94c57464310072c19181695f785558ebc4d7cdbe6bfb7af5778d1`; policy_1.pt SHA-256 `cb8454470921a5a44e8a5914a0a2dd301886ff9b7e7b6ef1dffdf5c6b661a35c`.
+- `feedback_C_ck2747_a56063f324f4_20260929/` and matching .zip: archive SHA-256 `e1e20870f58509ec27c8f7d2e3c3f9721c19e27a9657da170d4e3cd3f87a8447`; policy_1.pt SHA-256 `ae7c6747cf863aa0ab5cf48a45d3f579afc50465c9060c0414c506edc4125a2b`.
+
+Each bundle contains the frozen TorchScript actor, exact config and URDF bytes, training/evaluation source manifests, hashes, 96-observation parity batch and a detailed separate low-level contract.json. The contract gives 56-vector slices/units/scales, trained normalization embedded exactly once, body axes and wxyz origin conventions, reset/previous-issued-clipped-action semantics, named joint/action order, P legs/V wheels, .30/.35/.40 rad and 18 rad/s scales, 40/1 leg gains and wheel Kv=1, actual limits, .02/.005 s dt/decimation, and three-slot actuator-delay history distinct from observation latency. No heading controller or event tracker is embedded. Simulator base-link linear velocity remains an explicit future hardware **estimator requirement**. Referenced visual meshes and an IsaacLab scene are not supplied; this is experimental inference, not a hardware release.
+
+Parity uses 32 fixed evenly spaced actual inputs per case (96 per policy), frozen buffers and no optimizer. Native CPU raw actor versus recorded GPU maximum absolute differences are **4.77e-7 P / 5.96e-7 C** (declared absolute tolerance 5e-5). Reloaded exported versus native CPU bounded outputs are **exactly equal** (tolerance 2e-6); versus recorded clipped outputs, **4.17e-7 / 5.96e-7**. Every native state tensor and copied normalization buffer is unchanged; counts remain 655360000/720896000. Input maxima 14.61/14.80 stay below the existing observation clip 100. PyTorch-only loading is demonstrated on this Windows CPU; Linux/PhysX compatibility and state estimation remain untested.
+
+Execution: two simulator processes, **exit 0/0**, no retry. P started 12:45:36.552 and ended 12:48:12.734 CEST, wall **156.165 s**; C 12:49:41.876–12:52:22.274, **160.385 s**. Internal startup/rollout/postprocessing/shutdown seconds are P **33.787/121.290/.090/.051**, C **31.795/127.312/.091/.053**. There are 6000 recorded ticks/120 s of scheduled cases. Accounting caveat: retaining the stipulated existing reset behavior also executes one zero-action setup tick and three reset ticks per process, **.16 s combined**; literal total integration is therefore 120.16 s, slightly above the stated 120 s ceiling. No additional case or physical test ran.
+
+Two focused CPU tests (reference/frames; extended recording/first-failure censoring) pass, exit **0**. Synthetic failure rows in that test are not simulator failures. Offline preflight, analysis, table generation and file/ZIP verification exit **0**. First offline export invocation exited **1** on a local-script repository import path before any bundle or scene existed; adding the repository to that script's import path repaired it, and export/parity exited **0**. Both logs are preserved. No simulator rerun, PPO/smoke, precision/sustained/bank repeat, new objective, profiling, package installation, Linux transfer, GUI or hardware command occurred. Raw traces remain at evaluation/feedback_candidates_20260929/{P_ck2498,C_ck2747}; verbose records/scripts are ignored under .migration-audit/feedback-candidates-20260929/. Tracked changes are only the small recorder/test extension and this report.
+
+Targeted Ruff (`E9,F63,F7,F82`) on diagnostic_bank.py/test_inference.py and `git diff --check` exit **0**. No unrelated files changed.
+
+Exact executed evaluation commands (outputs are occupied; do not overwrite). The ignored run_once.ps1 -Candidate P / -Candidate C wrappers only guard existing paths and print/record start, end, exit and process wall time:
+
+```powershell
+Set-Location 'C:\Users\Liamb\SynologyDrive\TUM\3_Semester\dodo_alive\legged-robot_rl_genesis'
+$Python = 'C:\Users\Liamb\anaconda3\envs\genesis-gpu\python.exe'
+$env:NUMBA_CACHE_DIR = "$PWD/.migration-audit/diagnostics-20260925/numba-cache"
+$env:GS_CACHE_FILE_PATH = "$env:TEMP/go2w-diagnostics-genesis"
+$env:QD_OFFLINE_CACHE_FILE_PATH = "$env:TEMP/go2w-diagnostics-quadrants"
+$env:PYTHONIOENCODING = 'utf-8'
+$env:PYTHONUNBUFFERED = '1'
+$P = "$PWD/logs/go2w_event_step_v1/sagittal_retention_seed1_20260928_172600_2026-09-28_17-27-35"
+$C = "$PWD/logs/go2w_event_step_v1/sufficient_clearance_seed1_20260929_111000_2026-09-29_11-10-47"
+& $Python -m robot_gym.scripts.evaluate --task go2w --go2w_profile event_step_v1 --sagittal_stance_weight 2.0 --experiment_name go2w_event_step_v1 --load_run $P --checkpoint 2498 --reference_config "$P/config.yaml" --eval_mode closed_loop --num_envs 1 --seed 1 --headless --logger tensorboard --output evaluation/feedback_candidates_20260929/P_ck2498
+& $Python -m robot_gym.scripts.evaluate --task go2w --go2w_profile event_step_v1 --sagittal_stance_weight 2.0 --event_quality_profile sufficient_clearance --experiment_name go2w_event_step_v1 --load_run $C --checkpoint 2747 --reference_config "$C/config.yaml" --eval_mode closed_loop --num_envs 1 --seed 1 --headless --logger tensorboard --output evaluation/feedback_candidates_20260929/C_ck2747
+& $Python -m unittest tests.test_inference.InferenceTests.test_closed_loop_hold_censoring_and_light_recording tests.test_inference.InferenceTests.test_closed_loop_reference_and_frames -v
+& $Python .migration-audit/feedback-candidates-20260929/export_bundles.py
+```
+
+The last command documents the completed offline export and now refuses the occupied bundle paths. Detailed analysis ran preflight.py, analyze.py, tables.py and verify_files.py from the same ignored directory with the documented Python. No further training or integration is launched.
