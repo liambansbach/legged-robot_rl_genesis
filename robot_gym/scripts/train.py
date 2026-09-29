@@ -74,8 +74,10 @@ def prepare_go2w_continuation(args, env_cfg, train_cfg):
         args.entropy_coef,
         getattr(args, "go2w_finetune", None),
         getattr(args, "sagittal_stance_weight", None),
+        getattr(args, "event_quality_profile", None),
     )
-    if getattr(args, "sagittal_stance_weight", None) is not None:
+    if (getattr(args, "sagittal_stance_weight", None) is not None
+            or getattr(args, "event_quality_profile", None) is not None):
         import torch
         state = torch.load(checkpoint, map_location="cpu", weights_only=False)
         progress = (state.get("infos") or {}).get("event_step_v1", {})
@@ -121,6 +123,8 @@ def train(args):
         raise ValueError("Go2-W finetune requires explicit full-state --resume")
     if getattr(args, "sagittal_stance_weight", None) is not None and not train_cfg.runner.resume:
         raise ValueError("Sagittal stance continuation requires explicit full-state --resume")
+    if getattr(args, "event_quality_profile", None) is not None and not train_cfg.runner.resume:
+        raise ValueError("Event quality continuation requires explicit full-state --resume")
     profile = getattr(args, "go2w_profile", None)
     if profile and not train_cfg.runner.resume and (
         args.load_run is not None or args.checkpoint is not None
@@ -167,6 +171,7 @@ def train(args):
                 "entropy_coef": args.entropy_coef,
                 "go2w_finetune": getattr(args, "go2w_finetune", None),
                 "sagittal_stance_weight": getattr(args, "sagittal_stance_weight", None),
+                "event_quality_profile": getattr(args, "event_quality_profile", None),
             },
             "planned_additional_updates": train_cfg.runner.max_iterations,
             "completed_additional_updates": 0,

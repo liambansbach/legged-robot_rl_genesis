@@ -134,10 +134,15 @@ class WheelStepEvents:
                         & (self.duration >= low - 1e-7) & (self.duration <= high + 1e-7)
                         & (self.peak_actual >= c["minimum_height"]) & (self.peak_use >= c["minimum_height"])
                         & (self.reposition >= c["minimum_reposition"]))
-        target = c["target_base"] + c["target_gate"] * self.gate
-        u = ((self.peak_use - c["minimum_height"]) / (target - c["minimum_height"])).clamp(0, 1)
-        height_score = (0.15 + 0.85 * u.square()) * torch.exp(
-            -(torch.relu(self.peak_actual - target - c["overshoot_band"]) / c["overshoot_band"]).square())
+        if c.get("quality_profile") == "sufficient_clearance":
+            u = ((self.peak_use - 0.008) / 0.017).clamp(0, 1)
+            height_score = (0.15 + 0.85 * u.square()) * torch.exp(
+                -(torch.relu(self.peak_actual - 0.050) / 0.020).square())
+        else:
+            target = c["target_base"] + c["target_gate"] * self.gate
+            u = ((self.peak_use - c["minimum_height"]) / (target - c["minimum_height"])).clamp(0, 1)
+            height_score = (0.15 + 0.85 * u.square()) * torch.exp(
+                -(torch.relu(self.peak_actual - target - c["overshoot_band"]) / c["overshoot_band"]).square())
         self.quality[:] = torch.where(self.valid, height_score * (self.reposition / c["full_reposition"]).clamp(0, 1), 0)
         self.payment[:] = self.quality * self.credit
         # Failed, flickering, overlong and completed attempts all spend their credit.

@@ -38,9 +38,12 @@ def config():
 
 
 class EventFixture:
-    def __init__(self, dt=.02, legs=(0,), gate_command=(0, .05, 0)):
+    def __init__(self, dt=.02, legs=(0,), gate_command=(0, .05, 0), quality_profile=None):
         self.dt, self.legs = dt, list(legs)
         self.cfg = config()[0]
+        if quality_profile is not None:
+            from robot_gym.envs.go2w.go2w_config import apply_go2w_event_quality
+            apply_go2w_event_quality(self.cfg, quality_profile)
         self.geometry = wheel_cylinders(URDF, self.cfg.asset.foot_link_names)
         self.tracker = WheelStepEvents(1, "cpu", self.cfg.rewards.event_step, self.geometry)
         self.base = torch.tensor([[0., 0., .415]])
@@ -68,7 +71,7 @@ class EventFixture:
         loads = torch.full((1, 4), 30.)
         loads[:, self.legs] = load
         self.tracker.update(self.dt, self.commands, base, q, pos, wq, loads, torch.tensor([failed]))
-        payment = float(.15 * self.tracker.payment.sum())
+        payment = float(self.cfg.rewards.scales.step_event * self.tracker.payment.sum())
         self.total += payment
         self.valid += int(self.tracker.valid.sum())
         if payment:
@@ -903,6 +906,13 @@ class SagittalContinuationCPU(unittest.TestCase):
 
 @unittest.skipUnless(os.environ.get("GO2W_EVENT_GPU") == "sagittal", "one original-parent two-update continuation")
 class SagittalContinuationSmoke(unittest.TestCase):
+    parent = SAGITTAL_PARENT
+    audit = SAGITTAL_AUDIT
+    arguments = staticmethod(sagittal_args)
+    initial_updates, initial_adam, parent_label = 2000, 80000, 1999
+    parent_hash = "eda85fba4f0b3911ed3051e9011b68ddcfb215c9c698f113f109b9b0a9b0ccc2"
+    config_hash = "43a949f8084a0b0fb3fafc1928dd01ae13997d204f939b9d6124be6ec232013e"
+
     def test_original_parent_two_updates(self):
         from robot_gym.scripts.train import train
         from robot_gym.utils.training_diagnostics import verify_resume_state
@@ -913,16 +923,19 @@ class SagittalContinuationSmoke(unittest.TestCase):
             env=kwargs["env"]
             resample=env._resample_commands
             def sampled(ids):
-                self.assertEqual(env.completed_updates,2000)
+                self.assertEqual(env.completed_updates,self.initial_updates)
                 return resample(ids)
             env._resample_commands=sampled
             runner,cfg=original(*args,**kwargs)
             env._resample_commands=resample
-            measured["before"]=verify_resume_state(runner,SAGITTAL_PARENT/"model_1999.pt")
-            self.assertEqual(measured["before"]["optimizer_step_counts"],[80000])
-            self.assertEqual(env.completed_updates,2000)
+            measured["before"]=verify_resume_state(runner,self.parent/f"model_{self.parent_label}.pt")
+            self.assertEqual(measured["before"]["optimizer_step_counts"],[self.initial_adam])
+            self.assertEqual(env.completed_updates,self.initial_updates)
             self.assertEqual(lateral_high(env.completed_updates,env.cfg.commands),.5)
             self.assertEqual(env.cfg.rewards.sagittal_stance_weight,2.)
+            if getattr(self.arguments(), "event_quality_profile", None):
+                self.assertEqual(env.cfg.rewards.event_step["quality_profile"], "sufficient_clearance")
+                self.assertEqual(env.reward_scales["step_event"], .05)
             commands=env.commands.clone()
             error=(env.dof_pos-env.default_dof_pos)[:,env.sagittal_indices].square().mean(1)
             for vy,weight in ((0.,2.),(.03,1.06),(.05,.12)):
@@ -951,32 +964,150 @@ class SagittalContinuationSmoke(unittest.TestCase):
             self.assertIn(runner.event_std_hook.id,runner.alg.optimizer._optimizer_step_post_hooks)
             return runner,cfg
         try:
-            self.assertEqual(sha256(SAGITTAL_PARENT/"model_1999.pt"),"eda85fba4f0b3911ed3051e9011b68ddcfb215c9c698f113f109b9b0a9b0ccc2")
-            self.assertEqual(sha256(SAGITTAL_PARENT/"config.yaml"),"43a949f8084a0b0fb3fafc1928dd01ae13997d204f939b9d6124be6ec232013e")
-            with patch.object(task_registry,"make_alg_runner",create):runner=train(sagittal_args())
+            self.assertEqual(sha256(self.parent/f"model_{self.parent_label}.pt"),self.parent_hash)
+            self.assertEqual(sha256(self.parent/"config.yaml"),self.config_hash)
+            with patch.object(task_registry,"make_alg_runner",create):runner=train(self.arguments())
             self.assertEqual((measured["transitions"],measured["optimizer_steps"]),(128,80))
-            env=runner.env;out=Path(runner.logger.log_dir);checkpoint=out/"model_2000.pt"
-            self.assertEqual(env.completed_updates,2002)
+            env=runner.env;out=Path(runner.logger.log_dir);checkpoint=out/f"model_{self.parent_label+1}.pt"
+            self.assertEqual(env.completed_updates,self.initial_updates+2)
             measured["after"]=verify_resume_state(runner,checkpoint)
-            self.assertEqual(measured["after"]["optimizer_step_counts"],[80080])
+            self.assertEqual(measured["after"]["optimizer_step_counts"],[self.initial_adam+80])
             env.completed_updates=0;runner.load(checkpoint)
             verify_resume_state(runner,checkpoint)
-            self.assertEqual(env.completed_updates,2002)
+            self.assertEqual(env.completed_updates,self.initial_updates+2)
             self.assertIn(runner.event_std_hook.id,runner.alg.optimizer._optimizer_step_post_hooks)
             rows=[json.loads(s) for s in (out/"diagnostics.jsonl").read_text().splitlines()]
-            self.assertEqual([r["event_step_v1"]["completed_updates"] for r in rows],[2001,2002])
+            self.assertEqual([r["event_step_v1"]["completed_updates"] for r in rows],
+                             [self.initial_updates+1,self.initial_updates+2])
             events=EventAccumulator(str(out)).Reload()
             losses={k:[x.value for x in events.Scalars(k)] for k in events.Tags()["scalars"] if k.startswith("Loss/")}
             self.assertTrue(losses and all(len(v)==2 and np.isfinite(v).all() for v in losses.values()))
             saved=yaml.safe_load((out/"config.yaml").read_text())
             self.assertEqual(saved["env_cfg"]["rewards"]["sagittal_stance_weight"],2.)
+            if getattr(self.arguments(), "event_quality_profile", None):
+                self.assertEqual(saved["env_cfg"]["rewards"]["event_step"]["quality_profile"], "sufficient_clearance")
+                self.assertEqual(saved["env_cfg"]["rewards"]["scales"]["step_event"], .05)
             measured.update(run=str(out),checkpoint_sha256=sha256(checkpoint),losses=losses,
                             continuation=json.loads((out/"continuation.json").read_text()))
-            SAGITTAL_AUDIT.mkdir(exist_ok=True,parents=True)
-            write_json(SAGITTAL_AUDIT/"smoke.json",measured)
-            print("SAGITTAL CONTINUATION SMOKE PASS",out,flush=True)
+            self.audit.mkdir(exist_ok=True,parents=True)
+            write_json(self.audit/"smoke.json",measured)
+            print("CONTINUATION SMOKE PASS",out,flush=True)
         finally:
             destroy_genesis()
+
+
+SUFFICIENT_PARENT = Path(__file__).resolve().parents[1] / "logs/go2w_event_step_v1/sagittal_retention_seed1_20260928_172600_2026-09-28_17-27-35"
+SUFFICIENT_AUDIT = Path(__file__).resolve().parents[1] / ".migration-audit/sufficient-clearance-20260929"
+
+
+def sufficient_args():
+    args = sagittal_args()
+    args.load_run, args.checkpoint = str(SUFFICIENT_PARENT), 2498
+    args.run_name = "sufficient_clearance_smoke_seed1_20260929"
+    args.event_quality_profile = "sufficient_clearance"
+    return args
+
+
+class SufficientClearanceCPU(unittest.TestCase):
+    def test_quality_payment_and_dt(self):
+        from robot_gym.envs.go2w.go2w_config import apply_go2w_event_quality
+        for dt in (.01, .02, .04):
+            for apex, expected in ((.02,.028676470588),(.025,.05),(.03,.05),(.05,.05),(.07,.018393972059)):
+                f = EventFixture(dt=dt, quality_profile="sufficient_clearance")
+                for _ in range(round(1.2/dt)): f.sample()
+                for k in range(round(.4/dt)):
+                    f.sample(load=0.,height=apex*math.sin(math.pi*k*dt/.4)**2,move=.04*k*dt/.4)
+                for _ in range(math.ceil(.06/dt)): f.sample(move=.04)
+                self.assertEqual(f.valid,1)
+                self.assertAlmostEqual(f.total,expected,delta=4e-8)
+                self.assertLessEqual(f.total,.05+1e-8)
+                self.assertEqual(float(f.tracker.credit[0,0]),0.)
+                self.assertTrue(torch.isfinite(f.tracker.payment).all())
+                self.assertTrue((f.tracker.payment>=0).all())
+        e = contract.ContractTests().make_env(1,"event_step_v1")
+        apply_go2w_event_quality(e.cfg,"sufficient_clearance")
+        e.reward_scales = {"step_event":e.cfg.rewards.scales.step_event}
+        e._prepare_reward_function()
+        self.assertEqual(e.reward_scales["step_event"],.05)
+
+    def test_legacy_and_bookkeeping(self):
+        # Replay the reviewed tracker beside both selectors, including command/reset edges.
+        source = subprocess.check_output(["git","show","d2f40e5:robot_gym/envs/go2w/step_events.py"],
+                                         text=True,stderr=subprocess.PIPE)
+        namespace = {};exec(source,namespace)
+        for case in ({}, {"apex":.02}, {"heave":True}, {"apex":.004}, {"switch":True}, {"fail":True}):
+            old, legacy, new = EventFixture(), EventFixture(), EventFixture(quality_profile="sufficient_clearance")
+            old.tracker = namespace["WheelStepEvents"](1,"cpu",old.cfg.rewards.event_step,old.geometry)
+            sample = legacy.sample
+            def compared(*args,**kwargs):
+                old.commands.copy_(legacy.commands);new.commands.copy_(legacy.commands)
+                result = sample(*args,**kwargs);old.sample(*args,**kwargs);new.sample(*args,**kwargs)
+                for key,value in vars(old.tracker).items():
+                    if torch.is_tensor(value):
+                        torch.testing.assert_close(getattr(legacy.tracker,key),value,rtol=0,atol=0)
+                        if key not in ("quality","payment"):
+                            torch.testing.assert_close(getattr(new.tracker,key),value,rtol=0,atol=0)
+                return result
+            legacy.sample = compared
+            legacy.cycle(**case)
+            self.assertEqual(old.valid,new.valid)
+            if case and case not in ({"apex":.02},): self.assertEqual(new.total,0.)
+            for fixture in (old,legacy,new): fixture.tracker.reset(torch.tensor([0]))
+            for k in range(40): legacy.sample(load=0. if k%2 else 30.,height=.05 if k%2 else 0.)
+            self.assertFalse(new.tracker.valid.any())
+
+    def test_selector_and_contract(self):
+        from robot_gym.utils.helpers import update_cfg_from_args
+        from robot_gym.utils.diagnostics import check_training_continuation
+        from robot_gym.scripts.train import prepare_go2w_continuation
+        args = sufficient_args()
+        e,t = update_cfg_from_args(*task_registry.get_cfgs("go2w"),args)
+        e.asset.joint_names = list(e.init_state.default_joint_angles);e.seed=t.seed
+        ee,tt = class_to_dict(e),class_to_dict(t)
+        path = SUFFICIENT_PARENT/"config.yaml"
+        check_training_continuation(path,ee,tt,sagittal_stance_weight=2.,event_quality_profile="sufficient_clearance")
+        prepare_go2w_continuation(args,e,t)
+        self.assertEqual(e._event_completed_updates,2500)
+        with self.assertRaisesRegex(ValueError,"Unexplained"):
+            check_training_continuation(path,ee,tt,sagittal_stance_weight=2.)
+        for group,parts,value in (("env",("control","wheel_velocity_target_limit"),21.),
+                                  ("env",("env","num_observations"),57),
+                                  ("env",("domain_rand","friction_range"),[.5,1.2]),
+                                  ("env",("rewards","sagittal_stance_weight"),3.),
+                                  ("env",("rewards","event_step","minimum_height"),.007),
+                                  ("env",("rewards","scales","step_event"),.06),
+                                  ("train",("algorithm","gamma"),.99),
+                                  ("train",("algorithm","learning_rate"),.001)):
+            a,b=copy.deepcopy(ee),copy.deepcopy(tt);target=a if group=="env" else b
+            for key in parts[:-1]:target=target[key]
+            target[parts[-1]]=value
+            with self.subTest(path=parts),self.assertRaises(ValueError):
+                check_training_continuation(path,a,b,sagittal_stance_weight=a["rewards"]["sagittal_stance_weight"],
+                                            event_quality_profile="sufficient_clearance")
+        with tempfile.TemporaryDirectory() as tmp:
+            saved = Path(tmp)/"config.yaml";saved.write_text(yaml.safe_dump(dict(env_cfg=ee,train_cfg=tt)))
+            check_reference_contract(saved,ee,tt)
+            for key in ("selector","scale"):
+                wrong=copy.deepcopy(ee)
+                if key=="selector":del wrong["rewards"]["event_step"]["quality_profile"]
+                else:wrong["rewards"]["scales"]["step_event"] = .15
+                with self.assertRaisesRegex(ValueError,"contract mismatch"):
+                    check_reference_contract(saved,wrong,tt)
+        for profile in (None,"step_recovery_v1"):
+            args.go2w_profile=profile;args.sagittal_stance_weight=None
+            with self.assertRaisesRegex(ValueError,"event_quality_profile requires"):
+                update_cfg_from_args(*task_registry.get_cfgs("go2w"),args)
+        self.assertNotIn("quality_profile",config()[0].rewards.event_step)
+        self.assertEqual(config()[0].rewards.scales.step_event,.15)
+
+
+@unittest.skipUnless(os.environ.get("GO2W_EVENT_GPU") == "sufficient", "one CK2498 two-update continuation")
+class SufficientClearanceSmoke(SagittalContinuationSmoke):
+    parent, audit = SUFFICIENT_PARENT, SUFFICIENT_AUDIT
+    arguments = staticmethod(sufficient_args)
+    initial_updates, initial_adam, parent_label = 2500, 100000, 2498
+    parent_hash = "4de494271a999c33ca6a8a06913b1facb92eede58c92d7297762671b2b1080e8"
+    config_hash = "340a8998d3015b810c46e4d808cfb173837d20aa2a2e1028a6004e198b8ff25d"
 
 
 if __name__ == "__main__":

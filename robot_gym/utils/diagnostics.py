@@ -107,9 +107,14 @@ def check_reference_contract(config_path, env_cfg, train_cfg, finetune_continuat
     # Training checks its exact allowed transition separately below.
     if not finetune_continuation:
         for key in ("env_cfg.go2w_finetune", "train_cfg.go2w_finetune",
-                    "env_cfg.rewards.sagittal_stance_weight"):
+                    "env_cfg.rewards.sagittal_stance_weight", "env_cfg.rewards.event_step.quality_profile"):
             if key in differences:
                 mismatches[key] = differences[key]
+        if any(cfg.get("rewards", {}).get("event_step", {}).get("quality_profile")
+               for cfg in (env_cfg, saved["env_cfg"])):
+            mismatches.update({k: v for k, v in differences.items()
+                               if k.startswith("env_cfg.rewards.event_step.")
+                               or k == "env_cfg.rewards.scales.step_event"})
     if mismatches:
         raise ValueError(
             "Reference actuator/observation/physics contract mismatch:\n"
@@ -124,7 +129,7 @@ def check_reference_contract(config_path, env_cfg, train_cfg, finetune_continuat
 
 def check_training_continuation(
     config_path, env_cfg, train_cfg, sigma_x=None, entropy_coef=None, finetune=None,
-    sagittal_stance_weight=None,
+    sagittal_stance_weight=None, event_quality_profile=None,
 ):
     """Go2-W continuation: every unexplained config difference is an error."""
     reference = check_reference_contract(config_path, env_cfg, train_cfg, finetune_continuation=True)
@@ -203,6 +208,17 @@ def check_training_continuation(
                 or env_cfg["rewards"].get("sagittal_stance_weight") != sagittal_stance_weight):
             raise ValueError("Invalid declared event_step_v1 sagittal stance continuation")
         allowed.add("env_cfg.rewards.sagittal_stance_weight")
+    if event_quality_profile is not None:
+        saved = yaml.safe_load(Path(config_path).read_text())
+        if (event_quality_profile != "sufficient_clearance"
+                or any(cfg.get("go2w_profile") != "event_step_v1"
+                       for cfg in (env_cfg, train_cfg, saved["env_cfg"], saved["train_cfg"]))
+                or env_cfg["rewards"]["event_step"].get("quality_profile") != event_quality_profile
+                or env_cfg["rewards"]["scales"]["step_event"] != 0.05):
+            raise ValueError("Invalid declared event quality continuation")
+        allowed.update(("env_cfg.rewards.event_step.quality_profile", "env_cfg.rewards.scales.step_event"))
+        # This continuation changes only event quality, even if a stance flag is supplied.
+        allowed.discard("env_cfg.rewards.sagittal_stance_weight")
     # Only the agreed two-update smoke may reduce the source batch size.
     if env_cfg["env"]["num_envs"] == 64 and train_cfg["runner"]["max_iterations"] == 2:
         allowed.add("env_cfg.env.num_envs")

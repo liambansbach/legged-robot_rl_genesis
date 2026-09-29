@@ -140,6 +140,12 @@ def update_cfg_from_args(env_cfg, cfg_train, args):
             raise ValueError("--sagittal_stance_weight must be finite and positive")
         if env_cfg is not None:
             env_cfg.rewards.sagittal_stance_weight = stance_weight
+    quality_profile = getattr(args, "event_quality_profile", None)
+    if quality_profile is not None:
+        if args.task != "go2w" or profile != "event_step_v1":
+            raise ValueError("--event_quality_profile requires go2w with --go2w_profile event_step_v1")
+        from robot_gym.envs.go2w.go2w_config import apply_go2w_event_quality
+        apply_go2w_event_quality(env_cfg, quality_profile)
     if getattr(args, "zero_command_brake", False) and args.task != "go2w":
         raise ValueError("--zero_command_brake is specific to go2w playback/evaluation")
     entropy = getattr(args, "entropy_coef", None)
@@ -192,6 +198,7 @@ def get_args():
         {"name": "--no_export", "action": "store_true", "help": "Playback: skip automatic policy export; source selection still uses --load_run"},
         {"name": "--go2w_profile", "choices": ["step_recovery_v1", "event_step_v1"], "default": None, "help": "Explicit Go2-W action/reward/training profile; unset preserves the baseline"},
         {"name": "--sagittal_stance_weight", "type": float, "default": None, "help": "Explicit event_step_v1 stance weight; full-demand weight stays 0.12; select the saved value for evaluation/play"},
+        {"name": "--event_quality_profile", "choices": ["sufficient_clearance"], "default": None, "help": "Opt-in event quality and payment; select the saved choice for evaluation/play"},
         {"name": "--zero_command_brake", "action": "store_true", "help": "Go2-W inference only: blend wheel targets to zero for a complete zero body command"},
         {"name": "--entropy_coef", "type": float, "default": None, "help": "Go2-W entropy weight; unset preserves the registered config"},
         {"name": "--tracking_sigma_x", "type": float, "default": None, "help": "Go2-W forward squared-error denominator; unset preserves the registered config"},

@@ -74,6 +74,17 @@ def apply_go2w_finetune(env_cfg, train_cfg, name):
                 setattr(target, key, value.copy() if isinstance(value, list) else value)
 
 
+def apply_go2w_event_quality(env_cfg, name):
+    """One smaller auxiliary objective; the unset profile keeps its original formula."""
+    if name != "sufficient_clearance":
+        raise ValueError(f"Unknown event quality profile: {name}")
+    if env_cfg is not None:
+        if getattr(env_cfg, "go2w_profile", None) != "event_step_v1":
+            raise ValueError("Event quality selection requires event_step_v1")
+        env_cfg.rewards.event_step = {**env_cfg.rewards.event_step, "quality_profile": name}
+        env_cfg.rewards.scales.step_event = 0.05
+
+
 def apply_go2w_profile(env_cfg, train_cfg, name):
     """One explicit candidate; never mutate the registered config or its dictionaries."""
     if name == "event_step_v1":
