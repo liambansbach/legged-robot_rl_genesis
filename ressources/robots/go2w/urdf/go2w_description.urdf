@@ -1552,10 +1552,21 @@ Stephen Brawner (brawner@gmail.com)
   </joint>
 
   <link name="front_realsense_body">
+        <!-- D456: homogeneous volume approximation – I assumed that the whole camera has a uniform density.
+         Mass and inertia from SolidWorks but also COM and inertia also from the existing STL. Basically double checked.
+         COM in link coordinates [m]; inertia about COM [kg*m^2]. -->
     <inertial>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <mass value="0" />
-      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
+      <origin
+        xyz="0.0130193 -0.0001457 -0.0000346"
+        rpy="0 0 0" />
+      <mass value="0.11598" />
+      <inertia
+        ixx="1.37668e-4"
+        ixy="3.02949e-8"
+        ixz="-1.16744e-7"
+        iyy="1.28504e-5"
+        iyz="6.51268e-8"
+        izz="1.36820e-4" />
     </inertial>
     <visual>
       <!-- D456-specific body/rear-face visual helper. Update this mesh and
