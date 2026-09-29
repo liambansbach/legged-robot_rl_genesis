@@ -1103,6 +1103,7 @@ class SufficientClearanceCPU(unittest.TestCase):
 
 @unittest.skipUnless(os.environ.get("GO2W_EVENT_GPU") == "sufficient", "one CK2498 two-update continuation")
 class SufficientClearanceSmoke(SagittalContinuationSmoke):
+    __unittest_skip__ = False
     parent, audit = SUFFICIENT_PARENT, SUFFICIENT_AUDIT
     arguments = staticmethod(sufficient_args)
     initial_updates, initial_adam, parent_label = 2500, 100000, 2498
