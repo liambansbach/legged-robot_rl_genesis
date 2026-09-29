@@ -123,6 +123,10 @@ proprioceptive observation. The tested stack is Python 3.11.14, PyTorch 2.9.0+cu
 Genesis 1.4.1, and RSL-RL 5.5.1. See [the migration and training guide](docs/go2w_migration.md)
 for the full physics, rewards, randomization, deployment contract, and validation results.
 
+The selected [experimental Go2-W simulation policy](ressources/pretrained/go2w/README.md)
+includes real inference weights, its interface and a portable CPU check. It is not
+validated for hardware; Linux inference does not require the Genesis training stack.
+
 ```powershell
 # Short GPU regression and PPO smoke; no W&B account needed
 conda run --no-capture-output -n genesis-gpu python -m robot_gym.scripts.smoke --task go2w --num_envs 8 --headless

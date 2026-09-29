@@ -1,0 +1,7 @@
+# Keep the selected Go2-W payload and saved training snapshot byte-exact.
+ressources/pretrained/go2w/policy.pt -text
+ressources/pretrained/go2w/config.yaml -text whitespace=cr-at-eol
+ressources/pretrained/go2w/parity_samples.npz -text
+ressources/pretrained/go2w/*.json text eol=lf
+ressources/pretrained/go2w/*.py text eol=lf
+ressources/pretrained/go2w/README.md text eol=lf

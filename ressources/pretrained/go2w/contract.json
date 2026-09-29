@@ -1,0 +1,773 @@
+{
+  "observation_dim": 56,
+  "action_dim": 16,
+  "joint_order": [
+    "FL_hip_joint",
+    "FL_thigh_joint",
+    "FL_calf_joint",
+    "FL_foot_joint",
+    "FR_hip_joint",
+    "FR_thigh_joint",
+    "FR_calf_joint",
+    "FR_foot_joint",
+    "RL_hip_joint",
+    "RL_thigh_joint",
+    "RL_calf_joint",
+    "RL_foot_joint",
+    "RR_hip_joint",
+    "RR_thigh_joint",
+    "RR_calf_joint",
+    "RR_foot_joint"
+  ],
+  "control_type": {
+    "FL_hip_joint": "P",
+    "FL_thigh_joint": "P",
+    "FL_calf_joint": "P",
+    "FR_hip_joint": "P",
+    "FR_thigh_joint": "P",
+    "FR_calf_joint": "P",
+    "RL_hip_joint": "P",
+    "RL_thigh_joint": "P",
+    "RL_calf_joint": "P",
+    "RR_hip_joint": "P",
+    "RR_thigh_joint": "P",
+    "RR_calf_joint": "P",
+    "FL_foot_joint": "V",
+    "FR_foot_joint": "V",
+    "RL_foot_joint": "V",
+    "RR_foot_joint": "V"
+  },
+  "action_scale": [
+    0.30000001192092896,
+    0.3499999940395355,
+    0.4000000059604645,
+    18.0,
+    0.30000001192092896,
+    0.3499999940395355,
+    0.4000000059604645,
+    18.0,
+    0.30000001192092896,
+    0.3499999940395355,
+    0.4000000059604645,
+    18.0,
+    0.30000001192092896,
+    0.3499999940395355,
+    0.4000000059604645,
+    18.0
+  ],
+  "default_joint_angles": [
+    0.0,
+    0.699999988079071,
+    -1.3300000429153442,
+    0.0,
+    0.0,
+    0.699999988079071,
+    -1.3300000429153442,
+    0.0,
+    0.0,
+    0.75,
+    -1.309999942779541,
+    0.0,
+    0.0,
+    0.75,
+    -1.309999942779541,
+    0.0
+  ],
+  "nominal_kp": [
+    40.0,
+    40.0,
+    40.0,
+    0.0,
+    40.0,
+    40.0,
+    40.0,
+    0.0,
+    40.0,
+    40.0,
+    40.0,
+    0.0,
+    40.0,
+    40.0,
+    40.0,
+    0.0
+  ],
+  "nominal_kd": [
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "effort_limits": [
+    23.700000762939453,
+    23.700000762939453,
+    35.54999923706055,
+    23.700000762939453,
+    23.700000762939453,
+    23.700000762939453,
+    35.54999923706055,
+    23.700000762939453,
+    23.700000762939453,
+    23.700000762939453,
+    35.54999923706055,
+    23.700000762939453,
+    23.700000762939453,
+    23.700000762939453,
+    35.54999923706055,
+    23.700000762939453
+  ],
+  "joint_velocity_limits": [
+    30.100000381469727,
+    30.100000381469727,
+    20.06999969482422,
+    30.100000381469727,
+    30.100000381469727,
+    30.100000381469727,
+    20.06999969482422,
+    30.100000381469727,
+    30.100000381469727,
+    30.100000381469727,
+    20.06999969482422,
+    30.100000381469727,
+    30.100000381469727,
+    30.100000381469727,
+    20.06999969482422,
+    30.100000381469727
+  ],
+  "checkpoint": "logs/go2w_event_step_v1/sagittal_retention_seed1_20260928_172600_2026-09-28_17-27-35/model_2498.pt",
+  "action_bound": 1.0,
+  "wheel_velocity_target_limit": 20.0,
+  "policy_dt": 0.02,
+  "physics_dt": 0.005,
+  "observation_normalization": "embedded",
+  "quaternion_convention": "wxyz",
+  "observation_order": [
+    "body_linear_velocity",
+    "body_angular_velocity",
+    "projected_gravity",
+    "body_velocity_command",
+    "leg_position_error",
+    "joint_velocity",
+    "previous_clipped_action"
+  ],
+  "observation_scales": {
+    "lin_vel": 1.0,
+    "ang_vel": 1.0,
+    "dof_pos": 1.0,
+    "dof_vel": 1.0
+  },
+  "experimental_only": true,
+  "profile": "event_step_v1",
+  "sagittal_stance_weight": 2.0,
+  "event_quality_profile": null,
+  "checkpoint_sha256": "4de494271a999c33ca6a8a06913b1facb92eede58c92d7297762671b2b1080e8",
+  "config_sha256": "340a8998d3015b810c46e4d808cfb173837d20aa2a2e1028a6004e198b8ff25d",
+  "urdf_sha256": "794ad4adaec16bc7a1eebab3d838e1955f37113192689361aff4733e99c9e9c5",
+  "source": {
+    "head": "e08bca9887b8fd65ce995d89221aded0e5bd6e28",
+    "branch": "testing",
+    "status": "",
+    "dirty_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untracked_sha256": {}
+  },
+  "training_source": {
+    "head": "adc612d67a09c52f967c4b91b8642fdce9208298",
+    "branch": "testing",
+    "status": "",
+    "dirty_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untracked_sha256": {}
+  },
+  "completed_training_updates": 2500,
+  "physics_decimation": 4,
+  "hard_joint_position_limits_rad": [
+    [
+      -1.0471999645233154,
+      1.0471999645233154
+    ],
+    [
+      -1.5707963705062866,
+      3.4907000064849854
+    ],
+    [
+      -2.7227001190185547,
+      -0.8377599716186523
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      -1.0471999645233154,
+      1.0471999645233154
+    ],
+    [
+      -1.5707963705062866,
+      3.4907000064849854
+    ],
+    [
+      -2.7227001190185547,
+      -0.8377599716186523
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      -1.0471999645233154,
+      1.0471999645233154
+    ],
+    [
+      -0.5235999822616577,
+      4.537899971008301
+    ],
+    [
+      -2.7227001190185547,
+      -0.8377599716186523
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      -1.0471999645233154,
+      1.0471999645233154
+    ],
+    [
+      -0.5235999822616577,
+      4.537899971008301
+    ],
+    [
+      -2.7227001190185547,
+      -0.8377599716186523
+    ],
+    [
+      null,
+      null
+    ]
+  ],
+  "continuous_joint_limit_encoding": "null/null; no position bound",
+  "urdf_joint_limits": {
+    "FL_hip_joint": {
+      "lower": "-1.0472",
+      "upper": "1.0472",
+      "effort": "23.7",
+      "velocity": "30.1"
+    },
+    "FL_thigh_joint": {
+      "lower": "-1.5707963267948966",
+      "upper": "3.4907",
+      "effort": "23.7",
+      "velocity": "30.1"
+    },
+    "FL_calf_joint": {
+      "lower": "-2.7227",
+      "upper": "-0.83776",
+      "effort": "35.55",
+      "velocity": "20.07"
+    },
+    "FL_foot_joint": {
+      "effort": "23.7",
+      "velocity": "30.1"
+    },
+    "FR_hip_joint": {
+      "lower": "-1.0472",
+      "upper": "1.0472",
+      "effort": "23.7",
+      "velocity": "30.1"
+    },
+    "FR_thigh_joint": {
+      "lower": "-1.5707963267948966",
+      "upper": "3.4907",
+      "effort": "23.7",
+      "velocity": "30.1"
+    },
+    "FR_calf_joint": {
+      "lower": "-2.7227",
+      "upper": "-0.83776",
+      "effort": "35.55",
+      "velocity": "20.07"
+    },
+    "FR_foot_joint": {
+      "effort": "23.7",
+      "velocity": "30.1"
+    },
+    "RL_hip_joint": {
+      "lower": "-1.0472",
+      "upper": "1.0472",
+      "effort": "23.7",
+      "velocity": "30.1"
+    },
+    "RL_thigh_joint": {
+      "lower": "-0.5236",
+      "upper": "4.5379",
+      "effort": "23.7",
+      "velocity": "30.1"
+    },
+    "RL_calf_joint": {
+      "lower": "-2.7227",
+      "upper": "-0.83776",
+      "effort": "35.55",
+      "velocity": "20.07"
+    },
+    "RL_foot_joint": {
+      "effort": "23.7",
+      "velocity": "30.1"
+    },
+    "RR_hip_joint": {
+      "lower": "-1.0472",
+      "upper": "1.0472",
+      "effort": "23.7",
+      "velocity": "30.1"
+    },
+    "RR_thigh_joint": {
+      "lower": "-0.5236",
+      "upper": "4.5379",
+      "effort": "23.7",
+      "velocity": "30.1"
+    },
+    "RR_calf_joint": {
+      "lower": "-2.7227",
+      "upper": "-0.83776",
+      "effort": "35.55",
+      "velocity": "20.07"
+    },
+    "RR_foot_joint": {
+      "effort": "23.7",
+      "velocity": "30.1"
+    }
+  },
+  "leg_position_observation_order": [
+    "FL_hip_joint",
+    "FL_thigh_joint",
+    "FL_calf_joint",
+    "FR_hip_joint",
+    "FR_thigh_joint",
+    "FR_calf_joint",
+    "RL_hip_joint",
+    "RL_thigh_joint",
+    "RL_calf_joint",
+    "RR_hip_joint",
+    "RR_thigh_joint",
+    "RR_calf_joint"
+  ],
+  "previous_action": "Previous issued clipped normalized action, before actuator delay; zero on reset. Never use raw actor mean or measured/physical target.",
+  "reset": "Set previous issued clipped normalized actions to zero. Stateless MLP has no internal recurrence. If modeling training actuator delay, clear its separate three-slot history too. Frozen nominal evaluation resets q to nominal and dq/root velocities to zero, then uses one zero-action settling tick before recorded cases. No reset or actor state manipulation is embedded.",
+  "observation_blocks": [
+    {
+      "slice": [
+        0,
+        3
+      ],
+      "name": "base linear velocity",
+      "units": "m/s",
+      "scale": 1.0,
+      "frame": "body at authored base-link origin"
+    },
+    {
+      "slice": [
+        3,
+        6
+      ],
+      "name": "base angular velocity",
+      "units": "rad/s",
+      "scale": 1.0,
+      "frame": "body"
+    },
+    {
+      "slice": [
+        6,
+        9
+      ],
+      "name": "projected gravity",
+      "units": "unit direction",
+      "scale": 1,
+      "frame": "inverse base quaternion applied to world [0,0,-1]"
+    },
+    {
+      "slice": [
+        9,
+        12
+      ],
+      "name": "command [vx,vy,yaw_rate]",
+      "units": [
+        "m/s",
+        "m/s",
+        "rad/s"
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "frame": "body"
+    },
+    {
+      "slice": [
+        12,
+        24
+      ],
+      "name": "leg q minus nominal q",
+      "units": "rad",
+      "scale": 1.0,
+      "order": [
+        "FL_hip_joint",
+        "FL_thigh_joint",
+        "FL_calf_joint",
+        "FR_hip_joint",
+        "FR_thigh_joint",
+        "FR_calf_joint",
+        "RL_hip_joint",
+        "RL_thigh_joint",
+        "RL_calf_joint",
+        "RR_hip_joint",
+        "RR_thigh_joint",
+        "RR_calf_joint"
+      ]
+    },
+    {
+      "slice": [
+        24,
+        40
+      ],
+      "name": "all joint velocities including wheels",
+      "units": "rad/s",
+      "scale": 1.0,
+      "order": [
+        "FL_hip_joint",
+        "FL_thigh_joint",
+        "FL_calf_joint",
+        "FL_foot_joint",
+        "FR_hip_joint",
+        "FR_thigh_joint",
+        "FR_calf_joint",
+        "FR_foot_joint",
+        "RL_hip_joint",
+        "RL_thigh_joint",
+        "RL_calf_joint",
+        "RL_foot_joint",
+        "RR_hip_joint",
+        "RR_thigh_joint",
+        "RR_calf_joint",
+        "RR_foot_joint"
+      ]
+    },
+    {
+      "slice": [
+        40,
+        56
+      ],
+      "name": "previous clipped actions",
+      "units": "normalized action",
+      "scale": 1,
+      "order": [
+        "FL_hip_joint",
+        "FL_thigh_joint",
+        "FL_calf_joint",
+        "FL_foot_joint",
+        "FR_hip_joint",
+        "FR_thigh_joint",
+        "FR_calf_joint",
+        "FR_foot_joint",
+        "RL_hip_joint",
+        "RL_thigh_joint",
+        "RL_calf_joint",
+        "RL_foot_joint",
+        "RR_hip_joint",
+        "RR_thigh_joint",
+        "RR_calf_joint",
+        "RR_foot_joint"
+      ]
+    }
+  ],
+  "normalization": "Build scaled 56-vector once. Export clamps at clip_observations, then embeds saved (x-mean)/(std+0.01), then deterministic actor mean, then clips action to [-1,1]. Do not normalize externally or update buffers.",
+  "observation_limit": 100.0,
+  "normalizer_epsilon": 0.01,
+  "body_convention": "Right-handed +X forward, +Y left, +Z up; radians. wxyz base-link-to-world quaternion; normalize before inverse rotation. No world heading or position is an actor input.",
+  "action_mapping": "P joints: q_target=q_nominal+scale*a. V wheels: dq_target=clamp(scale*a, +/-min(saved joint velocity limit,wheel_velocity_target_limit)); no position target. Hold for four 5 ms substeps.",
+  "actuator_delay": "Training randomized 0/1/2 policy ticks in a three-slot action history; this nominal evaluation uses 0 ticks. This is actuator delay, not observation latency.",
+  "control_law": "Nominal P leg Kp=40, Kd=1; wheel Kp=0,Kv=1. Respect original force and joint limits; no new target projection, braking override or heading controller.",
+  "velocity_estimator_requirement": "Simulator linear velocity at the base-link origin is required by the actor. Later hardware needs an independently validated estimator in the same body frame/origin; none is supplied here.",
+  "limitations": [
+    "Experimental portable inference, not a hardware release or PhysX qualification.",
+    "No contact/terrain/event history input. Reward tracker and objective selector are provenance, not added inference logic.",
+    "Closed-loop outer feedback is ordinary evaluation only and is not embedded in the export.",
+    "Policy-rate forces and positions are not substep maxima or hardware guarantees.",
+    "Canonical repository URDF and referenced meshes are required together; no IsaacLab scene/importer is supplied.",
+    "No calibrated energy model, estimator, hardware safety layer or navigation controller is included."
+  ],
+  "interface_version": 1,
+  "files": {
+    "policy": "policy.pt",
+    "configuration_snapshot": "config.yaml",
+    "parity": "parity_samples.npz",
+    "provenance": "provenance.json"
+  },
+  "path_bases": {
+    "files": "directory containing contract.json",
+    "robot_asset": "repository root",
+    "checkpoint": "repository root; historical only, not a runtime dependency"
+  },
+  "input": {
+    "dtype": "float32",
+    "shape": [
+      "N",
+      56
+    ],
+    "N_min": 1,
+    "finite_required": true
+  },
+  "output": {
+    "dtype": "float32",
+    "shape": [
+      "N",
+      16
+    ],
+    "finite_required": true,
+    "normalized_bounds": [
+      -1,
+      1
+    ]
+  },
+  "robot_asset": {
+    "path": "ressources/robots/go2w/urdf/go2w_description.urdf",
+    "path_base": "repository_root",
+    "root_link": "base_link",
+    "dependency_hashes": "provenance.json:assets",
+    "source_bytes_sha256": "794ad4adaec16bc7a1eebab3d838e1955f37113192689361aff4733e99c9e9c5",
+    "git_lf_sha256": "495401f076d408858f322dd5227f3166be4fd63e65b8bc648fcbdeffd4c98d44",
+    "checkout_semantics": "Only CRLF-to-LF normalization is permitted for URDF/DAE; original source-byte hash is retained separately."
+  },
+  "joint_axis_in_urdf_joint_frame": {
+    "FL_hip_joint": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "FL_thigh_joint": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "FL_calf_joint": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "FL_foot_joint": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "FR_hip_joint": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "FR_thigh_joint": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "FR_calf_joint": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "FR_foot_joint": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "RL_hip_joint": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "RL_thigh_joint": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "RL_calf_joint": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "RL_foot_joint": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "RR_hip_joint": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "RR_thigh_joint": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "RR_calf_joint": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "RR_foot_joint": [
+      0.0,
+      1.0,
+      0.0
+    ]
+  },
+  "base_velocity_origin": {
+    "link": "base_link",
+    "point": "authored URDF link origin, not COM or solver inertial-alignment origin",
+    "source_api": "Genesis 1.4.1 RigidEntity.get_vel(relative=True), world axes; inverse base quaternion then gives body velocity",
+    "com_transport_world": "v_origin = v_COM + cross(omega_world, p_origin_world - p_COM_world)",
+    "body_transform": "R_world_from_base.T @ v_origin_world; use the authored base_link wxyz quaternion",
+    "com_note": "Use the actual target-simulator COM including merged fixed-link inertials. Do not substitute the raw URDF base inertial offset for a merged body COM."
+  },
+  "gain_units": {
+    "nominal_kp": "Nm/rad",
+    "nominal_kd": "Nm/(rad/s); Kd on P legs, Kv on V wheels"
+  },
+  "limit_semantics": {
+    "action_bound": "Normalized actor output clamp +/-1; independent of mechanical limits.",
+    "action_scale": "P entries are rad per normalized action; V entries rad/s. No measured wheel speed or position offset is added.",
+    "hard_joint_position_limits_rad": "URDF mechanical bounds read back from Genesis, enable_joint_limit=true. Continuous wheel positions are unbounded. Not the soft reward limits.",
+    "joint_velocity_limits": "URDF-matching config motor velocity metadata in rad/s. Used in diagnostics/rewards and wheel target clamp; no separate hard leg-speed clamp is implemented in this environment.",
+    "wheel_velocity_target_limit": "Explicit commanded wheel-speed cap 20 rad/s, additionally bounded by each motor velocity value. Bounded actor and scale 18 imply +/-18 rad/s here.",
+    "effort_limits": "URDF-derived symmetric simulator control-force limits in Nm, read back from Genesis; not continuous electrical motor ratings.",
+    "nominal_gains": "Nominal simulator actuator gains; fixed here. Training randomized gains are not nominal inference settings."
+  },
+  "target_position_intervals_rad": [
+    [
+      -0.30000001192092896,
+      0.30000001192092896
+    ],
+    [
+      0.3499999940395355,
+      1.0499999821186066
+    ],
+    [
+      -1.7300000488758087,
+      -0.9300000369548798
+    ],
+    null,
+    [
+      -0.30000001192092896,
+      0.30000001192092896
+    ],
+    [
+      0.3499999940395355,
+      1.0499999821186066
+    ],
+    [
+      -1.7300000488758087,
+      -0.9300000369548798
+    ],
+    null,
+    [
+      -0.30000001192092896,
+      0.30000001192092896
+    ],
+    [
+      0.4000000059604645,
+      1.0999999940395355
+    ],
+    [
+      -1.7099999487400055,
+      -0.9099999368190765
+    ],
+    null,
+    [
+      -0.30000001192092896,
+      0.30000001192092896
+    ],
+    [
+      0.4000000059604645,
+      1.0999999940395355
+    ],
+    [
+      -1.7099999487400055,
+      -0.9099999368190765
+    ],
+    null
+  ],
+  "nominal_actuator_delay_ticks": 0,
+  "training_commands": {
+    "ranges": {
+      "ang_vel_yaw": [
+        -1.4,
+        1.4
+      ],
+      "lin_vel_x": [
+        -0.35,
+        1.1
+      ],
+      "lin_vel_y": [
+        -0.5,
+        0.5
+      ]
+    },
+    "mixed_lateral_range": [
+      -0.3,
+      0.3
+    ],
+    "pure_lateral_high_at_checkpoint": 0.5,
+    "semantics": "Sampling coverage, not a validated deployment envelope. Sampler deadzones are not actor preprocessing."
+  },
+  "evaluation_feedback": {
+    "embedded": false,
+    "bounds_vx_vy_yaw": [
+      [
+        -0.25,
+        -0.2,
+        -0.5
+      ],
+      [
+        0.7,
+        0.2,
+        0.5
+      ]
+    ],
+    "update_hz": 10,
+    "gains_position_heading_per_s": [
+      1,
+      1.5
+    ],
+    "cases_vx_vy": [
+      [
+        0.5,
+        0
+      ],
+      [
+        0.5,
+        0.1
+      ],
+      [
+        0.5,
+        -0.1
+      ]
+    ],
+    "phases_s": [
+      2,
+      12,
+      3,
+      3
+    ],
+    "ramp_s": 1,
+    "semantics": "Optional existing evaluation controller only; nominal flat-ground reproduction target, not all-command qualification."
+  }
+}

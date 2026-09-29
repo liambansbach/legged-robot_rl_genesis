@@ -1,0 +1,356 @@
+{
+  "schema_version": 1,
+  "candidate": "P / CK2498",
+  "status": "mutable experimental simulation candidate; not validated for hardware",
+  "interface_version": 1,
+  "source_checkpoint": {
+    "path": "logs/go2w_event_step_v1/sagittal_retention_seed1_20260928_172600_2026-09-28_17-27-35/model_2498.pt",
+    "path_base": "repository root; historical only",
+    "sha256": "4de494271a999c33ca6a8a06913b1facb92eede58c92d7297762671b2b1080e8",
+    "native_label": 2498,
+    "completed_updates": 2500
+  },
+  "source_config_sha256": "340a8998d3015b810c46e4d808cfb173837d20aa2a2e1028a6004e198b8ff25d",
+  "exported_actor": {
+    "source_filename": "policy_1.pt",
+    "published_filename": "policy.pt",
+    "sha256": "cb8454470921a5a44e8a5914a0a2dd301886ff9b7e7b6ef1dffdf5c6b661a35c",
+    "operation": "Byte copy and rename; no re-export. Inference actor, not PPO checkpoint."
+  },
+  "source_archive": {
+    "path": "logs/go2w_event_step_v1/exported/feedback_P_ck2498_4de494271a99_20260929.zip",
+    "sha256": "e3b5b9d689d94c57464310072c19181695f785558ebc4d7cdbe6bfb7af5778d1"
+  },
+  "source_bundle_contract_sha256": "fd5d57772f7d20e2834a0379402a267af094cfedd99c349dd6f3324600891d58",
+  "identities": {
+    "training": {
+      "head": "adc612d67a09c52f967c4b91b8642fdce9208298",
+      "branch": "testing",
+      "status": "",
+      "dirty_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked_sha256": {}
+    },
+    "evaluation": {
+      "head": "e08bca9887b8fd65ce995d89221aded0e5bd6e28",
+      "branch": "testing",
+      "status": "",
+      "dirty_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked_sha256": {}
+    },
+    "export": {
+      "head": "e08bca9887b8fd65ce995d89221aded0e5bd6e28",
+      "branch": "testing",
+      "status": "",
+      "dirty_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked_sha256": {}
+    },
+    "publication_reviewed_head": "4df11998f7d9424090dab1bcfe50020297d67bbd",
+    "exporter_source_files": {
+      "robot_gym/utils/export.py": "4013d3a051cc574e87b51cf5cea54eee9985df3e514c854ce0316800d7d1c705",
+      "robot_gym/envs/go2w/go2w_env.py": "dbe3231720f396fec1d01d2a965aab6c613614c57bf33c144e42b91c68171291",
+      "robot_gym/envs/base/legged_robot.py": "5a0f92105cf337ea66b5551904f1f12a3d2d72aa305012534244e46e85d360ec",
+      "robot_gym/envs/base/base_task.py": "5a6e393f57615d5e7347a0e3fa63d068d74c2476212600994f45e58e9e447bba",
+      "robot_gym/envs/go2w/go2w_config.py": "eb4a254e1a8bc129be2c627508607f082a95152cd07042ea7cbc5d0b61ef6fdc",
+      "robot_gym/scripts/diagnostic_bank.py": "bfc2d950989f80afc7d37ddc7d64ad86a763487fd91e46529ae102eb564edb36"
+    }
+  },
+  "versions": {
+    "training": {
+      "python": "3.11.14",
+      "torch": "2.9.0+cu130",
+      "genesis-world": "1.4.1",
+      "rsl-rl-lib": "5.5.1"
+    },
+    "evaluation": {
+      "python": "3.11.14",
+      "torch": "2.9.0+cu130",
+      "genesis-world": "1.4.1",
+      "rsl-rl-lib": "5.5.1"
+    },
+    "export": {
+      "torch": "2.9.0+cu130",
+      "rsl-rl-lib": "5.5.1",
+      "genesis-world": "1.4.1",
+      "tensordict": "0.10.0"
+    },
+    "runtime_requires": [
+      "Python standard library",
+      "compatible PyTorch",
+      "NumPy"
+    ],
+    "linux_and_physx_validation": "pending; do not install the Genesis training stack into IsaacLab"
+  },
+  "payloads": {
+    "policy.pt": {
+      "sha256": "cb8454470921a5a44e8a5914a0a2dd301886ff9b7e7b6ef1dffdf5c6b661a35c",
+      "bytes": 800038
+    },
+    "contract.json": {
+      "sha256": "c0cd7184eab2a97eda129f11502bebde995e520b1ed5958495812af3901b1433",
+      "bytes": 18545
+    },
+    "config.yaml": {
+      "sha256": "340a8998d3015b810c46e4d808cfb173837d20aa2a2e1028a6004e198b8ff25d",
+      "bytes": 13247
+    },
+    "parity_samples.npz": {
+      "sha256": "372b52533f1900de7247b7bf12330311c3ccf15f2af82e0d10868de50f30990c",
+      "bytes": 30125
+    }
+  },
+  "asset_hashes_note": "sha256_source_bytes records the Windows source checkout. sha256_git_blob records identical content with LF for URDF/DAE; binary files are exact. Only CRLF-to-LF substitution is accepted.",
+  "assets": {
+    "ressources/robots/go2w/urdf/go2w_description.urdf": {
+      "sha256_source_bytes": "794ad4adaec16bc7a1eebab3d838e1955f37113192689361aff4733e99c9e9c5",
+      "sha256_git_blob": "495401f076d408858f322dd5227f3166be4fd63e65b8bc648fcbdeffd4c98d44",
+      "hash_mode": "lf",
+      "size_source_bytes": 39041,
+      "size_git_blob": 37419,
+      "dependencies": [
+        "ressources/robots/go2w/dae/base.dae",
+        "ressources/robots/go2w/dae/calf.stl",
+        "ressources/robots/go2w/dae/calf_mirror.stl",
+        "ressources/robots/go2w/dae/hip.dae",
+        "ressources/robots/go2w/dae/left_wheel.dae",
+        "ressources/robots/go2w/dae/right_wheel.dae",
+        "ressources/robots/go2w/dae/rs_D456_Solid.STL",
+        "ressources/robots/go2w/dae/rs_base.stl",
+        "ressources/robots/go2w/dae/rs_flange.stl",
+        "ressources/robots/go2w/dae/rs_flange_mirror.stl",
+        "ressources/robots/go2w/dae/rs_mount.stl",
+        "ressources/robots/go2w/dae/thigh.dae",
+        "ressources/robots/go2w/dae/thigh_mirror.dae"
+      ]
+    },
+    "ressources/robots/go2w/dae/rs_D456_Solid.STL": {
+      "sha256_source_bytes": "19f4ce23ade9cf22957a86d0cc5f8532753a7ee278a57a183d5192b514005449",
+      "sha256_git_blob": "19f4ce23ade9cf22957a86d0cc5f8532753a7ee278a57a183d5192b514005449",
+      "hash_mode": "exact",
+      "size_source_bytes": 1225784,
+      "size_git_blob": 1225784,
+      "dependencies": []
+    },
+    "ressources/robots/go2w/dae/rs_mount.stl": {
+      "sha256_source_bytes": "8045ffe330b055a20ca72141408b8012cc01e568b77f4dd08796c0bfdf0dc938",
+      "sha256_git_blob": "8045ffe330b055a20ca72141408b8012cc01e568b77f4dd08796c0bfdf0dc938",
+      "hash_mode": "exact",
+      "size_source_bytes": 31484,
+      "size_git_blob": 31484,
+      "dependencies": []
+    },
+    "ressources/robots/go2w/dae/rs_flange_mirror.stl": {
+      "sha256_source_bytes": "f8a0c1ca086ac0768e787a86e273306505bb4201844affdcfe3801f74e93954d",
+      "sha256_git_blob": "f8a0c1ca086ac0768e787a86e273306505bb4201844affdcfe3801f74e93954d",
+      "hash_mode": "exact",
+      "size_source_bytes": 72884,
+      "size_git_blob": 72884,
+      "dependencies": []
+    },
+    "ressources/robots/go2w/dae/rs_flange.stl": {
+      "sha256_source_bytes": "b3514b5447dbec8d3734df150349d4398d21549edc6b96f1534699a104762491",
+      "sha256_git_blob": "b3514b5447dbec8d3734df150349d4398d21549edc6b96f1534699a104762491",
+      "hash_mode": "exact",
+      "size_source_bytes": 72884,
+      "size_git_blob": 72884,
+      "dependencies": []
+    },
+    "ressources/robots/go2w/dae/rs_base.stl": {
+      "sha256_source_bytes": "7c0bdfd04cd638ab3ca3884b6c3a26b7659e9f2456fee49fc957c90376257dba",
+      "sha256_git_blob": "7c0bdfd04cd638ab3ca3884b6c3a26b7659e9f2456fee49fc957c90376257dba",
+      "hash_mode": "exact",
+      "size_source_bytes": 51484,
+      "size_git_blob": 51484,
+      "dependencies": []
+    },
+    "ressources/robots/go2w/dae/right_wheel.dae": {
+      "sha256_source_bytes": "5e93c77d1450a15be7c707805341457047c405f0f6e3c2e300a79ea127521471",
+      "sha256_git_blob": "e415eeda878f19d75e795ed56656afa40588654bcea24445b02d965f6cfd7bc9",
+      "hash_mode": "lf",
+      "size_source_bytes": 1410634,
+      "size_git_blob": 1410503,
+      "dependencies": []
+    },
+    "ressources/robots/go2w/dae/calf_mirror.stl": {
+      "sha256_source_bytes": "528b471bfc60b6e72dbb162b34eefebced994bea82aaf58eda91f090219cd911",
+      "sha256_git_blob": "528b471bfc60b6e72dbb162b34eefebced994bea82aaf58eda91f090219cd911",
+      "hash_mode": "exact",
+      "size_source_bytes": 1652384,
+      "size_git_blob": 1652384,
+      "dependencies": []
+    },
+    "ressources/robots/go2w/dae/thigh_mirror.dae": {
+      "sha256_source_bytes": "ab1d3b0ef1184735e79bd53c011c4f668a731a23b532d37e07ef74e65201bce2",
+      "sha256_git_blob": "c7bae0b0565c2aa4b7cc15a538d795e9153e0f10c821cc18429e92693172bdc6",
+      "hash_mode": "lf",
+      "size_source_bytes": 3896704,
+      "size_git_blob": 3896575,
+      "dependencies": []
+    },
+    "ressources/robots/go2w/dae/hip.dae": {
+      "sha256_source_bytes": "1f1a020683056677d73682c6783907bb13c8a9c14b2736c7cce2a630523e0597",
+      "sha256_git_blob": "8735e10617afe252cef0844c1d139d15bc6d4c653660d742fea9fe05c2704d8f",
+      "hash_mode": "lf",
+      "size_source_bytes": 4666550,
+      "size_git_blob": 4666421,
+      "dependencies": []
+    },
+    "ressources/robots/go2w/dae/left_wheel.dae": {
+      "sha256_source_bytes": "92223a7a73d65173a87ab8a548fe0d881c8e6068ce5276311313a5bbbdb5c0c2",
+      "sha256_git_blob": "94c877cf441ac8b24680e63a36be04cf9666ed9b91fe1fd724ff266363df1721",
+      "hash_mode": "lf",
+      "size_source_bytes": 1395054,
+      "size_git_blob": 1394923,
+      "dependencies": []
+    },
+    "ressources/robots/go2w/dae/calf.stl": {
+      "sha256_source_bytes": "2aee434b80da010deebb11c8538d593f7901a169cc34916350902746e591437e",
+      "sha256_git_blob": "2aee434b80da010deebb11c8538d593f7901a169cc34916350902746e591437e",
+      "hash_mode": "exact",
+      "size_source_bytes": 2247484,
+      "size_git_blob": 2247484,
+      "dependencies": []
+    },
+    "ressources/robots/go2w/dae/thigh.dae": {
+      "sha256_source_bytes": "167a6c6545f792f9e7ea53abe7e66dae4d72b53e0ef532ae9903a1f7907b384f",
+      "sha256_git_blob": "a622381ae308897ff143b8bbf02f075457c342b22984205040424a5a983246fa",
+      "hash_mode": "lf",
+      "size_source_bytes": 3884265,
+      "size_git_blob": 3884136,
+      "dependencies": []
+    },
+    "ressources/robots/go2w/dae/base.dae": {
+      "sha256_source_bytes": "f777940215d5072dfb047726282455dff00c58655675148c21c79b3e606bfd7a",
+      "sha256_git_blob": "e52bebbb5c7ff1f6aedee620c9b5b349f6e965360ecc63a9bb743eeff2d0be64",
+      "hash_mode": "lf",
+      "size_source_bytes": 10727615,
+      "size_git_blob": 10727399,
+      "dependencies": []
+    }
+  },
+  "parity": {
+    "samples": 96,
+    "cases": [
+      "straight",
+      "diagonal_left",
+      "diagonal_right"
+    ],
+    "sample_indices_per_case": [
+      0,
+      32,
+      64,
+      96,
+      128,
+      161,
+      193,
+      225,
+      257,
+      290,
+      322,
+      354,
+      386,
+      418,
+      451,
+      483,
+      515,
+      547,
+      580,
+      612,
+      644,
+      676,
+      708,
+      741,
+      773,
+      805,
+      837,
+      870,
+      902,
+      934,
+      966,
+      999
+    ],
+    "fields": {
+      "observations": "Exact source parity_batch.pt observations, float32 [96,56], scaled but not normalized.",
+      "expected_clipped_actions": "Exact native CPU bounded references from parity_batch.pt, float32 [96,16].",
+      "recorded_gpu_raw_actions": "Recorded GPU deterministic raw means from the same case/sample rows; clip to [-1,1] for comparison to exported outputs.",
+      "case_index": "int64 index into cases",
+      "sample_index": "int64 zero-based policy row in that case"
+    },
+    "native_cpu_atol": 2e-06,
+    "gpu_recorded_atol": 5e-05,
+    "rtol": 0,
+    "normalizer_count": 655360000,
+    "source_batch_sha256": "042d6bd9b3872d679136dbe3916e29fc0628efca2944f7d6d40ecaa0e30f8915",
+    "prior_windows_evidence": {
+      "samples": 96,
+      "samples_per_case": 32,
+      "indices": [
+        0,
+        32,
+        64,
+        96,
+        128,
+        161,
+        193,
+        225,
+        257,
+        290,
+        322,
+        354,
+        386,
+        418,
+        451,
+        483,
+        515,
+        547,
+        580,
+        612,
+        644,
+        676,
+        708,
+        741,
+        773,
+        805,
+        837,
+        870,
+        902,
+        934,
+        966,
+        999
+      ],
+      "cases": [
+        "straight",
+        "diagonal_left",
+        "diagonal_right"
+      ],
+      "native_cpu_vs_recorded_gpu_raw_max_abs": 4.76837158203125e-07,
+      "raw_tolerance": 5e-05,
+      "exported_vs_native_cpu_bounded_max_abs": 0.0,
+      "export_tolerance": 2e-06,
+      "exported_vs_recorded_bounded_max_abs": 4.172325134277344e-07,
+      "normalizer_and_native_state_unchanged": true,
+      "normalization_count": 655360000,
+      "max_abs_input": 14.61052131652832,
+      "observation_clip_active": false
+    },
+    "trace_sha256": {
+      "straight": "58ba98f0eee206c047a66ff4cd80f198ac0ca024517566b5b548019279bc5905",
+      "diagonal_left": "95fbc714d2f4547049524f63fbe0e77cf887274bd2f0727d54d496186f0f8d50",
+      "diagonal_right": "667725930d700e76bfcf7b30073d93e87da566bfe706d518b95f40e50684300e"
+    }
+  },
+  "selection": {
+    "report": "docs/go2w_diagnostics.md#frozen-feedback-candidates-and-portable-inference--29-september-2026",
+    "reason": "Lower feedback path/endpoint errors with smaller corrections; C retained locally for its other tradeoffs.",
+    "endpoint_errors_m": {
+      "straight": 0.010867246426641941,
+      "diagonal_left": 0.007577292621135712,
+      "diagonal_right": 0.008496323600411415
+    },
+    "minimum_feedback_joint_margin_rad": 0.15811288356781006,
+    "archived_pure_lateral_minimum_margin_rad": 0.006764709949493408,
+    "maximum_sampled_force_ratio": 0.7057671782492085,
+    "failures": 0,
+    "observed_hard_position_crossings": 0,
+    "limits": "Nominal short paths only; 50 Hz sampled margins/forces, no substep, hardware, estimator or Linux/PhysX guarantee."
+  }
+}
