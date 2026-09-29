@@ -761,3 +761,116 @@ Runtime attribution remains **unresolved**. Existing matched last-250 blocks giv
 For that single proposal, keep tracking/stopping, posture/body and actuator/contact limits, completed-touchdown hysteresis/dwell, support/failure checks, frozen-base limb attribution, net displacement and bounded time credit. Replace the demand-scaled apex target and its 5–7 cm full-credit band; old instantaneous clearance/airtime bonuses stay disabled. Keep apex/count thresholds, per-limb imbalance and signed preload measurements diagnostic-only, with no equal-step-count rule. CK1999 and A remain fallbacks. The G=0 target-versus-state mismatch remains a separate unresolved control-objective issue, not grounds for silently raising gains or the sagittal scalar.
 
 Executed with the documented Windows Python/cache setup above: `& $Python .migration-audit/rolling-objective-20260928/review.py` (saved-array rates/decomposition, exit **0**); `& $Python .migration-audit/rolling-objective-20260928/counterfactuals.py` (seven CPU cases and arithmetic, exit **0**); `& $Python -m unittest tests.test_go2w_event_step.EventStepCPU.test_correlated_command_refresh_cancels_swing -v` (one test, three timing cases, exit **0**). `& 'C:\Users\Liamb\anaconda3\Scripts\ruff.exe' check tests/test_go2w_event_step.py --select E9,F63,F7,F82`, `git diff --check`, and the 27-file SHA-256 recheck all exit **0**. No test failed or required a rerun. Only this test and this report are tracked changes; no historical suite, learning smoke or screen was repeated.
+
+
+## Sufficient-clearance consolidation — 29 September 2026
+
+**Partial consolidation; do not replace frozen CK2498.** Repeated useful bilateral steps survive with smaller rear-leg apices, and initial stand, forward tracking and several stop residuals improve. However, +/-0.05 m/s lateral tracking nearly disappears, reverse and moderate-yaw errors increase, and expanded lateral braking travels farther. This is a useful measured tradeoff, not an overall controller improvement or evidence of energy savings. CK2498, CK1999 and A remain available; no further experiment is launched.
+
+Reviewed clean `d2f40e533aba87145573ede30a3b2e1fd66532be`. Implementation is `bedc414`; the smoke test selection repair is `697694ed6a2ff249210664de626467a012e07473`, the clean source used for training and evaluation. The opt-in `--event_quality_profile sufficient_clearance` requires `event_step_v1`; saved evaluation/play contracts reject a missing/different selector or event scale. The only environment-config differences from CK2498 are `rewards.event_step.quality_profile=sufficient_clearance` and `rewards.scales.step_event=.05`. Its exact quality is the broad formula in the preceding section, with discrete `.05*sum(Q*b)` and no dt. Historical unset arithmetic is bit-exact on the focused replay. Stance weight 2.0, all event decisions/guards/credit, sampler, physics, observations, PPO and std projection remain unchanged. Loaded nominal physics and evaluation settings match the parent exactly.
+
+Parent is the exact `sagittal_retention_seed1_20260928_172600_2026-09-28_17-27-35/model_2498.pt`, checkpoint/config hashes verified against the preceding report. The single real output is `logs/go2w_event_step_v1/sufficient_clearance_seed1_20260929_111000_2026-09-29_11-10-47/model_2747.pt`: SHA-256 **`a56063f324f46145c5baeb293bb89eee6b466fbe16a2c792924dc5b5217614db`**; adjacent config **`9b5615803869ddac2e6d82319ff80ed4688b164aec63bcd6f3610f1d844fdbdd`**. Completed count is **2750**, independently stored from native label **2747**; Adam is **110000**, lateral high remains **.50**. Initialization matched actor, critic, both normalizers, raw std, optimizer tensors and LR exactly at completed count 2500/Adam 100000. Loaded/final LR is .00038443359375. Progress was restored before command sampling. This is newly seeded simulator/RNG history, not historical rollout restoration; the smoke was never a parent.
+
+One final `precision_screen` at `evaluation/sufficient_clearance_seed1_20260929_111000/final_screen` contains all seven unchanged schedules, 5650 ticks/113 s, one environment and seed 1, nominal physics, noise/push/brake disabled, 30 s timeout and 50 Hz recording. There are zero falls, resets, timeouts, nonfinite states or non-wheel contacts; no survivors were filtered. Repeated initial stands are not independent trials. All 27 protected reference hashes remain unchanged. Detailed arrays, whole-phase and cross-axis RMS, timing and reconstruction records stay ignored under `.migration-audit/sufficient-clearance-20260929`.
+
+Below, arrows mean **CK2498→CK2747**. Final-second requested-axis means and RMS errors use m/s or rad/s. Cross-axis means follow [vy,yaw] for vx, [vx,vy] for yaw, [vx,yaw] for vy. `*` retains the existing expanded-envelope designation, without inventing an A baseline.
+
+| Command | Requested mean | Requested RMS error | Cross-axis means (axis order above) |
+|---|---:|---:|---|
+| vx +0.10 | 0.1101→0.0952 | 0.0101→0.0048 | 0.0000/0.0001→-0.0001/-0.0008 |
+| vx +0.50 | 0.5101→0.4966 | 0.0101→0.0034 | 0.0000/0.0002→0.0000/0.0002 |
+| vx -0.25 | -0.2282→-0.2140 | 0.0218→0.0360 | -0.0003/-0.0003→0.0000/-0.0002 |
+| yaw +0.03 | 0.0090→0.0083 | 0.0210→0.0217 | 0.0097/0.0002→0.0027/0.0000 |
+| yaw +0.10 | 0.0933→0.1037 | 0.0100→0.0123 | 0.0053/0.0009→-0.0010/-0.0098 |
+| yaw +0.40 | 0.4146→0.4295 | 0.0471→0.0697 | -0.0046/-0.0036→0.0045/-0.0116 |
+| yaw +0.75 | 0.7354→0.7586 | 0.0710→0.0654 | -0.0064/0.0096→-0.0083/0.0077 |
+| yaw -0.03 | -0.0092→-0.0082 | 0.0208→0.0218 | 0.0096/-0.0002→0.0028/-0.0000 |
+| yaw -0.10 | -0.0960→-0.1034 | 0.0080→0.0112 | 0.0058/-0.0013→-0.0034/0.0094 |
+| yaw -0.40 | -0.4126→-0.4365 | 0.0515→0.0617 | -0.0004/0.0030→0.0160/0.0151 |
+| yaw -0.75 | -0.7272→-0.7596 | 0.0743→0.0665 | -0.0130/-0.0143→-0.0130/-0.0044 |
+| vy +0.10 | 0.1024→0.1090 | 0.0230→0.0252 | 0.0021/-0.0007→0.0219/-0.0124 |
+| vy +0.20 | 0.1864→0.1968 | 0.0262→0.0234 | -0.0093/0.0010→0.0073/-0.0125 |
+| vy -0.10 | -0.1009→-0.1042 | 0.0235→0.0268 | 0.0028/0.0016→0.0210/0.0145 |
+| vy -0.20 | -0.1891→-0.1953 | 0.0248→0.0234 | -0.0088/0.0019→0.0006/0.0063 |
+| vy +0.05* | 0.0471→0.0082 | 0.0149→0.0419 | 0.0228/-0.0104→0.0032/-0.0178 |
+| vy +0.40* | 0.3510→0.3721 | 0.0545→0.0367 | 0.0382/-0.0176→0.0121/-0.0454 |
+| vy +0.50* | 0.4516→0.4597 | 0.0730→0.0566 | 0.0178/-0.0396→-0.0010/-0.0798 |
+| vy -0.05* | -0.0479→-0.0079 | 0.0153→0.0421 | 0.0219/0.0115→0.0033/0.0180 |
+| vy -0.40* | -0.3480→-0.3796 | 0.0579→0.0326 | 0.0272/0.0168→0.0107/0.0486 |
+| vy -0.50* | -0.4361→-0.4649 | 0.0803→0.0489 | 0.0429/0.0224→-0.0049/0.0615 |
+
+Initial stand's final-second XY/yaw RMS changes .007962/.000334→.001411/.000337; over the full initial 2 s, displacement/path is .01737/.01746→.00708/.01544 m and signed heading -.000505→.000172 rad. Every final stop lasts 3 s below: the first second includes braking; the last second measures residual motion. Whole-stop displacement/path and signed heading include the entire braking trajectory, not just its final residual. Thus better residual yaw does not automatically mean a shorter or straighter stop.
+
+| Schedule | First-second XY/yaw RMS | Final-second XY/yaw RMS | Whole-stop displacement/path, m | Whole-stop heading, rad |
+|---|---|---|---|---|
+| rolling_reverse | 0.0341/0.0008→0.0292/0.0001 | 0.0094/0.0008→0.0071/0.0000 | 0.0124/0.0381→0.0200/0.0375 | -0.0017→0.0001 |
+| yaw_positive | 0.0280/0.0605→0.0194/0.0620 | 0.0099/0.0042→0.0076/0.0030 | 0.0454/0.0592→0.0335/0.0370 | 0.0038→0.0013 |
+| yaw_negative | 0.0339/0.0582→0.0291/0.0488 | 0.0054/0.0059→0.0018/0.0034 | 0.0453/0.0605→0.0312/0.0336 | -0.0047→0.0203 |
+| lateral_positive | 0.0288/0.0369→0.0311/0.0389 | 0.0059/0.0291→0.0084/0.0047 | 0.0133/0.0376→0.0253/0.0481 | -0.0658→-0.0622 |
+| lateral_negative | 0.0268/0.0473→0.0356/0.0423 | 0.0073/0.0076→0.0063/0.0017 | 0.0195/0.0418→0.0238/0.0437 | 0.0370→0.0646 |
+| expanded_lateral_positive | 0.0610/0.0780→0.0835/0.0458 | 0.0102/0.0340→0.0126/0.0107 | 0.0107/0.0751→0.0562/0.0902 | -0.1088→-0.0066 |
+| expanded_lateral_negative | 0.0643/0.0389→0.0775/0.0382 | 0.0119/0.0224→0.0153/0.0361 | 0.0146/0.0595→0.0550/0.0897 | -0.0192→-0.0371 |
+
+At +.5 vx, mean height falls **.399191→.391899 m** while front-thigh nominal RMS improves .277795→.208792 rad (24.8%). Front targets acquire .04698/.05186 rad lower-bound reserve and 100%/100% lower saturation becomes 0%/0%. All four final-second thighs have zero target-bound occupancy in initial stand, forward/reverse and final rolling stand. This unexpected G=0 change cannot be attributed to direct event payment, which is zero there, or separated from 250 extra updates in this single-parent comparison.
+
+| Limb | +.5 actual thigh q, rad | Applied thigh target, rad | Thigh/calf nominal RMS, rad |
+|---|---|---|---|
+| FL | .42234→.49068 | .35000→.39698 | .22529→.19318 |
+| FR | .42207→.49174 | .35000→.40186 | .22442→.19168 |
+| RL | .86464→.85969 | .99284→1.01860 | .14164→.20396 |
+| RR | .86253→.85821 | .99098→1.01841 | .14099→.20352 |
+
+Rear sagittal error worsens despite front-thigh improvement. Signed wheel moments in the same +.5 final second remain opposed: FL/FR/RL/RR **[-1.3763,-1.3629,1.3717,1.3699]→[-1.4680,-1.4163,1.4406,1.4496] Nm**. There is no evidence of eliminating preload, electrical savings or actuator causality. Body motion is also mixed: the next table gives maximum phase-final roll/pitch RMS (including stops), and world-vertical velocity RMS pooled over final-second moving-command windows. World vz avoids mistaking a pitched body's forward velocity component for vertical bobbing. Lower rear apices do not consistently reduce vertical motion; lateral stop pitch increases.
+
+| Schedule | Maximum phase-final roll/pitch RMS, rad | Moving final-window world-vz RMS, m/s |
+|---|---|---|
+| rolling_reverse | 0.0006/0.0444→0.0006/0.0316 | 0.00036→0.00025 |
+| yaw_positive | 0.0691/0.0483→0.0481/0.0233 | 0.03264→0.03514 |
+| yaw_negative | 0.0696/0.0490→0.0467/0.0216 | 0.03371→0.03381 |
+| lateral_positive | 0.0632/0.0498→0.0364/0.0694 | 0.10513→0.10578 |
+| lateral_negative | 0.0613/0.0475→0.0376/0.0716 | 0.11393→0.10903 |
+| expanded_lateral_positive | 0.0507/0.0301→0.0519/0.0606 | 0.13294→0.13321 |
+| expanded_lateral_negative | 0.0578/0.0326→0.0624/0.0545 | 0.13619→0.13077 |
+
+Physical completions and qualified payments remain separate. Apex quantiles below cover completed geometric intervals >=2 mm; usable/net/duration medians cover qualified events only. Historical 2/3/4/5 cm thresholds are unchanged. Rear p90 apices shrink, while front p90 apices increase; stepping is not uniformly smaller or less frequent.
+
+| Limb | Physical >=2/3/4/5 cm | Actual apex p50/p90/max, mm | Paid count | Usable/net/duration medians, mm/mm/s |
+|---|---|---|---|---|
+| FL | 12/3/0/0→15/7/1/0 | 10.8/25.7/32.0→11.2/31.4/44.5 | 27→25 | 18.37/66.21/0.18→18.37/63.25/0.20 |
+| FR | 14/3/0/0→13/7/0/0 | 12.3/26.8/31.6→11.9/32.6/38.4 | 28→25 | 19.24/73.92/0.18→18.59/64.11/0.20 |
+| RL | 39/27/24/16→41/26/16/2 | 26.7/60.3/66.6→24.4/45.1/50.9 | 34→32 | 27.38/143.85/0.28→24.29/98.21/0.24 |
+| RR | 42/26/24/14→40/25/19/1 | 27.7/58.4/65.6→24.7/46.4/51.6 | 28→34 | 29.53/148.97/0.28→24.66/101.58/0.24 |
+
+At +.20 vy, RR retains five valid 37.9–41.5 mm actual/usable lifts, 138–147 mm net repositioning and .24–.26 s durations, versus five 58.6–65.6 mm parent lifts. At -.20, RL retains five valid 37.3–39.0 mm lifts, 143–148 mm net and .24–.26 s. At +/- .10, the principal rear limb retains four valid 41.3–49.4 mm lifts per direction. The opposite front limb still receives no ordinary-lateral payment; no equality rule was added. In contrast, +/- .05 has **no recorded unloading intervals or reward attempts** and actual vy only +.00815/-.00790. Its unchanged G=1 does not force a gait or guarantee propulsion. Larger lateral requests track their requested axis better but acquire more parasitic yaw.
+
+Full-screen geometric completions are 257→261, load-only intervals 362→352 and physical boundary-censored intervals 28→28. Qualified events are 117→116; weighted totals 5.343807→2.618288 are not comparable returns under the changed objective. Physical >=5 cm completions are 30→3, paid at that actual height 21→0: two new RL events fail sampled support, and the RR event crosses the stop command and is censored. Completed reward attempts are 206→204, flicker cancellations 81→53, command cancellations 14→17, overlong/failure cancellations zero in both. Nonexclusive completion rejections actual/usable height, net displacement, duration and sampled support are **59/59/13/10/30→40/46/8/4/44**. Initial-support/dwell eligibility and physical load-only intervals remain distinct from armed attempts. Exact reconstructed valid/completed/censor decisions match the saved cache; largest geometric discrepancy is 8.2e-8 m and unscaled payment discrepancy 5.4e-7. Guards were not relaxed. Policy-rate support is not a substep stability certificate.
+
+The real job ran **4096×64×250 = 65,536,000 transitions** in **1514.933 s** process wall time (43,260 transitions/s). Entry-point startup is 117.134 s; learning/logging/final save 1382.125 s; imports/shutdown account for the remaining process time. All 250 update labels exist in TensorBoard and diagnostics; none were filled. Matched settled last-100 windows, parent 2399–2498 versus new 2648–2747, have collection/learning **4.7355/.9154→4.5399/.8900 s**, or **46,390→48,278 transitions/s** from mean blocks. Adjacent logged wall intervals are 5.7118→5.4862 s; unassigned host/logging residuals .0624→.0579 s. These are ordinary native timers with different learned states/settings and uncontrolled system load, not a controlled performance gain. No profiling or microbenchmark ran. Evaluation took 291.886 s process wall (256.199 s rollout, .156 s postprocessing). All 76 checkpoint tensors and available losses are finite. Std projection records 71 update-end rows touching the lower bound, zero upper/outside rows; final front-calf std is .10027/.10019, above the floor. No bound or optimizer setting changed.
+
+Validation/process record: focused CPU invocation `-m unittest tests.test_go2w_event_step.SufficientClearanceCPU -v` had two passes and one Windows stderr-handle error (exit **1**) before legacy replay began. Adding `stderr=PIPE` repaired that test only; `...SufficientClearanceCPU.test_legacy_and_bookkeeping -v` exits **0**, with exact historical output and identical new-selector bookkeeping. Numerical checks cover 2/2.5/3/5/7 cm, dt .01/.02/.04, unit credit, invalid bob/drag/chatter/failure/command cases and narrow config contracts. The first smoke invocation exited **0 but skipped** due to an inherited unittest flag: no scene or updates ran. The one-line selection repair preceded the actual `-m unittest tests.test_go2w_event_step.SufficientClearanceSmoke -v`, exit **0**, 97.179 s process wall: 64×64×2, 128 policy ticks/8192 transitions, 80 Adam steps, counter 2502/Adam 100080, finite state/gradients/losses, once-only event updates, retained hook and native save/reload. Both original logs are preserved. One real training process and one final-screen process exit **0/0**. Checkpoint verification, saved-screen analysis and protected-file verification exit **0**. Targeted Ruff (`E9,F63,F7,F82`) on the six changed Python files and `git diff --check` exit **0**. No behavioral tuning or simulator retry followed a result.
+
+This is not a same-budget unchanged-control ablation. The result supports smaller useful rear steps in common lateral motion, but does not establish a generally better rolling-first policy, balanced coordination, improved energy use or robustness. The low-lateral loss and reverse/moderate-yaw regressions prevent promotion. It does not prove that a fresh policy could never succeed under this objective. No further training, smoke, screen, bank, export, GUI, transfer or hardware activity was run.
+
+Exact executed commands, using the existing cache setup (the real run remains tied to original CK2498):
+
+```powershell
+Set-Location 'C:\Users\Liamb\SynologyDrive\TUM\3_Semester\dodo_alive\legged-robot_rl_genesis'
+$Python = 'C:\Users\Liamb\anaconda3\envs\genesis-gpu\python.exe'
+$env:NUMBA_CACHE_DIR = "$PWD/.migration-audit/diagnostics-20260925/numba-cache"
+$env:GS_CACHE_FILE_PATH = "$env:TEMP/go2w-diagnostics-genesis"
+$env:QD_OFFLINE_CACHE_FILE_PATH = "$env:TEMP/go2w-diagnostics-quadrants"
+$env:PYTHONIOENCODING = 'utf-8'
+$env:PYTHONUNBUFFERED = '1'
+$env:GO2W_EVENT_GPU = 'sufficient'
+& $Python -m unittest tests.test_go2w_event_step.SufficientClearanceSmoke -v
+$Parent = "$PWD/logs/go2w_event_step_v1/sagittal_retention_seed1_20260928_172600_2026-09-28_17-27-35"
+& $Python -m robot_gym.scripts.train --task go2w --go2w_profile event_step_v1 --sagittal_stance_weight 2.0 --event_quality_profile sufficient_clearance --experiment_name go2w_event_step_v1 --load_run $Parent --checkpoint 2498 --reference_config "$Parent/config.yaml" --resume --run_name sufficient_clearance_seed1_20260929_111000 --num_envs 4096 --max_iterations 250 --seed 1 --headless --logger tensorboard --training_diagnostics
+$Run = "$PWD/logs/go2w_event_step_v1/sufficient_clearance_seed1_20260929_111000_2026-09-29_11-10-47"
+& $Python -m robot_gym.scripts.evaluate --task go2w --go2w_profile event_step_v1 --sagittal_stance_weight 2.0 --event_quality_profile sufficient_clearance --experiment_name go2w_event_step_v1 --load_run $Run --checkpoint 2747 --reference_config "$Run/config.yaml" --eval_mode precision_screen --num_envs 1 --seed 1 --headless --logger tensorboard --output evaluation/sufficient_clearance_seed1_20260929_111000/final_screen
+```
+
+The ignored `train_once.ps1`/`evaluate_once.ps1` wrappers record exits/wall times and refuse occupied run/output paths. Commands above document the completed runs; do not overwrite their outputs. Optional GUI playback, **not launched**, with the same variables/cache setup:
+
+```powershell
+& $Python -m robot_gym.scripts.play --task go2w --go2w_profile event_step_v1 --sagittal_stance_weight 2.0 --event_quality_profile sufficient_clearance --experiment_name go2w_event_step_v1 --load_run $Run --checkpoint 2747 --reference_config "$Run/config.yaml" --num_envs 1 --seed 1 --steps 750 --command_vx 0.5 --command_vy 0 --command_yaw 0 --no_export
+```
