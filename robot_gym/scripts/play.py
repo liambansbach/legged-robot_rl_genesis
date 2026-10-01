@@ -95,6 +95,10 @@ def play(args):
     env_cfg.domain_rand.randomize_base_mass = False
     env_cfg.domain_rand.randomize_com = False 
     env_cfg.domain_rand.randomize_action_delay = False
+    if hasattr(env_cfg.domain_rand, "randomize_armature"):
+        env_cfg.domain_rand.randomize_armature = False
+        from robot_gym.utils.export import select_transfer_dynamics
+        select_transfer_dynamics(env_cfg, args)
 
     # Use --command_vx/--command_vy/--command_yaw for fixed commands, keeping ranges intact.
     

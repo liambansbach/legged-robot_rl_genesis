@@ -200,6 +200,9 @@ class TaskRegistry:
 
         # Apply CLI overrides
         _, train_cfg = update_cfg_from_args(None, train_cfg, args)
+        if save_config and getattr(train_cfg, "go2w_profile", None) == "transfer_v1":
+            from robot_gym.scripts.train import validate_fresh_transfer
+            validate_fresh_transfer(args, train_cfg)
 
         effective_run_name = (
             train_cfg.runner.run_name
@@ -264,7 +267,8 @@ class TaskRegistry:
         runner.add_git_repo_to_log(__file__)
 
         runner.checkpoint_path = resume_path
-        if getattr(env.cfg, "go2w_profile", None) == "event_step_v1":
+        from robot_gym.envs.go2w.go2w_config import uses_event_steps
+        if uses_event_steps(env.cfg):
             from robot_gym.envs.go2w.step_events import install_event_training
             install_event_training(runner, env)
         if resume_path is not None: 

@@ -326,6 +326,8 @@ def diagnostic_metrics(
 
 
 def use_physics_diagnostics(args):
+    if args.eval_mode == "transfer_screen":
+        return args.diagnostic_trace
     if args.eval_mode in ("precision_screen", "precision_dr"):
         return False
     if args.eval_mode == "closed_loop":
@@ -364,7 +366,7 @@ def evaluate(args):
         class_to_dict(train_cfg),
     )
     cfg.env.num_envs = (
-        args.num_envs or {"nominal": 1, "sustained": 1, "closed_loop": 1, "precision_screen": 1, "precision_dr": 8, "bank": 32, "equilibrium": 3}[args.eval_mode]
+        args.num_envs or {"nominal": 1, "sustained": 1, "closed_loop": 1, "precision_screen": 1, "precision_dr": 8, "transfer_screen": 1, "bank": 32, "equilibrium": 3}[args.eval_mode]
     )
     cfg.env.episode_length_s = max(
         20.0, 4 * args.steps * cfg.sim.dt * cfg.control.decimation
@@ -387,7 +389,11 @@ def evaluate(args):
     cfg.init_state.joint_position_noise = cfg.init_state.joint_velocity_noise = 0.0
     cfg.init_state.orientation_noise = (0.0, 0.0, 0.0)
     cfg.init_state.linear_velocity_noise = cfg.init_state.angular_velocity_noise = 0.0
-    if args.eval_mode in ("precision_screen", "precision_dr"):
+    from robot_gym.utils.export import select_transfer_dynamics
+    select_transfer_dynamics(cfg, args)
+    if args.eval_mode in ("precision_screen", "precision_dr", "transfer_screen"):
+        if args.eval_mode == "transfer_screen" and args.go2w_profile != "transfer_v1":
+            raise ValueError("transfer_screen requires transfer_v1")
         expected = 8 if args.eval_mode == "precision_dr" else 1
         if cfg.env.num_envs != expected or args.seed != 1 or args.zero_command_brake or not args.go2w_profile:
             raise ValueError("Precision checks require the profile, explicit seed 1, matching batch and no brake")
@@ -397,7 +403,11 @@ def evaluate(args):
             cfg.domain_rand.action_delay_steps_range = [0, 2]
             cfg.sim.batch_links_info = cfg.sim.batch_dofs_info = True
         from robot_gym.scripts.diagnostic_bank import precision_schedule
-        print("Precision schedule: " + json.dumps(precision_schedule(args.eval_mode == "precision_dr", args.go2w_profile == "event_step_v1")), flush=True)
+        from robot_gym.envs.go2w.go2w_config import uses_event_steps
+        from robot_gym.scripts.diagnostic_bank import transfer_schedule
+        schedule = (transfer_schedule() if args.eval_mode == "transfer_screen"
+                    else precision_schedule(args.eval_mode == "precision_dr", uses_event_steps(cfg)))
+        print("Direct schedule: " + json.dumps(schedule), flush=True)
     elif args.eval_mode == "closed_loop":
         if cfg.env.num_envs != 1 or args.seed != 1 or args.zero_command_brake:
             raise ValueError("Closed-loop evaluation requires one environment, explicit seed 1 and no brake")
@@ -426,6 +436,9 @@ def evaluate(args):
     out.mkdir(parents=True, exist_ok=True)
     if use_physics_diagnostics(args):
         env.physics_diagnostics = PhysicsDiagnostics(env)
+        if args.eval_mode == "transfer_screen":
+            from robot_gym.scripts.native_reference import ReferenceCapture
+            env.physics_diagnostics = ReferenceCapture(env)
     cfg = env.cfg
     write_json(
         out / "manifest.json",
@@ -445,12 +458,14 @@ def evaluate(args):
         ),
     )
     write_json(out / "loaded_properties.json", loaded_properties(env))
-    if args.eval_mode in ("closed_loop", "precision_screen", "precision_dr"):
+    if args.eval_mode in ("closed_loop", "precision_screen", "precision_dr", "transfer_screen"):
         from robot_gym.scripts.diagnostic_bank import evaluate_closed_loop, evaluate_precision
 
         startup = perf_counter() - PROCESS_STARTED
         report = (evaluate_closed_loop(env, policy, out) if args.eval_mode == "closed_loop"
-                  else evaluate_precision(env, policy, out, args.eval_mode == "precision_dr"))
+                  else evaluate_precision(env, policy, out, args.eval_mode == "precision_dr",
+                                          transfer=args.eval_mode == "transfer_screen",
+                                          case_names=getattr(args, "transfer_cases", None)))
         shutdown = perf_counter()
         gs.destroy()
         report["wall_clock_s"].update(startup=startup, shutdown=perf_counter() - shutdown,

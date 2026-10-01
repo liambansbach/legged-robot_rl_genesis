@@ -887,7 +887,19 @@ def precision_metrics(data, schedule, dt, metadata, initial):
     return results
 
 
-def evaluate_precision(env, policy, out, dr=False):
+def transfer_schedule():
+    """Small direct command panel for checkpoints from the continuous fresh run."""
+    zero = (0., 0., 0.)
+    result = {"stand": [(10, zero)]}
+    for name, command in (("forward", (.2, 0, 0)), ("reverse", (-.1, 0, 0)),
+                          ("yaw_positive", (0, 0, .4)), ("yaw_negative", (0, 0, -.4)),
+                          ("lateral_positive", (0, .1, 0)), ("lateral_negative", (0, -.1, 0)),
+                          ("mixed", (.2, .1, .3))):
+        result[name] = [(3, zero), (5, command), (6, zero)]
+    return result
+
+
+def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=None):
     import xml.etree.ElementTree as ET
 
     tree = ET.parse(env.urdf_reader.robot_file_path_absolute).getroot()
@@ -902,19 +914,37 @@ def evaluate_precision(env, policy, out, dr=False):
                                     for pair in env.dof_pos_limits.cpu().tolist()],
                 "position_limits_semantics": "null denotes an unbounded continuous joint",
                 "wheel_target_limit": env.cfg.control.wheel_velocity_target_limit}
-    schedules = precision_schedule(dr, getattr(env, "event_step", False))
-    report = {"mode": "precision_dr" if dr else "precision_screen", "dt": env.dt, **metadata,
-              "schedule": schedules, "tests": {}, "heavy_recorder": False,
+    schedules = transfer_schedule() if transfer else precision_schedule(dr, getattr(env, "event_step", False))
+    if case_names:
+        if not transfer:
+            raise ValueError("--transfer_cases requires transfer_screen")
+        schedules = {name: schedules[name] for name in case_names}
+    report = {"mode": "transfer_screen" if transfer else "precision_dr" if dr else "precision_screen", "dt": env.dt, **metadata,
+              "schedule": schedules, "tests": {}, "heavy_recorder": bool(transfer and getattr(env, "physics_diagnostics", None) is not None),
               "trace_semantics": "Post-step pre-reset. valid includes first terminal row only; later rows invalid. Policy-rate forces, no substep maxima. Targets = delayed action * saved scale (+ nominal for legs), wheel targets limited as recorded. Stop displacement/path includes braking.",
               "swing_semantics": "6/10 N hysteresis, >=2 mm geometric peak, no dwell filter; completed and boundary-censored events separate",
               "wall_clock_s": {"rollout": 0., "postprocessing": 0.}}
     nominal = loaded_properties(env) if dr else None
+    if transfer:
+        from robot_gym.utils.export import transfer_contract
+        report["transfer_dynamics"] = transfer_contract(env)
+        report["physics_recording"] = {
+            "enabled": report["heavy_recorder"], "dt_s": env.cfg.sim.dt,
+            "semantics": "Post-physics state and held targets; reset warmup excluded; first terminal physics rows retained. Control-force getter recomputes force, not an integration impulse.",
+        }
+        write_json(out / "applied_properties.json", loaded_properties(env))
     if getattr(env, "event_step", False):
-        report["expanded_envelope"] = "Additional +/-0.05/0.4/0.5 lateral checks; no matching A baseline assumed"
+        if not transfer:
+            report["expanded_envelope"] = "Additional +/-0.05/0.4/0.5 lateral checks; no matching A baseline assumed"
         report["completed_training_updates"] = env.completed_updates
     for name, schedule in schedules.items():
         started = perf_counter()
         env.reset()
+        if transfer:
+            torch.testing.assert_close(env.robot.get_dofs_armature(env.joint_dof_idx), env.armature_samples)
+        physics_recorder = getattr(env, "physics_diagnostics", None) if transfer else None
+        if physics_recorder is not None:
+            physics_recorder.rows.clear()
         if dr:
             conditions = precision_conditions()
             apply_conditions(env, conditions, nominal)
@@ -935,8 +965,50 @@ def evaluate_precision(env, policy, out, dr=False):
         data = rollout_precision(env, policy, schedule)
         report["wall_clock_s"]["rollout"] += perf_counter()-started
         started = perf_counter()
-        np.savez_compressed(out / f"{name}.npz", **data, **{f"initial_{key}": value for key,value in initial.items()}, dt=env.dt)
+        physics = ({key: torch.stack([row[key] for row in physics_recorder.rows]).cpu().numpy()
+                    for key in physics_recorder.rows[0]} if physics_recorder is not None else {})
+        np.savez_compressed(out / f"{name}.npz", **data, **{f"initial_{key}": value for key,value in initial.items()},
+                            **{"physics_" + key: value for key,value in physics.items()}, dt=env.dt, physics_dt=env.cfg.sim.dt)
         report["tests"][name] = precision_metrics(data, schedule, env.dt, metadata, initial)
+        if transfer:
+            from robot_gym.scripts.native_reference import spectrum
+            for index, result in enumerate(report["tests"][name]):
+                for phase in result["phases"]:
+                    if not phase["samples"]:
+                        continue
+                    mask = data["valid"][:, index].astype(bool) & (data["phase"][:, index] == phase["phase"])
+                    actions = data["raw_actions"][mask, index]
+                    rates = data["base_ang_vel"][mask, index, :2]
+                    phase["oscillation"] = {
+                        "body_roll_pitch_rate_rms_rad_s": np.sqrt(np.mean(rates**2, axis=0)).tolist(),
+                        "joint_velocity_rms_rad_s": np.sqrt(np.mean(data["dof_vel"][mask, index]**2, axis=0)).tolist(),
+                        "period_two_action_amplitude": np.abs(np.mean((actions-actions.mean(0)) * (-1.)**np.arange(len(actions))[:, None], axis=0)).tolist(),
+                        "action_spectrum": spectrum(actions, 1/env.dt),
+                        "body_spectrum": spectrum(rates, 1/env.dt),
+                        "minimum_actual_clearance_m": float(data["wheel_clearance"][mask, index].min()),
+                    }
+                    velocity = data["base_lin_vel"][mask, index]
+                    angular = data["base_ang_vel"][mask, index]
+                    tail = min(len(velocity), round(2/env.dt))
+                    position = data["base_pos"][mask, index]
+                    phase["final_two_seconds"] = {
+                        "complete": len(velocity) >= round(2/env.dt) and not phase["censored"],
+                        "planar_speed_rms_m_s": float(np.sqrt(np.mean(np.sum(velocity[-tail:,:2]**2,axis=-1)))),
+                        "yaw_rate_rms_rad_s": float(np.sqrt(np.mean(angular[-tail:,2]**2))),
+                        "tracking_rmse_vx_vy_yaw": np.sqrt(np.mean((np.c_[velocity[-tail:,:2], angular[-tail:,2]]-phase["command"])**2,axis=0)).tolist(),
+                    }
+                    phase["last_five_second_drift_m"] = (float(np.linalg.norm(position[-1,:2]-position[-round(5/env.dt)-1,:2]))
+                        if len(position) >= round(5/env.dt)+1 and not phase["censored"] else None)
+                    if physics:
+                        physical_mask = np.repeat(mask, env.cfg.control.decimation)
+                        rates = physics["angular_body"][physical_mask, :2]
+                        phase["oscillation"]["physics_rate"] = {
+                            "frequency_hz": 1/env.cfg.sim.dt,
+                            "body_roll_pitch_rate_rms_rad_s": np.sqrt(np.mean(rates**2,axis=0)).tolist(),
+                            "joint_velocity_rms_rad_s": np.sqrt(np.mean(physics["dq"][physical_mask]**2,axis=0)).tolist(),
+                            "body_spectrum": spectrum(rates,1/env.cfg.sim.dt),
+                            "joint_spectrum": spectrum(physics["dq"][physical_mask],1/env.cfg.sim.dt),
+                        }
         report["wall_clock_s"]["postprocessing"] += perf_counter()-started
         write_json(out / "metrics.json", report)
         print(f"{name}: steps={[r['recorded_steps'] for r in report['tests'][name]]}, failures={[r['failure'] for r in report['tests'][name]]}", flush=True)

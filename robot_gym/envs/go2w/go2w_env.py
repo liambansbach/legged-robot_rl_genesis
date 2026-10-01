@@ -4,11 +4,12 @@ import torch
 from genesis.utils.geom import inv_quat, transform_by_quat
 
 from robot_gym.envs.go2.go2_env import Go2Env
+from .go2w_config import uses_event_steps
 
 
 class Go2WEnv(Go2Env):
     def enable_zero_command_brake(self):
-        if getattr(self.cfg, "go2w_profile", None) in ("step_recovery_v1", "event_step_v1"):
+        if getattr(self.cfg, "go2w_profile", None) == "step_recovery_v1" or uses_event_steps(self.cfg):
             raise ValueError(
                 "Go2-W step recovery requires zero-command braking disabled"
             )
@@ -26,6 +27,8 @@ class Go2WEnv(Go2Env):
         if len(env_ids) == 0:
             return
         super().reset_idx(env_ids)
+        # Installed Genesis 1.4.1 Scene.reset restores state, retaining DOF info
+        # (including build-time armature samples) and link mass/COM/inertia.
         if getattr(self, "wheel_geometry_enabled", getattr(self, "step_recovery", False)):
             self.wheel_clearance[env_ids] = 0
             self.wheel_normal_force[env_ids] = 0
@@ -50,7 +53,7 @@ class Go2WEnv(Go2Env):
         self.step_recovery = (
             getattr(self.cfg, "go2w_profile", None) == "step_recovery_v1"
         )
-        self.event_step = getattr(self.cfg, "go2w_profile", None) == "event_step_v1"
+        self.event_step = uses_event_steps(self.cfg)
         self.wheel_geometry_enabled = self.step_recovery or self.event_step
         if self.event_step:
             self.completed_updates = getattr(self.cfg, "_event_completed_updates", 0)
@@ -114,6 +117,28 @@ class Go2WEnv(Go2Env):
                 from .step_events import WheelStepEvents
                 self.step_events = WheelStepEvents(self.num_envs, self.device,
                                                    self.cfg.rewards.event_step, self.wheel_geometry)
+
+    def _create_envs(self):
+        super()._create_envs()
+        if not hasattr(self.cfg.control, "armature"):
+            return
+        if set(self.cfg.control.armature) != set(self.joint_names):
+            raise ValueError("Explicit armature must map exactly the 16 motor joints")
+        nominal = torch.tensor([self.cfg.control.armature[n] for n in self.joint_names], device=self.device)
+        self.armature_samples = nominal.expand(self.num_envs, -1).clone()
+        if self.cfg.domain_rand.randomize_armature:
+            low, high = self.cfg.domain_rand.armature_range
+            # One leg and one wheel draw per environment, symmetric across left/right.
+            groups = low + (high - low) * torch.rand((self.num_envs, 2), device=self.device)
+            wheels = torch.tensor([n.endswith("_foot_joint")
+                                   for n in self.joint_names], device=self.device)
+            self.armature_samples[:] = torch.where(wheels[None], groups[:, 1:2], groups[:, 0:1])
+        self.robot.set_dofs_armature(self.armature_samples, self.joint_dof_idx)
+        for field in ("stiffness", "damping", "frictionloss"):
+            values = torch.full_like(self.armature_samples, getattr(self.cfg.control, "passive_" + field))
+            getattr(self.robot, "set_dofs_" + field)(values, self.joint_dof_idx)
+        actual = self.robot.get_dofs_armature(self.joint_dof_idx)
+        torch.testing.assert_close(actual, self.armature_samples)
 
     def _update_wheel_support(self, contacts):
         from robot_gym.utils.diagnostics import summed_normal_force

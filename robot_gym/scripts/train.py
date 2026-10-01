@@ -103,6 +103,20 @@ def prepare_go2w_continuation(args, env_cfg, train_cfg):
     }
 
 
+def validate_fresh_transfer(args, train_cfg):
+    """Training-only guard, before any simulator/runner or checkpoint construction."""
+    if getattr(train_cfg, "go2w_profile", None) != "transfer_v1":
+        return
+    forbidden = ("resume", "load_run", "checkpoint", "reference_config", "go2w_finetune",
+                 "sagittal_stance_weight", "event_quality_profile", "transfer_armature", "transfer_delay", "transfer_cases")
+    if any(bool(getattr(args, key, False)) if key == "resume" else getattr(args, key, None) is not None
+           for key in forbidden):
+        raise ValueError("transfer_v1 training is fresh only; omit resume/load/checkpoint/continuation arguments")
+    if (train_cfg.runner.resume or train_cfg.runner.load_run is not None
+            or train_cfg.runner.checkpoint is not None or train_cfg.runner.resume_path is not None):
+        raise ValueError("transfer_v1 training must not inherit checkpoint initialization")
+
+
 def train(args):
     from time import perf_counter
     started = perf_counter()
@@ -119,6 +133,7 @@ def train(args):
 
     env_cfg, train_cfg = task_registry.get_cfgs(args.task)
     update_cfg_from_args(env_cfg, train_cfg, args)
+    validate_fresh_transfer(args, train_cfg)
     if getattr(args, "go2w_finetune", None) and not train_cfg.runner.resume:
         raise ValueError("Go2-W finetune requires explicit full-state --resume")
     if getattr(args, "sagittal_stance_weight", None) is not None and not train_cfg.runner.resume:
@@ -181,7 +196,7 @@ def train(args):
             "initialization": "Matched new seeded simulator; checkpoint does not restore historical simulator/RNG state",
             "iteration_labels": "RSL-RL 5.5.1 starts at saved iter; N additional updates end at saved iter + N - 1",
         }
-        if profile == "event_step_v1":
+        if env.event_step:
             metadata["completed_updates_before"] = env.completed_updates
         write_json(out / "continuation.json", metadata)
         print(
@@ -209,6 +224,21 @@ def train(args):
             "status": "fresh_before_update",
             "iteration_labels": "RSL-RL 5.5.1 fresh label k follows k+1 completed updates",
         }
+        if profile == "transfer_v1":
+            import importlib.metadata
+            import sys
+            import genesis as gs
+            from robot_gym.utils.diagnostics import joint_dynamics
+            from robot_gym.utils.export import transfer_contract
+            genesis_root = Path(gs.__file__).parent
+            metadata["deployment_contract"] = transfer_contract(env)
+            metadata["runtime_readback"] = joint_dynamics(env.robot, env.joint_names)
+            metadata["runtime_armature_min_max_kg_m2"] = [float(env.armature_samples.min()), float(env.armature_samples.max())]
+            metadata["python_executable"] = sys.executable
+            metadata["packages"] = {name: importlib.metadata.version(name) for name in ("genesis-world", "torch", "rsl-rl-lib", "tensordict")}
+            metadata["installed_genesis_source_sha256"] = {name: sha256(genesis_root / name) for name in (
+                "options/morphs.py", "options/solvers.py", "engine/entities/rigid_entity/rigid_entity.py",
+                "engine/solvers/rigid/rigid_solver.py")}
         write_json(out / "preparation.json", metadata)
     completed = False
     learning_started = perf_counter()
@@ -219,7 +249,7 @@ def train(args):
         )
         completed = True
     finally:
-        if profile == "event_step_v1":
+        if getattr(env, "event_step", False):
             from robot_gym.envs.go2w.step_events import lateral_high
             metadata["completed_updates_total"] = env.completed_updates
             metadata["lateral_high"] = lateral_high(env.completed_updates, env.cfg.commands)

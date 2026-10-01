@@ -76,6 +76,8 @@ def check_reference_contract(config_path, env_cfg, train_cfg, finetune_continuat
     important = (
         "env_cfg.go2w_profile",
         "train_cfg.go2w_profile",
+        "env_cfg.go2w_behavior",
+        "train_cfg.go2w_behavior",
         "env_cfg.control.",
         "env_cfg.normalization.",
         "env_cfg.sim.",
@@ -499,7 +501,7 @@ def loaded_properties(env):
     ratios = env.sim.rigid_solver.get_geoms_friction_ratio([g.idx for g in geoms])
     wheel = torch.stack([g.get_friction() for g in geoms])
     ground = env.ground_floor_entity.geoms[0].get_friction()
-    return {
+    result = {
         "mass": robot.get_links_mass().clone(),
         "com_local": robot.get_links_COM().clone(),
         "inertia_local": robot.get_links_inertia().clone(),
@@ -511,6 +513,10 @@ def loaded_properties(env):
         "effective_friction": torch.maximum(ratios * wheel, ground).clamp_min(0.01),
         "friction_rule": "Genesis collider/contact.py: max(wheel geometry friction * ratio, ground geometry friction * ratio, 0.01); ground ratio=1",
     }
+    if getattr(env.cfg, "go2w_profile", None) == "transfer_v1":
+        for field in ("armature", "stiffness", "damping", "frictionloss"):
+            result[field] = getattr(robot, "get_dofs_" + field)(env.joint_dof_idx).clone()
+    return result
 
 
 def joint_dynamics(robot, names):
@@ -524,9 +530,15 @@ def joint_dynamics(robot, names):
     for field in ("armature", "kp", "kv", "stiffness", "damping", "frictionloss"):
         getter = getattr(robot, f"get_dofs_{field}", None)
         sources[field] = f"RigidEntity.get_dofs_{field}" if getter else "unavailable"
-        values[field] = getter(indices).detach().cpu().reshape(-1).tolist() if getter else [None] * len(names)
+        if getter:
+            actual = getter(indices).detach().cpu()
+            values[field] = (actual[0] if actual.ndim == 2 else actual).tolist()
+        else:
+            values[field] = [None] * len(names)
     for field, getter_name in (("force_range", "get_dofs_force_range"), ("position_limit", "get_dofs_limit")):
         lo, hi = getattr(robot, getter_name)(indices)
+        if lo.ndim == 2:
+            lo, hi = lo[0], hi[0]
         values[field] = list(zip(lo.detach().cpu().reshape(-1).tolist(), hi.detach().cpu().reshape(-1).tolist()))
         sources[field] = f"RigidEntity.{getter_name}"
     result = {}
@@ -535,7 +547,7 @@ def joint_dynamics(robot, names):
         row['position_limit'] = [x if np.isfinite(x) else None for x in row['position_limit']]
         row['solver_parameters'] = json_safe(robot.get_joint(name).get_sol_params())
         result[name] = row
-    return {"joints": result, "sources": sources,
+    return {"joints": result, "sources": sources, "environment_index_if_batched": 0,
             "units": {"armature": "kg m^2 (joint-reflected)", "kp": "N m/rad", "kv": "N m s/rad (active)",
                       "stiffness": "N m/rad (passive)", "damping": "N m s/rad (passive)",
                       "frictionloss": "N m", "force_range": "N m", "position_limit": "rad"}}

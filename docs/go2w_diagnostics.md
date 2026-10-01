@@ -1085,3 +1085,200 @@ $Replay = "evaluation/native_reference_replay_$(Get-Date -Format yyyyMMdd_HHmmss
 Omit `--viewer` for headless playback. `--case stand` selects 10 s exact zero;
 `--zero-armature` is restricted to stand and verifies effective zero.
 Default training recipes remain unchanged.
+
+## Fresh measured-model transfer_v1 preparation — 2026-10-01
+
+`--go2w_profile transfer_v1`, experiment `go2w_transfer_v1`, is a **fresh**
+random-initialized locomotion recipe. It reuses P/CK2498's event behavior,
+commands, rewards and PPO design; it never reads its learning state. Training
+rejects resume/load/checkpoint, continuation and inference-dynamics arguments
+before scene/runner construction. No long run, Isaac execution or hardware work
+was performed. Historical bundles, assets and results remain unchanged.
+The checkout started clean on `testing` at `372dd1de5cc8f4cb135b3f475f96de1a38384d58`.
+The read-only Isaac integration branch remains at
+`d33b88309ed88796e255380988c6dce8bbd10514`; its latest report and actual
+`make_articulation_cfg()` were inspected.
+
+The resolved recipe is:
+
+Changed paths stay focused: `go2w_config.py` selects/validates the measured recipe;
+`go2w_env.py` maps motor dynamics and shares event behavior; base `legged_robot.py`
+passes explicit import/integrator intent and scales mass/inertia through the public
+API. `step_events.py`/`task_registry.py` share existing update/std/serialization
+hooks; `helpers.py`/`train.py` add fresh-only guards and readback. Existing `play.py`,
+`evaluate.py`, `diagnostic_bank.py`, `export.py` and `diagnostics.py` supply explicit
+inference settings, bounded panels and nominal-versus-runtime metadata.
+`tests/test_go2w_transfer.py` and this section provide focused checks/handoff.
+
+| Item | transfer_v1 |
+|---|---|
+| Actor / Critic / actions | **56 / 56 / 16**, both consume `policy`; no privileged observations, estimator or estimator history |
+| Networks | Separate MLPs and fresh observation normalizers; `[512,256,128]`, ELU |
+| Gaussian | Log std, initial .40, projection [.10,.70], learned std; entropy .003 |
+| PPO | Initial LR 3e-4, adaptive KL .01, gamma .995, lambda .95, clip .2; value coefficient 1, clipped value loss, 5 epochs, 8 minibatches, gradient bound 1; existing sagittal augmentation |
+| Run | Seed 1, 4096 environments, 64 rollout steps/environment, 2000 updates, save every 100 |
+| Command/reward behavior | P's complete mixture, 3–6 s long stands, 8–15 s long moving segments, command-gated discrete events; stance weight 2, x/y tracking denominators .25/.04, event weight .15; ordinary rewards retain dt scaling |
+| Plant | Measured `go2w_measured_ed8dc93.urdf`, SHA-256 `d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c`, navigation source `ed8dc93b3065a8e2a3a5919f032ed4690529117c` |
+| Armature | Nominal .01 kg m² at each of 16 mapped motor joints; training uniform [.005,.02], independent leg/wheel group draws per environment, left/right symmetric, constant across episodes; floating base excluded |
+| Actuation | Leg Kp/Kd 40/1, wheel Kp/Kv 0/1; passive stiffness/damping/frictionloss zero; existing 23.7/35.55 Nm efforts and speed semantics; leg action scales .30/.35/.40 rad, wheel 18 rad/s; issued actions clipped ±1 |
+| Timing | Policy .02 s, physics .005 s, decimation 4, one internal substep; effective `approximate_implicitfast`, Newton, 50 iterations/50 line-search iterations; targets held across physics steps |
+| Randomization | P's friction [.6,1.2], gains [.85,1.15], base mass delta [−.5,1.5] kg, separate COM shift ±.015 m, reset noise and pushes retained; action delay 0–2 policy steps = 0–40 ms |
+
+The measured file/resources, joint order and geometry are verified before building.
+Wheel radius/contact-height metadata now follows its .09167 m cylinders; the
+existing oriented-cylinder helper supplies event/evaluation clearance. Authored
+total mass is 19.68371 kg. Nominal-pose FK requires base heights .437519 m front,
+.439338 m rear; spawn .45 m leaves 10.66–12.48 mm clearance. Fixed-target loaded
+height is .4112–.4114 m, so the **.415 m reward reference and nominal angles remain**.
+Merged base mass 7.083710 kg, COM approximately
+`[.0280210, −.000002483, −.00278850]` m and principal inertias
+`[.12175738, .11458107, .02654729]` kg m² match the retained measured reference.
+Sensor/mount mass is already included. Base-mass uncertainty calls the installed
+**public** `RigidSolver.set_links_mass(..., scale_inertia=True)` once relative to
+the unchanged nominal body; the entity setter alone does not scale inertia.
+Native readback verifies proportional scaling and reset persistence. This is a
+constant-shape uncertainty approximation; independent COM shifts are also an
+uncertainty approximation. Neither reconstructs payload geometry.
+
+Armature .01 is a development preset motivated by the inherited joint defaults
+in [Unitree's Go2-W MuJoCo model](https://github.com/unitreerobotics/unitree_mujoco/blob/main/unitree_robots/go2w/go2w.xml).
+Its damping/frictionloss and different calf effort are **not imported**. The
+randomization range, zero passive terms, sensor/tire approximations and latency
+range are not measured hardware identification. The old Actor's .1→0 comparison
+established sensitivity, not that .01 fails. The rejected PhysX 40/2 diagnostic is
+not a new default. No gain search or timestep change was needed here.
+
+The observation construction, noise, scaling, clipping, action history and
+symmetry code remain unchanged. Slices are `0:3` linear velocity, `3:6` angular
+velocity, `6:9` gravity, `9:12` commands, `12:24` leg pose error, `24:40` all joint
+velocities and `40:56` previous **issued clipped** action. Simulator-derived
+linear velocity refers to the authored base-link origin in body axes at the
+current policy boundary: installed `get_vel(relative=True)` already performs
+origin transport in world axes, then the environment rotates it into body axes.
+No second COM transport is applied. Both networks receive the same noisy tensor;
+training velocity noise remains .05 m/s. Export still embeds only the Actor's own
+normalizer once and produces deterministic `[N,56] → [N,16]` output. New metadata
+records nominal dynamics separately from training ranges and actual environment-0
+readback; a random training armature never becomes deployment nominal.
+
+Raw preparation evidence is in ignored `evaluation/transfer_v1_preparation_20261001/`.
+`preparation_summary.json` is the compact resolved recipe/results handoff. The
+unchanged publication checker and original-snapshot CPU Actor parity passed with
+zero CPU error; P's bundle and both retained reference assets remain byte-exact.
+The plant probe used three isolated environments at .01/.005/.02 kg m², fixed
+nominal targets for 5 s, +.01 rad thigh targets for 1 s, then nominal for 3 s.
+All 16 armatures, active/passive terms, floating-base exclusion and selective reset
+passed. Final planar RMS .004514–.004520 m/s, joint dq RMS .006487–.006516 rad/s,
+body roll/pitch-rate RMS .001553–.001561 rad/s, support 193.079 N; minimum finite
+cylinder envelope clearance about −1.02 mm. No fall/nonfinite state occurred.
+`plant.npz` contains bounded 200 Hz states, and `plant.json` contains readback.
+The fresh 64-environment/two-update smoke had 128 rollout steps, 80 optimizer steps,
+finite losses/parameters, fresh separate normalizers, empty initial optimizer,
+zero initial iteration/curriculum, bounded symmetric armatures and proportional
+mass/inertia. Serialization/reload was inference-only. Export parity on 160 new
+observations, including actual initial and selective-post-reset observations,
+had maximum error **1.073e-6**. This is wiring evidence, not locomotion training.
+Its explicitly selected checkpoint is
+`logs/go2w_transfer_v1_smoke/transfer_v1_smoke_seed1_20261001_2026-10-01_23-27-24/model_1.pt`;
+**never use it as a training parent**. `smoke.json`, TensorBoard, preparation and
+manifest files retain details. Relevant CPU regressions, syntax/lint and whitespace
+checks are recorded alongside the native process logs. Final CPU run: **91 passed,
+two unrelated opt-in GPU checks skipped** (93 discovered). Installed Python
+3.11.14, Genesis 1.4.1, Torch 2.9.0+cu130, RSL-RL 5.5.1 and Tensordict .10.0;
+the four recorded installed Genesis source hashes still match the frozen-reference
+audit. Three native processes used **511.827 s** total, with no long training.
+The final evaluator wiring check explicitly loaded smoke CK1 at armature .005 and
+delay 2, verified reset persistence, and captured first failures at **4.08 s stand
+and 4.20 s forward**. States stayed finite, with no timeout/nonwheel ground
+contact; later intervals were censored. Its 200 Hz traces contain 816/840 rows.
+These are failures of an untrained smoke Actor, not evidence of learned standing,
+transfer success, or a reason to initialize the real run from this checkpoint.
+
+From the repository root, the following owner-controlled command prepares the
+verified existing environment and starts the **real fresh run**. It was not executed:
+
+```powershell
+$go2wPrefixes = @((conda env list --json | ConvertFrom-Json).envs | Where-Object { (Split-Path $_ -Leaf) -eq 'genesis-gpu' })
+if ($go2wPrefixes.Count -ne 1) { throw 'Expected the verified existing genesis-gpu environment' }
+$Python = Join-Path $go2wPrefixes[0] 'python.exe'
+$env:NUMBA_CACHE_DIR = "$PWD/.migration-audit/diagnostics-20260925/numba-cache"
+$env:GS_CACHE_FILE_PATH = "$env:TEMP/go2w-diagnostics-genesis"
+$env:QD_OFFLINE_CACHE_FILE_PATH = "$env:TEMP/go2w-diagnostics-quadrants"
+$env:PYTHONIOENCODING = 'utf-8'
+$RunName = "transfer_v1_seed1_$(Get-Date -Format yyyyMMdd_HHmmss)"
+& $Python -m robot_gym.scripts.train --task go2w --go2w_profile transfer_v1 --experiment_name go2w_transfer_v1 --run_name $RunName --num_envs 4096 --max_iterations 2000 --seed 1 --logger tensorboard --training_diagnostics --rl_device cuda:0 --headless
+```
+
+The **smoke** used the same training CLI through `tests.test_go2w_transfer.TransferSmoke`,
+with `--num_envs 64 --max_iterations 2 --experiment_name go2w_transfer_v1_smoke`;
+it additionally verifies serialization, resets and export. This differs from the
+owner's continuous 2000-update run. Existing lightweight JSONL diagnostics retain
+deterministic versus sampled clipping, physical target slew, motion, Gaussian/KL
+and unclamped/clamped reward evidence; no full high-rate training recorder exists.
+
+Review saved checkpoints around labels **300–500** by inference while the same
+continuous run proceeds under owner control. Fresh label k follows k+1 completed
+updates. The lateral-tail curriculum starts near update 500 and reaches the final
+range near 1500; an early screen cannot establish full lateral capability. There
+is no automatic stop/resume, finetuning or checkpoint initialization stage.
+After the run directory exists, use the same unique `$RunName` from above (or its
+exact printed run directory); the following selector refuses multiple matches:
+
+```powershell
+$RunMatches = @(Get-ChildItem 'logs/go2w_transfer_v1' -Directory | Where-Object { $_.Name -like "${RunName}_*" })
+if ($RunMatches.Count -ne 1) { throw 'Select the exact printed training run directory' }
+$Run = $RunMatches[0].FullName
+$Review = "evaluation/transfer_v1_ck300_$(Get-Date -Format yyyyMMdd_HHmmss)"
+& $Python -m robot_gym.scripts.evaluate --task go2w --go2w_profile transfer_v1 --experiment_name go2w_transfer_v1 --load_run $Run --checkpoint 300 --eval_mode transfer_screen --transfer_armature nominal --transfer_delay 0 --num_envs 1 --seed 1 --rl_device cuda:0 --headless --diagnostic_trace --output "${Review}_nominal"
+# Single-factor checks; no Cartesian sweep:
+& $Python -m robot_gym.scripts.evaluate --task go2w --go2w_profile transfer_v1 --experiment_name go2w_transfer_v1 --load_run $Run --checkpoint 300 --eval_mode transfer_screen --transfer_cases stand forward --transfer_armature low --transfer_delay 0 --num_envs 1 --seed 1 --headless --diagnostic_trace --output "${Review}_armature_low"
+```
+
+For the remaining small sensitivity panel, explicitly select `high` with delay 0,
+then `nominal` with delay 1 or 2, using fresh distinct outputs and only `stand forward`.
+The nominal panel contains exact stand, forward/start/stop, reverse, both yaw and
+lateral signs and a mixed command; each case has a fresh reset and is at most 14 s.
+It retains first terminal rows and censors incomplete intervals. Reports include
+finite/fall/nonwheel contact, axis tracking errors, final-two-second residual
+speed/yaw RMS, five-second drift, post-stop displacement, posture, actual cylinder
+clearance, deterministic clipping, target slew and period-two action amplitude.
+`--diagnostic_trace` reuses the existing bounded 200 Hz recorder for physical
+amplitudes/spectra as well as 50 Hz Actor traces; spectra alone are not a stand test.
+Deterministic evaluation disables noise/randomization and selects explicit nominal
+or endpoint armature. Ordinary play/export uses the same exact run/checkpoint
+selection through `robot_gym.scripts.play`; its existing export machinery writes
+the new bundle, never P's historical package.
+
+**Receiving Isaac handoff.** Its current locomotion `asset.py:make_articulation_cfg()`
+explicitly sets `armature=0.0`; URDF/USD replacement alone cannot remove that
+override. Apply/read back the new bundle's .01 kg m² motor mapping, nominal
+40/1 legs and 0/1 wheels, zero passive assumptions, unchanged efforts, mixed
+targets, timing and scales. Reuse the existing 56-input/16-output controller and
+the **new Actor's embedded normalizer**; verify joint/frame mapping, current
+base-link-origin velocity, issued-action/reset history and bundle identities.
+Retain the measured embodiment, official Plane, verified principal-inertia import
+workaround and authored pre-warmup Joint State. Actuator API gains are SI; raw USD
+angular drives use different units, so do not add degree conversion at the API or
+to armature. Equal scalar parameters do not imply equal Genesis/PhysX integration.
+Keep P and its integration evidence intact. This requires one new-bundle/dynamics
+adaptation, not a second player, 53-input adapter or navigation rewrite. The next
+transfer and simulation-navigation work continues using simulator velocity.
+
+**Future estimator, documentation only.** The pinned
+[basic-locomotion reference](https://github.com/iit-DLSLab/basic-locomotion-isaaclab/blob/a75a480b9ae6a21fbe1ab7f65d0665dbbcccf70c/source/basic_locomotion_isaaclab/basic_locomotion_isaaclab/tasks/custom_observations.py)
+uses supervised sensor/action histories and eventually substitutes predictions;
+its Go2 option is disabled by default, with five frames and a TCN option. A later
+Go2-W estimator can supply only entries 0:3 before existing scaling/clipping and
+embedded normalization. Keep Actor width 56; 53 non-velocity features per frame
+do not define a 53-input Actor. Use causal histories for all 16 joints/continuous
+wheels and issued actions, advancing once per policy tick with isolated episode
+resets. True velocity is target/reference only; no true-position shortcut, future
+sample or command-as-label. Estimate the same physical origin. Any estimator-only
+IMU acceleration needs explicit gravity/frame/offset/timing conventions. First
+evaluate supervised/shadow errors, then truth-driven versus estimate-driven
+closed-loop stand/stop drift, bias, latency, slip and disturbance response. Low
+average MSE does not establish substitution compatibility; separately authorized
+estimator-aware policy training may be necessary. Do not copy the reference's
+`common_step_counter / 24` clock or fixed update assumptions into this 64-step run.
+There is no executable estimator, estimator checkpoint or online learning here,
+and simulator-navigation results using truth must be described accordingly.

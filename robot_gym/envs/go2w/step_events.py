@@ -186,8 +186,8 @@ def install_event_training(runner, env):
         from pathlib import Path
         import yaml
         cfg = yaml.safe_load(Path(path).with_name("config.yaml").read_text())
-        if any(cfg[k].get("go2w_profile") != "event_step_v1" for k in ("env_cfg", "train_cfg")):
-            raise ValueError("event_step_v1 rejects historical checkpoints")
+        if any(cfg[k].get("go2w_profile") != env.cfg.go2w_profile for k in ("env_cfg", "train_cfg")):
+            raise ValueError(f"{env.cfg.go2w_profile} rejects historical checkpoints")
         # Check metadata before native loading can change any learning state.
         checkpoint = torch.load(path, map_location="cpu", weights_only=False)
         progress = (checkpoint.get("infos") or {}).get("event_step_v1")

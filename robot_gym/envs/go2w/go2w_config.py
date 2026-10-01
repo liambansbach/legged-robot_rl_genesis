@@ -26,6 +26,41 @@ WHEEL_JOINTS = [
 ]
 
 
+MEASURED_URDF = "go2w_measured_ed8dc93.urdf"
+MEASURED_SHA256 = "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c"
+
+
+def uses_event_steps(cfg):
+    """Explicit shared behavior, including the unchanged legacy event profile."""
+    return getattr(cfg, "go2w_behavior", getattr(cfg, "go2w_profile", None)) == "event_step_v1"
+
+
+def verify_measured_asset():
+    """Fail before simulation if the retained deployment identity/resources changed."""
+    import hashlib
+    import xml.etree.ElementTree as ET
+    from robot_gym.utils.urdf_reader import URDFReader
+
+    reader = URDFReader(MEASURED_URDF)
+    path = reader.robot_file_path_absolute
+    if hashlib.sha256(path.read_bytes()).hexdigest() != MEASURED_SHA256:
+        raise ValueError("transfer_v1 measured URDF identity mismatch")
+    expected = [f"{side}_{joint}_joint" for side in ("FL", "FR", "RL", "RR")
+                for joint in ("hip", "thigh", "calf", "foot")]
+    if reader.joint_names != expected:
+        raise ValueError("transfer_v1 requires the existing 16-joint order")
+    root = ET.parse(path).getroot()
+    for mesh in root.findall(".//mesh"):
+        resource = path.parent / mesh.get("filename")
+        if not resource.is_file() or resource.name not in [p.name for p in resource.parent.iterdir()]:
+            raise ValueError(f"Missing or case-mismatched mesh: {resource}")
+    radii = [float(root.find(f"link[@name='{side}_foot']/collision/geometry/cylinder").get("radius"))
+             for side in ("FL", "FR", "RL", "RR")]
+    if any(abs(r - 0.09167) > 1e-9 for r in radii):
+        raise ValueError("Unexpected measured wheel geometry")
+    return radii[0]
+
+
 FINETUNE_COMMANDS = {
     "mixed_zero_yaw_probability": 0.50,
     "moving_long_probability": 0.05,
@@ -87,6 +122,43 @@ def apply_go2w_event_quality(env_cfg, name):
 
 def apply_go2w_profile(env_cfg, train_cfg, name):
     """One explicit candidate; never mutate the registered config or its dictionaries."""
+    if name == "transfer_v1":
+        # Reuse selected P behavior; operational continuation state is never copied.
+        new_env = env_cfg if env_cfg is not None and getattr(env_cfg, "go2w_profile", None) != name else None
+        new_train = train_cfg if train_cfg is not None and getattr(train_cfg, "go2w_profile", None) != name else None
+        apply_go2w_profile(new_env, new_train, "event_step_v1")
+        if new_env is not None:
+            new_env.go2w_profile = name
+            new_env.go2w_behavior = "event_step_v1"
+            new_env.rewards.sagittal_stance_weight = 2.0
+            new_env.asset.robot_file = MEASURED_URDF
+            new_env.asset.sha256 = MEASURED_SHA256
+            new_env.asset.source_commit = "ed8dc93b3065a8e2a3a5919f032ed4690529117c"
+            new_env.asset.contact_height = verify_measured_asset()
+            new_env.asset.default_armature = 0.01
+            new_env.control.armature = {joint: 0.01 for joint in LEG_JOINTS + WHEEL_JOINTS}
+            new_env.control.passive_stiffness = 0.0
+            new_env.control.passive_damping = 0.0
+            new_env.control.passive_frictionloss = 0.0
+            new_env.domain_rand.randomize_armature = True
+            new_env.domain_rand.armature_range = [0.005, 0.02]
+            new_env.domain_rand.scale_base_inertia_with_mass = True
+            new_env.sim.batch_dofs_info = new_env.sim.batch_links_info = True
+            new_env.sim.integrator = "approximate_implicitfast"
+            check_target_intervals(new_env)
+        if new_train is not None:
+            new_train.go2w_profile = name
+            new_train.go2w_behavior = "event_step_v1"
+            new_train.runner.experiment_name = "go2w_transfer_v1"
+            new_train.runner.max_iterations = 2000
+            new_train.runner.save_interval = 100
+            new_train.runner.logger = "tensorboard"
+            new_train.runner.resume = False
+            new_train.runner.load_run = None
+            new_train.runner.checkpoint = None
+            new_train.runner.resume_path = None
+            new_train.runner.run_name = "transfer_v1_seed1"
+        return
     if name == "event_step_v1":
         if env_cfg is not None and getattr(env_cfg, "go2w_profile", None) != name:
             env_cfg.go2w_profile = name

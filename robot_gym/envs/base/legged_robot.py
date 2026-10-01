@@ -368,6 +368,10 @@ class LeggedRobot(BaseTask):
     def _create_genesis_scene(self):
         """ Initializes the genesis scene with the provided configuration"""
 
+        rigid_overrides = {}
+        if hasattr(self.cfg.sim, "integrator"):
+            rigid_overrides["integrator"] = getattr(gs.integrator, self.cfg.sim.integrator)
+
         self.sim: Scene = Scene(
             show_viewer=not self.headless,
             sim_options=gs.options.SimOptions(
@@ -382,6 +386,7 @@ class LeggedRobot(BaseTask):
                 camera_fov=self.cfg.viewer.fov,
             ),
             rigid_options=gs.options.RigidOptions(
+                **rigid_overrides,
                 constraint_solver=gs.constraint_solver.Newton,
                 iterations=self.cfg.sim.iterations,
                 ls_iterations=self.cfg.sim.ls_iterations,
@@ -910,6 +915,8 @@ class LeggedRobot(BaseTask):
                     # important for foot collision links connected via fixed joints
                     merge_fixed_links=self.cfg.asset.merge_fixed_links,
                     links_to_keep=list(links_to_keep),
+                    **({"default_armature": self.cfg.asset.default_armature}
+                       if hasattr(self.cfg.asset, "default_armature") else {}),
                 ),
                 material=gs.materials.Rigid(friction=1.0,
                     friction_rolling=self.cfg.sim.friction_rolling,
@@ -1149,7 +1156,14 @@ class LeggedRobot(BaseTask):
             self.friction_coefficients = torch.ones((self.num_envs, 1), device=self.device)
         if dr.randomize_base_mass:
             nominal = self.robot.get_links_mass(base)
-            self.robot.set_links_mass(nominal + gs_rand_float(*dr.added_mass_range, (self.num_envs, 1), self.device), base)
+            target = nominal + gs_rand_float(*dr.added_mass_range, (self.num_envs, 1), self.device)
+            if getattr(dr, "scale_base_inertia_with_mass", False):
+                # Public solver API; entity.set_links_mass leaves inertia unchanged.
+                self.nominal_base_mass = nominal.clone()
+                self.nominal_base_inertia = self.robot.get_links_inertia(base).clone()
+                self.robot.solver.set_links_mass(target, [self.robot.base_link.idx], scale_inertia=True)
+            else:
+                self.robot.set_links_mass(target, base)
         if dr.randomize_com:
             nominal = self.robot.get_links_COM(base)
             self.robot.set_links_COM(nominal + gs_rand_float(*dr.com_shift_range, (self.num_envs, 1, 3), self.device), base)
@@ -1162,6 +1176,7 @@ class LeggedRobot(BaseTask):
         needs_dof_batching = (
             dr.randomize_kp
             or dr.randomize_kd
+            or getattr(dr, "randomize_armature", False)
         )
 
         needs_link_batching = dr.randomize_base_mass or dr.randomize_com
