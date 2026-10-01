@@ -5,3 +5,8 @@ ressources/pretrained/go2w/parity_samples.npz -text
 ressources/pretrained/go2w/*.json text eol=lf
 ressources/pretrained/go2w/*.py text eol=lf
 ressources/pretrained/go2w/README.md text eol=lf
+# Immutable diagnostic snapshots and portable native reference evidence.
+ressources/robots/go2w/urdf/go2w_reference_original.urdf text eol=lf whitespace=-blank-at-eol
+ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf text eol=lf whitespace=-blank-at-eol
+docs/go2w_native_reference.json text eol=lf
+docs/go2w_native_reference_traces.npz -text

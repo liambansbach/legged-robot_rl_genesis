@@ -942,6 +942,12 @@ class LeggedRobot(BaseTask):
         # build genesis scene after adding all entities. -> Must be done before acquiring any tensor (e.g. forces, states, etc.)
         self.sim.build(n_envs=self.cfg.env.num_envs)
 
+        if getattr(self.cfg.env, "capture_joint_dynamics", False):
+            from robot_gym.utils.diagnostics import joint_dynamics
+            self.joint_dynamics_after_build = joint_dynamics(
+                self.robot, self.urdf_reader.joint_names
+            )
+
         # randomize rigid body properties -> Domain randomization
         self._randomize_rigid_body_properties()
         

@@ -1,0 +1,5411 @@
+{
+  "schema": "go2w_windows_genesis_reference_v1",
+  "date": "2026-10-01",
+  "candidate": "P / CK2498, event_step_v1",
+  "status": "Frozen native reference completed; matched PhysX armature trial pending",
+  "workspace_before_changes": {
+    "repository": "liambansbach/legged-robot_rl_genesis",
+    "remote": "https://github.com/liambansbach/legged-robot_rl_genesis.git",
+    "branch": "testing",
+    "HEAD": "c2c2febed2fc4aea20d874876091a3377f2e9ed2",
+    "upstream": "origin/testing",
+    "ahead": 0,
+    "behind": 0,
+    "staged": [],
+    "unstaged": [],
+    "untracked": [],
+    "instructions": "No applicable AGENTS.md found",
+    "remote_SHA_verified_before_push": "c2c2febed2fc4aea20d874876091a3377f2e9ed2"
+  },
+  "source_identity": {
+    "training_commit": "adc612d67a09c52f967c4b91b8642fdce9208298",
+    "publication_commit": "0ca8d747a94341ed94d59075c2899c5348de688a",
+    "final_source_file_sha256": {
+      "robot_gym/scripts/native_reference.py": "d91f8a799af6866542d1f531030fea2a97b6278d12f66ff4f302e6d59b0e66a3",
+      "robot_gym/utils/urdf_reader.py": "d300c674a696a7de400882429b5c30f51d957ef1b3ea4545e1d905ae5f3825f7",
+      "robot_gym/utils/diagnostics.py": "1a8daabb336b02194e4ddf23fc156b2af4a291604e8951cda962afce0169080d",
+      "robot_gym/envs/base/legged_robot.py": "f656ee6117a6b33623634f13b7da9bd3478397dc29073d8d331f82eacedf7a53",
+      "robot_gym/envs/base/base_task.py": "5a6e393f57615d5e7347a0e3fa63d068d74c2476212600994f45e58e9e447bba",
+      "robot_gym/envs/go2w/go2w_env.py": "dbe3231720f396fec1d01d2a965aab6c613614c57bf33c144e42b91c68171291",
+      "robot_gym/envs/go2w/go2w_config.py": "eb4a254e1a8bc129be2c627508607f082a95152cd07042ea7cbc5d0b61ef6fdc",
+      "robot_gym/utils/task_registry.py": "14bd91da27fe025c25df91e6c3a7786bd73b4285fb3b4b0acb6da56227424f49",
+      "tests/test_native_reference.py": "2a08dd8712eb8b5012116962f5ea61e7c7048239ecfd3c9bb9490f637872f1c5"
+    },
+    "receiving_inference_diff": "Observation, action ordering, controls, reset and import construction unchanged since training. New optional event quality affects unused reward logic only. Explicit-path and opt-in read-only dynamics hooks are this task's additions.",
+    "capture_revision_note": "A/B precede inertial-frame annotation and incomplete-interval guards; state/target capture is identical. Metrics for all five cases recomputed offline from unmodified traces with final metric definitions.",
+    "historical_limit": "Current effective readback and installed source hashes do not establish byte identity of the unrecorded historical Genesis installation.",
+    "final_source_file_sha256_lf": {
+      "robot_gym/scripts/native_reference.py": "d91f8a799af6866542d1f531030fea2a97b6278d12f66ff4f302e6d59b0e66a3",
+      "robot_gym/utils/urdf_reader.py": "cf49ea755f3c42c5e7585e6831ace644425f7286b3967651ec40c39665feba19",
+      "robot_gym/utils/diagnostics.py": "1a8daabb336b02194e4ddf23fc156b2af4a291604e8951cda962afce0169080d",
+      "robot_gym/envs/base/legged_robot.py": "fbc7f413d26eaab33c0dd856cd58c3caf4d9d8a0bc6e283c18453e12beb8f70c",
+      "robot_gym/envs/base/base_task.py": "8fa3f07cea255e036bf5d9422e42bf5f3a43027c336dc24868e3a98b8fb6ce14",
+      "robot_gym/envs/go2w/go2w_env.py": "6ffdc8136647a0b08753605bb14ed653a01c55ab7c74ac9c05e7ca406f05a30e",
+      "robot_gym/envs/go2w/go2w_config.py": "2fc9b7c325573a9c71f161cdfdb44fc25597d013316185b36d1a7094d5929a8a",
+      "robot_gym/utils/task_registry.py": "f47e106c4eb3b169344d6c5a0b3a5e878549931ff609ff83098e4b1dc389be09",
+      "tests/test_native_reference.py": "2a08dd8712eb8b5012116962f5ea61e7c7048239ecfd3c9bb9490f637872f1c5"
+    },
+    "source_hash_modes": "final_source_file_sha256 uses actual Windows bytes; final_source_file_sha256_lf permits only CRLF-to-LF equivalence for repository Python source. Installed Genesis source hashes use exact installed bytes."
+  },
+  "Actor": {
+    "path": "ressources/pretrained/go2w/policy.pt",
+    "sha256": "cb8454470921a5a44e8a5914a0a2dd301886ff9b7e7b6ef1dffdf5c6b661a35c",
+    "checkpoint_sha256": "4de494271a999c33ca6a8a06913b1facb92eede58c92d7297762671b2b1080e8",
+    "published_payload_sha256": {
+      "policy.pt": "cb8454470921a5a44e8a5914a0a2dd301886ff9b7e7b6ef1dffdf5c6b661a35c",
+      "contract.json": "c0cd7184eab2a97eda129f11502bebde995e520b1ed5958495812af3901b1433",
+      "config.yaml": "340a8998d3015b810c46e4d808cfb173837d20aa2a2e1028a6004e198b8ff25d",
+      "parity_samples.npz": "372b52533f1900de7247b7bf12330311c3ccf15f2af82e0d10868de50f30990c"
+    },
+    "CPU_parity": {
+      "cpu_max_error": 0.0,
+      "gpu_recorded_max_error": 4.172325134277344e-07,
+      "publication_checker": "unchanged check_files/check_interface; original snapshot root; no hash rewrite"
+    },
+    "normalization": "Embedded once in Actor; no external normalization",
+    "frozen_state_verified": true,
+    "no_export_or_training": true
+  },
+  "runtime": {
+    "python_executable": "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\python.exe",
+    "versions": {
+      "python": "3.11.14",
+      "torch": "2.9.0+cu130",
+      "genesis-world": "1.4.1",
+      "rsl-rl-lib": "5.5.1",
+      "tensordict": "0.10.0",
+      "numpy": "2.2.6",
+      "scipy": "1.16.2",
+      "quadrants": "1.3.0",
+      "trimesh": "4.9.0",
+      "pyglet": "2.1.9"
+    },
+    "imports": {
+      "torch": "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\torch\\__init__.py",
+      "genesis": "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\genesis\\__init__.py",
+      "rsl_rl": "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\rsl_rl\\__init__.py",
+      "tensordict": "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\tensordict\\__init__.py",
+      "numpy": "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\numpy\\__init__.py"
+    },
+    "installed_genesis_source_sha256": {
+      "__init__.py": "2b2377b688c65fded39275aa769d3b8d35810cd1dea89ec3c9f2ea3d757c0f4f",
+      "options/morphs.py": "a9bd5c7a2ed6dbea62cdf3e2c4c2f71c250328b69bb089f05991f83f546340fa",
+      "options/solvers.py": "2f349b323f4fb475aa0d103489af2b98930a2fc4952ee94c832350bfec1285e3",
+      "utils/urdf.py": "704137e4d29f6b15b9a536306882960e700af46b2b7f20f16123042eaa2b9d40",
+      "engine/entities/rigid_entity/description.py": "9780ad1208894a406160f8add875f7356acc712a8e002f1bda6a99d642aa8c17",
+      "engine/entities/rigid_entity/rigid_entity.py": "502d57543738219520b26eecbd4117862d15ca425fc0060ea3f6a5bcd7c5f5a8",
+      "engine/solvers/rigid/rigid_solver.py": "f0ba284f93d295e5659f614acbec7a022aed02b3b0fea56382fb3333f0bb8c92"
+    },
+    "matches_recorded_training_versions": true,
+    "settings": {
+      "resolved_rigid_options": "dt=0.005 gravity=(0.0, 0.0, -9.81) enable_collision=True enable_joint_limit=True enable_self_collision=True enable_neutral_collision=False enable_adjacent_collision=False disable_constraint=False max_collision_pairs=150 max_contacts=750 multiplier_collision_broad_phase=8 integrator=<gs.integrator.approximate_implicitfast: 2> IK_max_targets=6 batch_links_info=True batch_joints_info=False batch_dofs_info=True constraint_solver=<gs.constraint_solver.Newton: 1> iterations=50 tolerance=1.0000000000000002e-06 ls_iterations=50 ls_tolerance=0.01 noslip_iterations=0 noslip_tolerance=1e-06 friction_cone=<gs.friction_cone.pyramidal: 0> contact_resolution=<gs.contact_resolution.convex: 0> enable_torsional_friction=False enable_rolling_friction=False impratio=1.0 contact_pruning_tolerance=0.02 sparse_solve=None constraint_timeconst=0.01 box_box_detection=False use_hibernation=False hibernation_thresh_vel=None max_dynamic_constraints=8 enable_multi_contact=True enable_mujoco_compatibility=False use_gjk_collision=False enable_contact_patch=False broadphase_traversal=None",
+      "integrator": "2",
+      "physics_dt_s": 0.005,
+      "internal_substeps": 1,
+      "policy_dt_s": 0.02,
+      "decimation": 4,
+      "action_delay_ticks": [
+        0
+      ],
+      "normal_play_overrides": {
+        "performance_mode": false,
+        "deterministic": true
+      },
+      "this_run_retains_saved_performance_mode": true,
+      "this_run_retains_saved_deterministic": false,
+      "resolved_integrator_name": "approximate_implicitfast"
+    },
+    "read_only_internal_fields": [
+      "RigidSolver._options",
+      "RigidSolver._integrator",
+      "RigidLink.desc.inertial_quat"
+    ],
+    "version_match_scope": "Recorded Python, Torch, Genesis and RSL-RL match. Quadrants and other auxiliary historical versions were not recorded, so historical identity remains unverified."
+  },
+  "assets": {
+    "original": {
+      "repository": "liambansbach/legged-robot_rl_genesis",
+      "source_commit": "0ca8d747a94341ed94d59075c2899c5348de688a",
+      "source_path": "ressources/robots/go2w/urdf/go2w_description.urdf",
+      "snapshot_path": "ressources/robots/go2w/urdf/go2w_reference_original.urdf",
+      "snapshot_sha256": "495401f076d408858f322dd5227f3166be4fd63e65b8bc648fcbdeffd4c98d44",
+      "bytes": 37419,
+      "newline": "LF; original equals published Git blob; historical training checkout was CRLF",
+      "git_blob_sha1": "c8be5177ef789ba9403c55c17a9ed037c538188c",
+      "total_robot_mass_kg": 19.52299952507019,
+      "merged_base": {
+        "mass": [
+          6.922999858856201
+        ],
+        "com_local": [
+          [
+            0.021189391613006592,
+            0.0,
+            -0.005371672101318836
+          ]
+        ],
+        "inertia_local": [
+          [
+            [
+              0.10718986392021179,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.09824305027723312,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.024475162848830223
+            ]
+          ]
+        ],
+        "inertial_frame_quat_wxyz": [
+          -0.0005444119451567531,
+          0.7134702205657959,
+          -0.0017364840023219585,
+          0.7006831765174866
+        ],
+        "inertia_about_COM_in_base_frame_kg_m2": [
+          [
+            0.024502418480402098,
+            0.00012166000658387885,
+            0.0014956457997258
+          ],
+          [
+            0.00012166000658387885,
+            0.09824294179789506,
+            -3.119989696596527e-05
+          ],
+          [
+            0.0014956457997258,
+            -3.119989696596523e-05,
+            0.10716271676797802
+          ]
+        ],
+        "frame_source": "RigidLink.desc.inertial_quat, fed into installed RigidSolver._init_link_fields; fixed during this no-DR run",
+        "inertia_local_frame": "Genesis inertial principal frame"
+      },
+      "contact_properties": {
+        "wheel_friction_ratio": [
+          [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        ],
+        "wheel_geometry_friction": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "ground_geometry_friction": 0.10000000149011612,
+        "effective_friction": [
+          [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        ],
+        "friction_rule": "Genesis collider/contact.py: max(wheel geometry friction * ratio, ground geometry friction * ratio, 0.01); ground ratio=1"
+      },
+      "effective_after_build": {
+        "joints": {
+          "FL_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FL_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.5707963705062866,
+              3.4907000064849854
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FL_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FL_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.5707963705062866,
+              3.4907000064849854
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -0.5235999822616577,
+              4.537899971008301
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -0.5235999822616577,
+              4.537899971008301
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          }
+        },
+        "sources": {
+          "armature": "RigidEntity.get_dofs_armature",
+          "kp": "RigidEntity.get_dofs_kp",
+          "kv": "RigidEntity.get_dofs_kv",
+          "stiffness": "RigidEntity.get_dofs_stiffness",
+          "damping": "RigidEntity.get_dofs_damping",
+          "frictionloss": "RigidEntity.get_dofs_frictionloss",
+          "force_range": "RigidEntity.get_dofs_force_range",
+          "position_limit": "RigidEntity.get_dofs_limit"
+        },
+        "units": {
+          "armature": "kg m^2 (joint-reflected)",
+          "kp": "N m/rad",
+          "kv": "N m s/rad (active)",
+          "stiffness": "N m/rad (passive)",
+          "damping": "N m s/rad (passive)",
+          "frictionloss": "N m",
+          "force_range": "N m",
+          "position_limit": "rad"
+        }
+      },
+      "effective_after_control_initialization": {
+        "joints": {
+          "FL_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FL_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.5707963705062866,
+              3.4907000064849854
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FL_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FL_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 0.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.5707963705062866,
+              3.4907000064849854
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 0.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -0.5235999822616577,
+              4.537899971008301
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 0.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -0.5235999822616577,
+              4.537899971008301
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 0.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          }
+        },
+        "sources": {
+          "armature": "RigidEntity.get_dofs_armature",
+          "kp": "RigidEntity.get_dofs_kp",
+          "kv": "RigidEntity.get_dofs_kv",
+          "stiffness": "RigidEntity.get_dofs_stiffness",
+          "damping": "RigidEntity.get_dofs_damping",
+          "frictionloss": "RigidEntity.get_dofs_frictionloss",
+          "force_range": "RigidEntity.get_dofs_force_range",
+          "position_limit": "RigidEntity.get_dofs_limit"
+        },
+        "units": {
+          "armature": "kg m^2 (joint-reflected)",
+          "kp": "N m/rad",
+          "kv": "N m s/rad (active)",
+          "stiffness": "N m/rad (passive)",
+          "damping": "N m s/rad (passive)",
+          "frictionloss": "N m",
+          "force_range": "N m",
+          "position_limit": "rad"
+        }
+      },
+      "effective_after_reset": {
+        "joints": {
+          "FL_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FL_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.5707963705062866,
+              3.4907000064849854
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FL_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FL_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 0.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.5707963705062866,
+              3.4907000064849854
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 0.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -0.5235999822616577,
+              4.537899971008301
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 0.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -0.5235999822616577,
+              4.537899971008301
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 0.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          }
+        },
+        "sources": {
+          "armature": "RigidEntity.get_dofs_armature",
+          "kp": "RigidEntity.get_dofs_kp",
+          "kv": "RigidEntity.get_dofs_kv",
+          "stiffness": "RigidEntity.get_dofs_stiffness",
+          "damping": "RigidEntity.get_dofs_damping",
+          "frictionloss": "RigidEntity.get_dofs_frictionloss",
+          "force_range": "RigidEntity.get_dofs_force_range",
+          "position_limit": "RigidEntity.get_dofs_limit"
+        },
+        "units": {
+          "armature": "kg m^2 (joint-reflected)",
+          "kp": "N m/rad",
+          "kv": "N m s/rad (active)",
+          "stiffness": "N m/rad (passive)",
+          "damping": "N m s/rad (passive)",
+          "frictionloss": "N m",
+          "force_range": "N m",
+          "position_limit": "rad"
+        }
+      }
+    },
+    "measured": {
+      "repository": "liambansbach/isaaclab_hpc_playground_v3",
+      "source_commit": "ed8dc93b3065a8e2a3a5919f032ed4690529117c",
+      "source_path": "assets/robots/go2w/urdf/go2w_description.urdf",
+      "snapshot_path": "ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf",
+      "snapshot_sha256": "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c",
+      "bytes": 40784,
+      "newline": "LF; exact fetched UTF-8 Git blob verified by Git SHA-1",
+      "git_blob_sha1": "09a07af9552fec211aafd363302a6e6264a49a51",
+      "total_robot_mass_kg": 19.683709859848022,
+      "merged_base": {
+        "mass": [
+          7.083710193634033
+        ],
+        "com_local": [
+          [
+            0.02802102454006672,
+            -2.4830073925841134e-06,
+            -0.0027884976007044315
+          ]
+        ],
+        "inertia_local": [
+          [
+            [
+              0.1217573806643486,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.11458107084035873,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.026547294110059738
+            ]
+          ]
+        ],
+        "inertial_frame_quat_wxyz": [
+          -0.0012305648997426033,
+          0.6924522519111633,
+          -0.002170716179534793,
+          0.7214593887329102
+        ],
+        "inertia_about_COM_in_base_frame_kg_m2": [
+          [
+            0.02670760620049476,
+            0.00012700967606788858,
+            -0.003901351024614778
+          ],
+          [
+            0.00012700967606788858,
+            0.11458105542873452,
+            -2.9131365268488063e-05
+          ],
+          [
+            -0.003901351024614778,
+            -2.9131365268488087e-05,
+            0.12159708398553774
+          ]
+        ],
+        "frame_source": "RigidLink.desc.inertial_quat, fed into installed RigidSolver._init_link_fields; fixed during this no-DR run",
+        "inertia_local_frame": "Genesis inertial principal frame"
+      },
+      "contact_properties": {
+        "wheel_friction_ratio": [
+          [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        ],
+        "wheel_geometry_friction": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "ground_geometry_friction": 0.10000000149011612,
+        "effective_friction": [
+          [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        ],
+        "friction_rule": "Genesis collider/contact.py: max(wheel geometry friction * ratio, ground geometry friction * ratio, 0.01); ground ratio=1"
+      },
+      "effective_after_build": {
+        "joints": {
+          "FL_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FL_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.5707963705062866,
+              3.4907000064849854
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FL_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FL_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.5707963705062866,
+              3.4907000064849854
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -0.5235999822616577,
+              4.537899971008301
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -0.5235999822616577,
+              4.537899971008301
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 100.0,
+            "kv": 10.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          }
+        },
+        "sources": {
+          "armature": "RigidEntity.get_dofs_armature",
+          "kp": "RigidEntity.get_dofs_kp",
+          "kv": "RigidEntity.get_dofs_kv",
+          "stiffness": "RigidEntity.get_dofs_stiffness",
+          "damping": "RigidEntity.get_dofs_damping",
+          "frictionloss": "RigidEntity.get_dofs_frictionloss",
+          "force_range": "RigidEntity.get_dofs_force_range",
+          "position_limit": "RigidEntity.get_dofs_limit"
+        },
+        "units": {
+          "armature": "kg m^2 (joint-reflected)",
+          "kp": "N m/rad",
+          "kv": "N m s/rad (active)",
+          "stiffness": "N m/rad (passive)",
+          "damping": "N m s/rad (passive)",
+          "frictionloss": "N m",
+          "force_range": "N m",
+          "position_limit": "rad"
+        }
+      },
+      "effective_after_control_initialization": {
+        "joints": {
+          "FL_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FL_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.5707963705062866,
+              3.4907000064849854
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FL_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FL_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 0.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.5707963705062866,
+              3.4907000064849854
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 0.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -0.5235999822616577,
+              4.537899971008301
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 0.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -0.5235999822616577,
+              4.537899971008301
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 0.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          }
+        },
+        "sources": {
+          "armature": "RigidEntity.get_dofs_armature",
+          "kp": "RigidEntity.get_dofs_kp",
+          "kv": "RigidEntity.get_dofs_kv",
+          "stiffness": "RigidEntity.get_dofs_stiffness",
+          "damping": "RigidEntity.get_dofs_damping",
+          "frictionloss": "RigidEntity.get_dofs_frictionloss",
+          "force_range": "RigidEntity.get_dofs_force_range",
+          "position_limit": "RigidEntity.get_dofs_limit"
+        },
+        "units": {
+          "armature": "kg m^2 (joint-reflected)",
+          "kp": "N m/rad",
+          "kv": "N m s/rad (active)",
+          "stiffness": "N m/rad (passive)",
+          "damping": "N m s/rad (passive)",
+          "frictionloss": "N m",
+          "force_range": "N m",
+          "position_limit": "rad"
+        }
+      },
+      "effective_after_reset": {
+        "joints": {
+          "FL_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FL_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.5707963705062866,
+              3.4907000064849854
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FL_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FL_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 0.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.5707963705062866,
+              3.4907000064849854
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "FR_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 0.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -0.5235999822616577,
+              4.537899971008301
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RL_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 0.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_hip_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -1.0471999645233154,
+              1.0471999645233154
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_thigh_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              -0.5235999822616577,
+              4.537899971008301
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_calf_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 40.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -35.54999923706055,
+              35.54999923706055
+            ],
+            "position_limit": [
+              -2.7227001190185547,
+              -0.8377599716186523
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          },
+          "RR_foot_joint": {
+            "armature": 0.10000000149011612,
+            "kp": 0.0,
+            "kv": 1.0,
+            "stiffness": 0.0,
+            "damping": 0.0,
+            "frictionloss": 0.0,
+            "force_range": [
+              -23.700000762939453,
+              23.700000762939453
+            ],
+            "position_limit": [
+              null,
+              null
+            ],
+            "solver_parameters": [
+              0.009999999776482582,
+              1.0,
+              0.8999999761581421,
+              0.949999988079071,
+              0.0010000000474974513,
+              0.5,
+              2.0
+            ]
+          }
+        },
+        "sources": {
+          "armature": "RigidEntity.get_dofs_armature",
+          "kp": "RigidEntity.get_dofs_kp",
+          "kv": "RigidEntity.get_dofs_kv",
+          "stiffness": "RigidEntity.get_dofs_stiffness",
+          "damping": "RigidEntity.get_dofs_damping",
+          "frictionloss": "RigidEntity.get_dofs_frictionloss",
+          "force_range": "RigidEntity.get_dofs_force_range",
+          "position_limit": "RigidEntity.get_dofs_limit"
+        },
+        "units": {
+          "armature": "kg m^2 (joint-reflected)",
+          "kp": "N m/rad",
+          "kv": "N m s/rad (active)",
+          "stiffness": "N m/rad (passive)",
+          "damping": "N m s/rad (passive)",
+          "frictionloss": "N m",
+          "force_range": "N m",
+          "position_limit": "rad"
+        }
+      }
+    }
+  },
+  "meshes": {
+    "base.dae": {
+      "shared_local_path": "ressources/robots/go2w/dae/base.dae",
+      "source_lfs_sha256": "e52bebbb5c7ff1f6aedee620c9b5b349f6e965360ecc63a9bb743eeff2d0be64",
+      "local_sha256": "f777940215d5072dfb047726282455dff00c58655675148c21c79b3e606bfd7a",
+      "normalization": "CRLF to LF only"
+    },
+    "calf.stl": {
+      "shared_local_path": "ressources/robots/go2w/dae/calf.stl",
+      "source_lfs_sha256": "2aee434b80da010deebb11c8538d593f7901a169cc34916350902746e591437e",
+      "local_sha256": "2aee434b80da010deebb11c8538d593f7901a169cc34916350902746e591437e",
+      "normalization": "none"
+    },
+    "calf_mirror.stl": {
+      "shared_local_path": "ressources/robots/go2w/dae/calf_mirror.stl",
+      "source_lfs_sha256": "528b471bfc60b6e72dbb162b34eefebced994bea82aaf58eda91f090219cd911",
+      "local_sha256": "528b471bfc60b6e72dbb162b34eefebced994bea82aaf58eda91f090219cd911",
+      "normalization": "none"
+    },
+    "hip.dae": {
+      "shared_local_path": "ressources/robots/go2w/dae/hip.dae",
+      "source_lfs_sha256": "8735e10617afe252cef0844c1d139d15bc6d4c653660d742fea9fe05c2704d8f",
+      "local_sha256": "1f1a020683056677d73682c6783907bb13c8a9c14b2736c7cce2a630523e0597",
+      "normalization": "CRLF to LF only"
+    },
+    "left_wheel.dae": {
+      "shared_local_path": "ressources/robots/go2w/dae/left_wheel.dae",
+      "source_lfs_sha256": "94c877cf441ac8b24680e63a36be04cf9666ed9b91fe1fd724ff266363df1721",
+      "local_sha256": "92223a7a73d65173a87ab8a548fe0d881c8e6068ce5276311313a5bbbdb5c0c2",
+      "normalization": "CRLF to LF only"
+    },
+    "right_wheel.dae": {
+      "shared_local_path": "ressources/robots/go2w/dae/right_wheel.dae",
+      "source_lfs_sha256": "e415eeda878f19d75e795ed56656afa40588654bcea24445b02d965f6cfd7bc9",
+      "local_sha256": "5e93c77d1450a15be7c707805341457047c405f0f6e3c2e300a79ea127521471",
+      "normalization": "CRLF to LF only"
+    },
+    "rs_D456_Solid.STL": {
+      "shared_local_path": "ressources/robots/go2w/dae/rs_D456_Solid.STL",
+      "source_lfs_sha256": "19f4ce23ade9cf22957a86d0cc5f8532753a7ee278a57a183d5192b514005449",
+      "local_sha256": "19f4ce23ade9cf22957a86d0cc5f8532753a7ee278a57a183d5192b514005449",
+      "normalization": "none"
+    },
+    "rs_base.stl": {
+      "shared_local_path": "ressources/robots/go2w/dae/rs_base.stl",
+      "source_lfs_sha256": "7c0bdfd04cd638ab3ca3884b6c3a26b7659e9f2456fee49fc957c90376257dba",
+      "local_sha256": "7c0bdfd04cd638ab3ca3884b6c3a26b7659e9f2456fee49fc957c90376257dba",
+      "normalization": "none"
+    },
+    "rs_flange.stl": {
+      "shared_local_path": "ressources/robots/go2w/dae/rs_flange.stl",
+      "source_lfs_sha256": "b3514b5447dbec8d3734df150349d4398d21549edc6b96f1534699a104762491",
+      "local_sha256": "b3514b5447dbec8d3734df150349d4398d21549edc6b96f1534699a104762491",
+      "normalization": "none"
+    },
+    "rs_flange_mirror.stl": {
+      "shared_local_path": "ressources/robots/go2w/dae/rs_flange_mirror.stl",
+      "source_lfs_sha256": "f8a0c1ca086ac0768e787a86e273306505bb4201844affdcfe3801f74e93954d",
+      "local_sha256": "f8a0c1ca086ac0768e787a86e273306505bb4201844affdcfe3801f74e93954d",
+      "normalization": "none"
+    },
+    "rs_mount.stl": {
+      "shared_local_path": "ressources/robots/go2w/dae/rs_mount.stl",
+      "source_lfs_sha256": "8045ffe330b055a20ca72141408b8012cc01e568b77f4dd08796c0bfdf0dc938",
+      "local_sha256": "8045ffe330b055a20ca72141408b8012cc01e568b77f4dd08796c0bfdf0dc938",
+      "normalization": "none"
+    },
+    "thigh.dae": {
+      "shared_local_path": "ressources/robots/go2w/dae/thigh.dae",
+      "source_lfs_sha256": "a622381ae308897ff143b8bbf02f075457c342b22984205040424a5a983246fa",
+      "local_sha256": "167a6c6545f792f9e7ea53abe7e66dae4d72b53e0ef532ae9903a1f7907b384f",
+      "normalization": "CRLF to LF only"
+    },
+    "thigh_mirror.dae": {
+      "shared_local_path": "ressources/robots/go2w/dae/thigh_mirror.dae",
+      "source_lfs_sha256": "c7bae0b0565c2aa4b7cc15a538d795e9153e0f10c821cc18429e92693172bdc6",
+      "local_sha256": "ab1d3b0ef1184735e79bd53c011c4f668a731a23b532d37e07ef74e65201bce2",
+      "normalization": "CRLF to LF only"
+    }
+  },
+  "zero_armature_effective_after_reset": {
+    "joints": {
+      "FL_hip_joint": {
+        "armature": 0.0,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          -1.0471999645233154,
+          1.0471999645233154
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "FL_thigh_joint": {
+        "armature": 0.0,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          -1.5707963705062866,
+          3.4907000064849854
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "FL_calf_joint": {
+        "armature": 0.0,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -35.54999923706055,
+          35.54999923706055
+        ],
+        "position_limit": [
+          -2.7227001190185547,
+          -0.8377599716186523
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "FL_foot_joint": {
+        "armature": 0.0,
+        "kp": 0.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          null,
+          null
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "FR_hip_joint": {
+        "armature": 0.0,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          -1.0471999645233154,
+          1.0471999645233154
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "FR_thigh_joint": {
+        "armature": 0.0,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          -1.5707963705062866,
+          3.4907000064849854
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "FR_calf_joint": {
+        "armature": 0.0,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -35.54999923706055,
+          35.54999923706055
+        ],
+        "position_limit": [
+          -2.7227001190185547,
+          -0.8377599716186523
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "FR_foot_joint": {
+        "armature": 0.0,
+        "kp": 0.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          null,
+          null
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "RL_hip_joint": {
+        "armature": 0.0,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          -1.0471999645233154,
+          1.0471999645233154
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "RL_thigh_joint": {
+        "armature": 0.0,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          -0.5235999822616577,
+          4.537899971008301
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "RL_calf_joint": {
+        "armature": 0.0,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -35.54999923706055,
+          35.54999923706055
+        ],
+        "position_limit": [
+          -2.7227001190185547,
+          -0.8377599716186523
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "RL_foot_joint": {
+        "armature": 0.0,
+        "kp": 0.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          null,
+          null
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "RR_hip_joint": {
+        "armature": 0.0,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          -1.0471999645233154,
+          1.0471999645233154
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "RR_thigh_joint": {
+        "armature": 0.0,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          -0.5235999822616577,
+          4.537899971008301
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "RR_calf_joint": {
+        "armature": 0.0,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -35.54999923706055,
+          35.54999923706055
+        ],
+        "position_limit": [
+          -2.7227001190185547,
+          -0.8377599716186523
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "RR_foot_joint": {
+        "armature": 0.0,
+        "kp": 0.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          null,
+          null
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      }
+    },
+    "sources": {
+      "armature": "RigidEntity.get_dofs_armature",
+      "kp": "RigidEntity.get_dofs_kp",
+      "kv": "RigidEntity.get_dofs_kv",
+      "stiffness": "RigidEntity.get_dofs_stiffness",
+      "damping": "RigidEntity.get_dofs_damping",
+      "frictionloss": "RigidEntity.get_dofs_frictionloss",
+      "force_range": "RigidEntity.get_dofs_force_range",
+      "position_limit": "RigidEntity.get_dofs_limit"
+    },
+    "units": {
+      "armature": "kg m^2 (joint-reflected)",
+      "kp": "N m/rad",
+      "kv": "N m s/rad (active)",
+      "stiffness": "N m/rad (passive)",
+      "damping": "N m s/rad (passive)",
+      "frictionloss": "N m",
+      "force_range": "N m",
+      "position_limit": "rad"
+    }
+  },
+  "only_zero_case_override": {
+    "setter": "RigidEntity.set_dofs_armature",
+    "joint_names": [
+      "FL_hip_joint",
+      "FL_thigh_joint",
+      "FL_calf_joint",
+      "FL_foot_joint",
+      "FR_hip_joint",
+      "FR_thigh_joint",
+      "FR_calf_joint",
+      "FR_foot_joint",
+      "RL_hip_joint",
+      "RL_thigh_joint",
+      "RL_calf_joint",
+      "RL_foot_joint",
+      "RR_hip_joint",
+      "RR_thigh_joint",
+      "RR_calf_joint",
+      "RR_foot_joint"
+    ],
+    "value_kg_m2": 0.0,
+    "before_setter_nonzero_verified": true,
+    "after_setter_and_reset_zero_verified": true
+  },
+  "cases": {
+    "original-stand": {
+      "asset": "original",
+      "case": "stand",
+      "armature_override": null,
+      "metrics": {
+        "failure": null,
+        "recorded_seconds": 10.0,
+        "initial_0_2": {
+          "complete": true,
+          "samples": 400,
+          "planar_speed_rms_m_s": 0.014900998212397099,
+          "yaw_rate_rms_rad_s": 0.0013807135401293635,
+          "leg_dq_rms_rad_s": 0.16250552237033844,
+          "body_roll_pitch_rate_rms_rad_s": 0.05162370577454567,
+          "height_mean_m": 0.4130983352661133,
+          "mean_velocity": [
+            0.008826342411339283,
+            5.250802587397629e-06,
+            -0.0002561869041528553
+          ],
+          "leg_dq_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 1.2081812286878617e-05
+          },
+          "body_rate_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 7.648652759582303e-05
+          },
+          "held_target_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 4.623260427857649e-05
+          },
+          "wheel_support_mean_N": [
+            51.05775833129883,
+            50.955806732177734,
+            45.67140197753906,
+            45.744171142578125
+          ],
+          "minimum_clearance_m": -0.002363146049901843
+        },
+        "settled_2_10": {
+          "complete": true,
+          "samples": 1600,
+          "planar_speed_rms_m_s": 0.010505628772079945,
+          "yaw_rate_rms_rad_s": 0.0012774491915479302,
+          "leg_dq_rms_rad_s": 0.003604849334806204,
+          "body_roll_pitch_rate_rms_rad_s": 0.0019265413284301758,
+          "height_mean_m": 0.4087124764919281,
+          "mean_velocity": [
+            0.010491029359400272,
+            0.00012773323396686465,
+            -0.0011467221193015575
+          ],
+          "leg_dq_spectrum": {
+            "peak_Hz": 0.125,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.125,
+            "near_25Hz_power_fraction": 5.838461677079754e-05
+          },
+          "body_rate_spectrum": {
+            "peak_Hz": 0.125,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.125,
+            "near_25Hz_power_fraction": 2.9849190411423657e-05
+          },
+          "held_target_spectrum": {
+            "peak_Hz": 0.125,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.125,
+            "near_25Hz_power_fraction": 3.463482728790832e-07
+          },
+          "wheel_support_mean_N": [
+            49.82585144042969,
+            50.69353103637695,
+            46.02870178222656,
+            44.9740104675293
+          ],
+          "minimum_clearance_m": -0.00023647025227546692
+        },
+        "final_2s": {
+          "complete": true,
+          "samples": 400,
+          "planar_speed_rms_m_s": 0.00997108593583107,
+          "yaw_rate_rms_rad_s": 0.000871355936396867,
+          "leg_dq_rms_rad_s": 0.002382112666964531,
+          "body_roll_pitch_rate_rms_rad_s": 0.001443497254513204,
+          "height_mean_m": 0.40825343132019043,
+          "mean_velocity": [
+            0.009969138540327549,
+            0.00015676315524615347,
+            -0.0008710498223081231
+          ],
+          "leg_dq_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 0.00011335776849659567
+          },
+          "body_rate_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 0.0002679288857404467
+          },
+          "held_target_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 7.832997668757069e-08
+          },
+          "wheel_support_mean_N": [
+            49.90980529785156,
+            50.9893684387207,
+            46.16044998168945,
+            44.460811614990234
+          ],
+          "minimum_clearance_m": -0.00023647025227546692
+        },
+        "last_5s_zero_drift": {
+          "signed_xyz_m": [
+            0.05100029706954956,
+            0.0006306601571850479,
+            -0.0008452534675598145
+          ],
+          "planar_displacement_m": 0.05100419372320175,
+          "planar_path_m": 0.05100482702255249
+        },
+        "joint_minimum_margin_rad": [
+          1.006347894668579,
+          2.259547233581543,
+          0.49218201637268066,
+          1.0096955299377441,
+          2.259432315826416,
+          0.49216437339782715,
+          1.0358083248138428,
+          1.2741438150405884,
+          0.45579564571380615,
+          1.0277646780014038,
+          1.2741374969482422,
+          0.4557468891143799
+        ],
+        "issued_action_at_clip_fraction_per_joint": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "actor_spectrum": {
+          "peak_Hz": 0.125,
+          "sample_Hz": 50,
+          "resolution_Hz": 0.125,
+          "near_25Hz_power_fraction": 3.6368571429758e-07
+        },
+        "actor_period_two_amplitude_per_leg": [
+          5.6567825376987455e-05,
+          2.3978874087333678e-05,
+          3.919333219528198e-05,
+          4.7006309032440185e-05,
+          5.507342517375946e-05,
+          2.5959312915802e-05,
+          4.704713821411133e-05,
+          4.8260092735290525e-05,
+          4.1574835777282714e-05,
+          2.5942213833332063e-05,
+          8.078619837760926e-05,
+          2.6444345712661745e-05
+        ],
+        "maximum_force_effort_ratio_per_joint": [
+          0.11954733729362488,
+          0.4746328294277191,
+          0.11593656241893768,
+          0.1871151626110077,
+          0.12045564502477646,
+          0.4765913188457489,
+          0.11636409908533096,
+          0.18796364963054657,
+          0.20686863362789154,
+          0.4372017979621887,
+          0.3390377461910248,
+          0.1109890267252922,
+          0.2080717831850052,
+          0.4369705021381378,
+          0.34141188859939575,
+          0.10953772068023682
+        ],
+        "nonwheel_force_above_1N_longest_s": 0.0,
+        "clearance_below_minus_2cm_longest_s": 0.0,
+        "unloaded_above_1mm_fraction_per_wheel": [
+          0.0035,
+          0.0035,
+          0.0025,
+          0.0025
+        ],
+        "support_mean_N": 191.9034423828125,
+        "credible_support": true,
+        "development_targets": {
+          "complete": true,
+          "planar_rms_below_005": true,
+          "yaw_rms_below_010": true,
+          "zero_drift_below_010": true
+        },
+        "frozen_actor_cpu_replay_max_error": 3.5762786865234375e-07
+      },
+      "trace_prefix": "original-stand/",
+      "native_source_identity": {
+        "head": "c2c2febed2fc4aea20d874876091a3377f2e9ed2",
+        "branch": "testing",
+        "status": " M robot_gym/envs/base/legged_robot.py\n M robot_gym/utils/diagnostics.py\n M robot_gym/utils/urdf_reader.py\n?? ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf\n?? ressources/robots/go2w/urdf/go2w_reference_original.urdf\n?? robot_gym/scripts/native_reference.py\n",
+        "dirty_diff_sha256": "8f586ec0718b6877d787a2cfaa37981febadfa497a78502d79ed0a4f6fdc942e",
+        "untracked_sha256": {
+          "ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf": "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c",
+          "ressources/robots/go2w/urdf/go2w_reference_original.urdf": "495401f076d408858f322dd5227f3166be4fd63e65b8bc648fcbdeffd4c98d44",
+          "robot_gym/scripts/native_reference.py": "e7bd22d045f48bfd22b2682516c32f27ff6043915e78939730b1b082c14d26e2"
+        }
+      },
+      "native_manifest_sha256": "b7a2c52bf1389c27a5cb332ac6fe4209c0b329942dfbaebac8790c50ae007a46",
+      "resolved_config_overrides": {
+        "asset.robot_file": {
+          "saved": "go2w_description.urdf",
+          "current": "C:\\Users\\Liamb\\SynologyDrive\\TUM\\3_Semester\\dodo_alive\\legged-robot_rl_genesis\\ressources\\robots\\go2w\\urdf\\go2w_reference_original.urdf"
+        },
+        "domain_rand.push_robots": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_action_delay": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_base_mass": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_com": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_friction": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_kd": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_kp": {
+          "saved": true,
+          "current": false
+        },
+        "env.capture_closed_loop": {
+          "saved": null,
+          "current": true
+        },
+        "env.capture_joint_dynamics": {
+          "saved": null,
+          "current": true
+        },
+        "env.capture_transitions": {
+          "saved": false,
+          "current": true
+        },
+        "env.num_envs": {
+          "saved": 4096,
+          "current": 1
+        },
+        "env.play_mode": {
+          "saved": false,
+          "current": true
+        },
+        "init_state.angular_velocity_noise": {
+          "saved": 0.03,
+          "current": 0.0
+        },
+        "init_state.joint_position_noise": {
+          "saved": 0.03,
+          "current": 0.0
+        },
+        "init_state.joint_velocity_noise": {
+          "saved": 0.05,
+          "current": 0.0
+        },
+        "init_state.linear_velocity_noise": {
+          "saved": 0.03,
+          "current": 0.0
+        },
+        "init_state.orientation_noise": {
+          "saved": [
+            0.02,
+            0.02,
+            0.05
+          ],
+          "current": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "noise.add_noise": {
+          "saved": true,
+          "current": false
+        }
+      },
+      "raw_trace_sha256": "dd7a028cabf8c9e71e573bf85a6b07d06572a83143c9628adebbf3073fbc9e65",
+      "recorded_duration_s": 10.0
+    },
+    "measured-stand": {
+      "asset": "measured",
+      "case": "stand",
+      "armature_override": null,
+      "metrics": {
+        "failure": null,
+        "recorded_seconds": 10.0,
+        "initial_0_2": {
+          "complete": true,
+          "samples": 400,
+          "planar_speed_rms_m_s": 0.01116518210619688,
+          "yaw_rate_rms_rad_s": 0.00080013187834993,
+          "leg_dq_rms_rad_s": 0.15638430416584015,
+          "body_roll_pitch_rate_rms_rad_s": 0.04120827838778496,
+          "height_mean_m": 0.41818058490753174,
+          "mean_velocity": [
+            0.008563159964978695,
+            -2.859793858078774e-05,
+            -0.00027921824948862195
+          ],
+          "leg_dq_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 1.5451506406853347e-06
+          },
+          "body_rate_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 6.6956118949225595e-06
+          },
+          "held_target_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 9.419077488719963e-06
+          },
+          "wheel_support_mean_N": [
+            52.03163146972656,
+            51.95570755004883,
+            45.481964111328125,
+            45.55357360839844
+          ],
+          "minimum_clearance_m": -0.002430408028885722
+        },
+        "settled_2_10": {
+          "complete": true,
+          "samples": 1600,
+          "planar_speed_rms_m_s": 0.010696322657167912,
+          "yaw_rate_rms_rad_s": 0.001463533379137516,
+          "leg_dq_rms_rad_s": 0.003088946919888258,
+          "body_roll_pitch_rate_rms_rad_s": 0.0017283555353060365,
+          "height_mean_m": 0.4141003489494324,
+          "mean_velocity": [
+            0.0106817577034235,
+            0.00014765173546038568,
+            -0.0011398587375879288
+          ],
+          "leg_dq_spectrum": {
+            "peak_Hz": 0.125,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.125,
+            "near_25Hz_power_fraction": 0.00014402161736000297
+          },
+          "body_rate_spectrum": {
+            "peak_Hz": 0.125,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.125,
+            "near_25Hz_power_fraction": 7.904892187130066e-05
+          },
+          "held_target_spectrum": {
+            "peak_Hz": 0.125,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.125,
+            "near_25Hz_power_fraction": 8.626942637010418e-07
+          },
+          "wheel_support_mean_N": [
+            50.87699890136719,
+            51.84282684326172,
+            45.7750358581543,
+            44.603294372558594
+          ],
+          "minimum_clearance_m": -0.00024034862872213125
+        },
+        "final_2s": {
+          "complete": true,
+          "samples": 400,
+          "planar_speed_rms_m_s": 0.01006927341222763,
+          "yaw_rate_rms_rad_s": 0.0007926009129732847,
+          "leg_dq_rms_rad_s": 0.0023597548715770245,
+          "body_roll_pitch_rate_rms_rad_s": 0.0014419043436646461,
+          "height_mean_m": 0.41335755586624146,
+          "mean_velocity": [
+            0.010066820308566093,
+            0.00014175211254041642,
+            -0.0007921197102405131
+          ],
+          "leg_dq_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 0.0001660141219865717
+          },
+          "body_rate_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 0.00012159385747343302
+          },
+          "held_target_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 2.6757568455913193e-07
+          },
+          "wheel_support_mean_N": [
+            51.0615119934082,
+            52.13380432128906,
+            45.83835983276367,
+            44.063507080078125
+          ],
+          "minimum_clearance_m": -0.00024034862872213125
+        },
+        "last_5s_zero_drift": {
+          "signed_xyz_m": [
+            0.051971498876810074,
+            0.0006639154744334519,
+            -0.0012654662132263184
+          ],
+          "planar_displacement_m": 0.051975738257169724,
+          "planar_path_m": 0.05197721719741821
+        },
+        "joint_minimum_margin_rad": [
+          1.0008102655410767,
+          2.2658615112304688,
+          0.4922029972076416,
+          1.0041203498840332,
+          2.265831232070923,
+          0.4921848773956299,
+          1.0374776124954224,
+          1.2741416692733765,
+          0.4610261917114258,
+          1.0293464660644531,
+          1.2741353511810303,
+          0.46100783348083496
+        ],
+        "issued_action_at_clip_fraction_per_joint": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "actor_spectrum": {
+          "peak_Hz": 0.125,
+          "sample_Hz": 50,
+          "resolution_Hz": 0.125,
+          "near_25Hz_power_fraction": 9.375669870435335e-07
+        },
+        "actor_period_two_amplitude_per_leg": [
+          5.893746390938759e-05,
+          8.260458707809449e-07,
+          3.12979519367218e-05,
+          5.949113517999649e-05,
+          3.6037042737007144e-05,
+          3.7083402276039124e-05,
+          2.7049258351325987e-05,
+          4.685014486312866e-05,
+          2.0261742174625398e-05,
+          2.9475614428520203e-06,
+          7.068857550621033e-05,
+          2.5969967246055604e-05
+        ],
+        "maximum_force_effort_ratio_per_joint": [
+          0.11802619695663452,
+          0.44763365387916565,
+          0.05623406171798706,
+          0.1871151179075241,
+          0.11919111758470535,
+          0.44696882367134094,
+          0.056269966065883636,
+          0.1879635900259018,
+          0.20778794586658478,
+          0.4488055109977722,
+          0.3462100327014923,
+          0.12159794569015503,
+          0.20835044980049133,
+          0.4483572840690613,
+          0.3486345708370209,
+          0.12354964762926102
+        ],
+        "nonwheel_force_above_1N_longest_s": 0.0,
+        "clearance_below_minus_2cm_longest_s": 0.0,
+        "unloaded_above_1mm_fraction_per_wheel": [
+          0.0025,
+          0.0025,
+          0.0015,
+          0.0015
+        ],
+        "support_mean_N": 193.48309326171875,
+        "credible_support": true,
+        "development_targets": {
+          "complete": true,
+          "planar_rms_below_005": true,
+          "yaw_rms_below_010": true,
+          "zero_drift_below_010": true
+        },
+        "frozen_actor_cpu_replay_max_error": 2.980232238769531e-07
+      },
+      "trace_prefix": "measured-stand/",
+      "native_source_identity": {
+        "head": "c2c2febed2fc4aea20d874876091a3377f2e9ed2",
+        "branch": "testing",
+        "status": " M robot_gym/envs/base/legged_robot.py\n M robot_gym/utils/diagnostics.py\n M robot_gym/utils/urdf_reader.py\n?? ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf\n?? ressources/robots/go2w/urdf/go2w_reference_original.urdf\n?? robot_gym/scripts/native_reference.py\n",
+        "dirty_diff_sha256": "8f586ec0718b6877d787a2cfaa37981febadfa497a78502d79ed0a4f6fdc942e",
+        "untracked_sha256": {
+          "ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf": "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c",
+          "ressources/robots/go2w/urdf/go2w_reference_original.urdf": "495401f076d408858f322dd5227f3166be4fd63e65b8bc648fcbdeffd4c98d44",
+          "robot_gym/scripts/native_reference.py": "e7bd22d045f48bfd22b2682516c32f27ff6043915e78939730b1b082c14d26e2"
+        }
+      },
+      "native_manifest_sha256": "043089d14961efcf898920dc9dd3e0966829c3ee44221d5b9f6901bcceff4831",
+      "resolved_config_overrides": {
+        "asset.robot_file": {
+          "saved": "go2w_description.urdf",
+          "current": "C:\\Users\\Liamb\\SynologyDrive\\TUM\\3_Semester\\dodo_alive\\legged-robot_rl_genesis\\ressources\\robots\\go2w\\urdf\\go2w_measured_ed8dc93.urdf"
+        },
+        "domain_rand.push_robots": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_action_delay": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_base_mass": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_com": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_friction": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_kd": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_kp": {
+          "saved": true,
+          "current": false
+        },
+        "env.capture_closed_loop": {
+          "saved": null,
+          "current": true
+        },
+        "env.capture_joint_dynamics": {
+          "saved": null,
+          "current": true
+        },
+        "env.capture_transitions": {
+          "saved": false,
+          "current": true
+        },
+        "env.num_envs": {
+          "saved": 4096,
+          "current": 1
+        },
+        "env.play_mode": {
+          "saved": false,
+          "current": true
+        },
+        "init_state.angular_velocity_noise": {
+          "saved": 0.03,
+          "current": 0.0
+        },
+        "init_state.joint_position_noise": {
+          "saved": 0.03,
+          "current": 0.0
+        },
+        "init_state.joint_velocity_noise": {
+          "saved": 0.05,
+          "current": 0.0
+        },
+        "init_state.linear_velocity_noise": {
+          "saved": 0.03,
+          "current": 0.0
+        },
+        "init_state.orientation_noise": {
+          "saved": [
+            0.02,
+            0.02,
+            0.05
+          ],
+          "current": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "noise.add_noise": {
+          "saved": true,
+          "current": false
+        }
+      },
+      "raw_trace_sha256": "d108a6ab34f7efa5de7ec7ffca5c42390681f92f7f9faf77e76161dd32bea872",
+      "recorded_duration_s": 10.0
+    },
+    "original-sequence": {
+      "asset": "original",
+      "case": "sequence",
+      "armature_override": null,
+      "metrics": {
+        "failure": null,
+        "recorded_seconds": 14.0,
+        "initial_0_2": {
+          "complete": true,
+          "samples": 400,
+          "planar_speed_rms_m_s": 0.014900967478752136,
+          "yaw_rate_rms_rad_s": 0.001380712608806789,
+          "leg_dq_rms_rad_s": 0.16250552237033844,
+          "body_roll_pitch_rate_rms_rad_s": 0.05162372440099716,
+          "height_mean_m": 0.4130983352661133,
+          "mean_velocity": [
+            0.008826293982565403,
+            5.242317001830088e-06,
+            -0.000256187777267769
+          ],
+          "leg_dq_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 1.2079856541484552e-05
+          },
+          "body_rate_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 7.645870263763592e-05
+          },
+          "held_target_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 4.6231151003962804e-05
+          },
+          "wheel_support_mean_N": [
+            51.05775451660156,
+            50.955780029296875,
+            45.671390533447266,
+            45.74415588378906
+          ],
+          "minimum_clearance_m": -0.002363146049901843
+        },
+        "settled_2_10": {
+          "complete": true,
+          "samples": 1600,
+          "planar_speed_rms_m_s": 0.15286506712436676,
+          "yaw_rate_rms_rad_s": 0.0009652982116676867,
+          "leg_dq_rms_rad_s": 0.04803501442074776,
+          "body_roll_pitch_rate_rms_rad_s": 0.011070962995290756,
+          "height_mean_m": 0.40714341402053833,
+          "mean_velocity": [
+            0.12465357035398483,
+            -3.1239065720001236e-05,
+            -0.00022361120500136167
+          ],
+          "leg_dq_spectrum": {
+            "peak_Hz": 0.125,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.125,
+            "near_25Hz_power_fraction": 0.00010356036445441403
+          },
+          "body_rate_spectrum": {
+            "peak_Hz": 0.125,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.125,
+            "near_25Hz_power_fraction": 0.0008837946874334491
+          },
+          "held_target_spectrum": {
+            "peak_Hz": 0.125,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.125,
+            "near_25Hz_power_fraction": 0.00026967681223305376
+          },
+          "wheel_support_mean_N": [
+            48.198822021484375,
+            48.142608642578125,
+            47.53651428222656,
+            47.644142150878906
+          ],
+          "minimum_clearance_m": -0.0002843146212399006
+        },
+        "final_2s": {
+          "complete": true,
+          "samples": 400,
+          "planar_speed_rms_m_s": 0.008206564001739025,
+          "yaw_rate_rms_rad_s": 0.0010587720898911357,
+          "leg_dq_rms_rad_s": 0.0018732864409685135,
+          "body_roll_pitch_rate_rms_rad_s": 0.0007931095315143466,
+          "height_mean_m": 0.40687039494514465,
+          "mean_velocity": [
+            0.008199580013751984,
+            0.0001852651621447876,
+            -0.0010573652107268572
+          ],
+          "leg_dq_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 2.1489843974479306e-05
+          },
+          "body_rate_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 0.00014919549622594233
+          },
+          "held_target_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 9.810761463472564e-08
+          },
+          "wheel_support_mean_N": [
+            50.66022491455078,
+            51.452388763427734,
+            45.350975036621094,
+            44.056968688964844
+          ],
+          "minimum_clearance_m": -0.00023831543512642384
+        },
+        "last_5s_zero_drift": {
+          "signed_xyz_m": [
+            0.045308709144592285,
+            0.0006728556472808123,
+            -0.0005651116371154785
+          ],
+          "planar_displacement_m": 0.04531370475888252,
+          "planar_path_m": 0.045326344668865204
+        },
+        "joint_minimum_margin_rad": [
+          0.9848905801773071,
+          2.058659791946411,
+          0.49218201637268066,
+          0.9876245856285095,
+          2.05879807472229,
+          0.49216437339782715,
+          1.0384334325790405,
+          1.2741438150405884,
+          0.45579564571380615,
+          1.0325809717178345,
+          1.2741374969482422,
+          0.4557468891143799
+        ],
+        "issued_action_at_clip_fraction_per_joint": [
+          0.0,
+          0.0014285714285714286,
+          0.0,
+          0.0,
+          0.0,
+          0.0014285714285714286,
+          0.0,
+          0.0,
+          0.0,
+          0.002857142857142857,
+          0.0,
+          0.0,
+          0.0,
+          0.0014285714285714286,
+          0.0,
+          0.0
+        ],
+        "actor_spectrum": {
+          "peak_Hz": 0.08333333333333333,
+          "sample_Hz": 50,
+          "resolution_Hz": 0.08333333333333333,
+          "near_25Hz_power_fraction": 0.0003808436879519324
+        },
+        "actor_period_two_amplitude_per_leg": [
+          0.00012017604274054368,
+          0.000277643750111262,
+          0.00017188618580500284,
+          0.00011816905811429024,
+          0.0002940285205841064,
+          0.0001639589418967565,
+          5.5043622851371765e-05,
+          0.0004374106228351593,
+          0.0002844643841187159,
+          7.559604942798614e-05,
+          0.0004640389978885651,
+          0.00029581107199192045
+        ],
+        "maximum_force_effort_ratio_per_joint": [
+          0.15435004234313965,
+          0.4746328294277191,
+          0.1317669302225113,
+          0.4102846682071686,
+          0.15479551255702972,
+          0.4765913188457489,
+          0.13127072155475616,
+          0.4098758399486542,
+          0.21164704859256744,
+          0.45844781398773193,
+          0.4440164864063263,
+          0.36948585510253906,
+          0.21309663355350494,
+          0.45825374126434326,
+          0.4428863525390625,
+          0.3703466057777405
+        ],
+        "nonwheel_force_above_1N_longest_s": 0.0,
+        "clearance_below_minus_2cm_longest_s": 0.0,
+        "unloaded_above_1mm_fraction_per_wheel": [
+          0.0025,
+          0.0025,
+          0.0017857142857142857,
+          0.0017857142857142857
+        ],
+        "support_mean_N": 191.794189453125,
+        "credible_support": true,
+        "development_targets": {
+          "complete": true,
+          "planar_rms_below_005": true,
+          "yaw_rms_below_010": true,
+          "zero_drift_below_010": true
+        },
+        "forward_5_8": {
+          "complete": true,
+          "samples": 600,
+          "planar_speed_rms_m_s": 0.18637540936470032,
+          "yaw_rate_rms_rad_s": 0.000381768390070647,
+          "leg_dq_rms_rad_s": 0.02046944946050644,
+          "body_roll_pitch_rate_rms_rad_s": 0.003421956207603216,
+          "height_mean_m": 0.40453460812568665,
+          "mean_velocity": [
+            0.18633443117141724,
+            7.322004967136309e-05,
+            0.0003375867963768542
+          ],
+          "leg_dq_spectrum": {
+            "peak_Hz": 0.3333333333333333,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.3333333333333333,
+            "near_25Hz_power_fraction": 1.4551482558049678e-08
+          },
+          "body_rate_spectrum": {
+            "peak_Hz": 0.3333333333333333,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.3333333333333333,
+            "near_25Hz_power_fraction": 1.6943110850487849e-07
+          },
+          "held_target_spectrum": {
+            "peak_Hz": 0.3333333333333333,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.3333333333333333,
+            "near_25Hz_power_fraction": 1.4609625222172005e-09
+          },
+          "wheel_support_mean_N": [
+            47.0161018371582,
+            46.63523864746094,
+            48.832462310791016,
+            49.056480407714844
+          ],
+          "minimum_clearance_m": -0.00022205838467925787,
+          "vx_rmse_m_s": 0.014213405549526215
+        },
+        "forward_3_8_displacement": {
+          "signed_xyz_m": [
+            0.9605809450149536,
+            -0.0007298507262021303,
+            -0.00680270791053772
+          ],
+          "planar_displacement_m": 0.9605811834335327,
+          "planar_path_m": 0.9605816602706909
+        },
+        "body_forward_integrated_progress_3_8_m": 0.9604302048683167,
+        "post_stop_8_14_displacement": {
+          "signed_xyz_m": [
+            0.060948848724365234,
+            0.0005149509524926543,
+            0.004550635814666748
+          ],
+          "planar_displacement_m": 0.060951024293899536,
+          "planar_path_m": 0.0609680600464344
+        },
+        "post_stop_first_half_second_settle_start_s": 0.0649999999999995,
+        "frozen_actor_cpu_replay_max_error": 4.172325134277344e-07
+      },
+      "trace_prefix": "original-sequence/",
+      "native_source_identity": {
+        "head": "c2c2febed2fc4aea20d874876091a3377f2e9ed2",
+        "branch": "testing",
+        "status": " M robot_gym/envs/base/legged_robot.py\n M robot_gym/utils/diagnostics.py\n M robot_gym/utils/urdf_reader.py\n?? ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf\n?? ressources/robots/go2w/urdf/go2w_reference_original.urdf\n?? robot_gym/scripts/native_reference.py\n",
+        "dirty_diff_sha256": "8f586ec0718b6877d787a2cfaa37981febadfa497a78502d79ed0a4f6fdc942e",
+        "untracked_sha256": {
+          "ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf": "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c",
+          "ressources/robots/go2w/urdf/go2w_reference_original.urdf": "495401f076d408858f322dd5227f3166be4fd63e65b8bc648fcbdeffd4c98d44",
+          "robot_gym/scripts/native_reference.py": "96d828be97558a9444bd2b98aa5df7b6ff565f6e8b8547c019a89a57a80cb3ea"
+        }
+      },
+      "native_manifest_sha256": "02d68e70047bfe7d26efa899d0f5d04ec9ae8875aec32eb9b8071088bde81256",
+      "resolved_config_overrides": {
+        "asset.robot_file": {
+          "saved": "go2w_description.urdf",
+          "current": "C:\\Users\\Liamb\\SynologyDrive\\TUM\\3_Semester\\dodo_alive\\legged-robot_rl_genesis\\ressources\\robots\\go2w\\urdf\\go2w_reference_original.urdf"
+        },
+        "domain_rand.push_robots": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_action_delay": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_base_mass": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_com": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_friction": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_kd": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_kp": {
+          "saved": true,
+          "current": false
+        },
+        "env.capture_closed_loop": {
+          "saved": null,
+          "current": true
+        },
+        "env.capture_joint_dynamics": {
+          "saved": null,
+          "current": true
+        },
+        "env.capture_transitions": {
+          "saved": false,
+          "current": true
+        },
+        "env.num_envs": {
+          "saved": 4096,
+          "current": 1
+        },
+        "env.play_mode": {
+          "saved": false,
+          "current": true
+        },
+        "init_state.angular_velocity_noise": {
+          "saved": 0.03,
+          "current": 0.0
+        },
+        "init_state.joint_position_noise": {
+          "saved": 0.03,
+          "current": 0.0
+        },
+        "init_state.joint_velocity_noise": {
+          "saved": 0.05,
+          "current": 0.0
+        },
+        "init_state.linear_velocity_noise": {
+          "saved": 0.03,
+          "current": 0.0
+        },
+        "init_state.orientation_noise": {
+          "saved": [
+            0.02,
+            0.02,
+            0.05
+          ],
+          "current": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "noise.add_noise": {
+          "saved": true,
+          "current": false
+        }
+      },
+      "raw_trace_sha256": "8e75297943b9e700bb5e6b247db8c8818b611be5fb29e648117d382227d775ef",
+      "recorded_duration_s": 14.0
+    },
+    "measured-sequence-viewer": {
+      "asset": "measured",
+      "case": "sequence",
+      "armature_override": null,
+      "metrics": {
+        "failure": null,
+        "recorded_seconds": 14.0,
+        "initial_0_2": {
+          "complete": true,
+          "samples": 400,
+          "planar_speed_rms_m_s": 0.011165332980453968,
+          "yaw_rate_rms_rad_s": 0.0008003480033949018,
+          "leg_dq_rms_rad_s": 0.15638433396816254,
+          "body_roll_pitch_rate_rms_rad_s": 0.04120829328894615,
+          "height_mean_m": 0.41818055510520935,
+          "mean_velocity": [
+            0.008563350886106491,
+            -2.857681283785496e-05,
+            -0.000279307016171515
+          ],
+          "leg_dq_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 1.5313742286464204e-06
+          },
+          "body_rate_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 6.631977515309258e-06
+          },
+          "held_target_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 9.401389740586836e-06
+          },
+          "wheel_support_mean_N": [
+            52.03160095214844,
+            51.95563507080078,
+            45.481990814208984,
+            45.55356979370117
+          ],
+          "minimum_clearance_m": -0.002430408028885722
+        },
+        "settled_2_10": {
+          "complete": true,
+          "samples": 1600,
+          "planar_speed_rms_m_s": 0.1548239290714264,
+          "yaw_rate_rms_rad_s": 0.0007989564328454435,
+          "leg_dq_rms_rad_s": 0.04927370697259903,
+          "body_roll_pitch_rate_rms_rad_s": 0.010234268382191658,
+          "height_mean_m": 0.411538302898407,
+          "mean_velocity": [
+            0.12614697217941284,
+            -1.0901406312768813e-05,
+            -0.00016921412316150963
+          ],
+          "leg_dq_spectrum": {
+            "peak_Hz": 0.125,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.125,
+            "near_25Hz_power_fraction": 9.1298740016646e-05
+          },
+          "body_rate_spectrum": {
+            "peak_Hz": 0.125,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.125,
+            "near_25Hz_power_fraction": 0.0009221565006398398
+          },
+          "held_target_spectrum": {
+            "peak_Hz": 0.125,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.125,
+            "near_25Hz_power_fraction": 0.00027800682121312736
+          },
+          "wheel_support_mean_N": [
+            48.99420928955078,
+            48.900856018066406,
+            47.55306625366211,
+            47.65031814575195
+          ],
+          "minimum_clearance_m": -0.00028785341419279575
+        },
+        "final_2s": {
+          "complete": true,
+          "samples": 400,
+          "planar_speed_rms_m_s": 0.007924498990178108,
+          "yaw_rate_rms_rad_s": 0.0007742165471427143,
+          "leg_dq_rms_rad_s": 0.0018566522048786283,
+          "body_roll_pitch_rate_rms_rad_s": 0.0008697430603206158,
+          "height_mean_m": 0.41200268268585205,
+          "mean_velocity": [
+            0.007916894741356373,
+            0.0001353848201688379,
+            -0.0007708246121183038
+          ],
+          "leg_dq_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 5.558877195999585e-05
+          },
+          "body_rate_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 0.00034581803522044116
+          },
+          "held_target_spectrum": {
+            "peak_Hz": 0.5,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 1.0083852429505169e-07
+          },
+          "wheel_support_mean_N": [
+            51.875789642333984,
+            52.56563949584961,
+            44.88638687133789,
+            43.769371032714844
+          ],
+          "minimum_clearance_m": -0.00024206959642469883
+        },
+        "last_5s_zero_drift": {
+          "signed_xyz_m": [
+            0.04382884502410889,
+            0.0005636822315864265,
+            -0.0005529522895812988
+          ],
+          "planar_displacement_m": 0.04383246973156929,
+          "planar_path_m": 0.043840788304805756
+        },
+        "joint_minimum_margin_rad": [
+          0.9793561697006226,
+          2.0525381565093994,
+          0.4922029972076416,
+          0.9818630814552307,
+          2.052727460861206,
+          0.4921848773956299,
+          1.03852117061615,
+          1.2741416692733765,
+          0.4610261917114258,
+          1.0339415073394775,
+          1.2741353511810303,
+          0.46100783348083496
+        ],
+        "issued_action_at_clip_fraction_per_joint": [
+          0.0,
+          0.0014285714285714286,
+          0.0,
+          0.0,
+          0.0,
+          0.0014285714285714286,
+          0.0,
+          0.0,
+          0.0,
+          0.0014285714285714286,
+          0.0,
+          0.0,
+          0.0,
+          0.0014285714285714286,
+          0.0,
+          0.0
+        ],
+        "actor_spectrum": {
+          "peak_Hz": 0.08333333333333333,
+          "sample_Hz": 50,
+          "resolution_Hz": 0.08333333333333333,
+          "near_25Hz_power_fraction": 0.0003615783356653289
+        },
+        "actor_period_two_amplitude_per_leg": [
+          0.0001276184276988109,
+          0.0003238051136334737,
+          0.00017430732647577923,
+          0.00012672705886264643,
+          0.00033689593275388084,
+          0.00016531909505526225,
+          8.512010176976522e-05,
+          0.0005146574974060059,
+          0.00024898098160823186,
+          9.863987565040588e-05,
+          0.0005303045113881429,
+          0.00025532764693101247
+        ],
+        "maximum_force_effort_ratio_per_joint": [
+          0.15983378887176514,
+          0.4476335942745209,
+          0.1360655128955841,
+          0.40905335545539856,
+          0.1604173481464386,
+          0.4469687342643738,
+          0.13551178574562073,
+          0.4088074862957001,
+          0.20778797566890717,
+          0.4563475251197815,
+          0.43984875082969666,
+          0.37578123807907104,
+          0.20835046470165253,
+          0.45374900102615356,
+          0.43872156739234924,
+          0.3769547641277313
+        ],
+        "nonwheel_force_above_1N_longest_s": 0.0,
+        "clearance_below_minus_2cm_longest_s": 0.0,
+        "unloaded_above_1mm_fraction_per_wheel": [
+          0.0017857142857142857,
+          0.0017857142857142857,
+          0.0010714285714285715,
+          0.0010714285714285715
+        ],
+        "support_mean_N": 193.37294006347656,
+        "credible_support": true,
+        "development_targets": {
+          "complete": true,
+          "planar_rms_below_005": true,
+          "yaw_rms_below_010": true,
+          "zero_drift_below_010": true
+        },
+        "forward_5_8": {
+          "complete": true,
+          "samples": 600,
+          "planar_speed_rms_m_s": 0.18862465023994446,
+          "yaw_rate_rms_rad_s": 0.00034801027504727244,
+          "leg_dq_rms_rad_s": 0.016889622434973717,
+          "body_roll_pitch_rate_rms_rad_s": 0.002342014340683818,
+          "height_mean_m": 0.4079582691192627,
+          "mean_velocity": [
+            0.1886117309331894,
+            6.064284025342204e-05,
+            0.0002820990630425513
+          ],
+          "leg_dq_spectrum": {
+            "peak_Hz": 0.3333333333333333,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.3333333333333333,
+            "near_25Hz_power_fraction": 2.796519788912929e-08
+          },
+          "body_rate_spectrum": {
+            "peak_Hz": 0.3333333333333333,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.3333333333333333,
+            "near_25Hz_power_fraction": 8.723337162843764e-07
+          },
+          "held_target_spectrum": {
+            "peak_Hz": 0.3333333333333333,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.3333333333333333,
+            "near_25Hz_power_fraction": 3.18133278044208e-09
+          },
+          "wheel_support_mean_N": [
+            47.665931701660156,
+            47.24095153808594,
+            49.003822326660156,
+            49.217342376708984
+          ],
+          "minimum_clearance_m": -0.00022329366765916348,
+          "vx_rmse_m_s": 0.011600220575928688
+        },
+        "forward_3_8_displacement": {
+          "signed_xyz_m": [
+            0.9728642106056213,
+            -0.00016873130516614765,
+            -0.008084416389465332
+          ],
+          "planar_displacement_m": 0.9728642106056213,
+          "planar_path_m": 0.9728643894195557
+        },
+        "body_forward_integrated_progress_3_8_m": 0.9726465940475464,
+        "post_stop_8_14_displacement": {
+          "signed_xyz_m": [
+            0.05947709083557129,
+            0.0004000732733402401,
+            0.0051618218421936035
+          ],
+          "planar_displacement_m": 0.059478435665369034,
+          "planar_path_m": 0.0594908706843853
+        },
+        "post_stop_first_half_second_settle_start_s": 0.07000000000000028,
+        "frozen_actor_cpu_replay_max_error": 4.76837158203125e-07
+      },
+      "trace_prefix": "measured-sequence-viewer/",
+      "native_source_identity": {
+        "head": "c2c2febed2fc4aea20d874876091a3377f2e9ed2",
+        "branch": "testing",
+        "status": " M .gitattributes\n M robot_gym/envs/base/legged_robot.py\n M robot_gym/utils/diagnostics.py\n M robot_gym/utils/urdf_reader.py\n?? ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf\n?? ressources/robots/go2w/urdf/go2w_reference_original.urdf\n?? robot_gym/scripts/native_reference.py\n?? tests/test_native_reference.py\n",
+        "dirty_diff_sha256": "da8d72dc06cd22d698cc092e502ca9ac5f52abc26ecceda7650c4f9a7bc373f0",
+        "untracked_sha256": {
+          "ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf": "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c",
+          "ressources/robots/go2w/urdf/go2w_reference_original.urdf": "495401f076d408858f322dd5227f3166be4fd63e65b8bc648fcbdeffd4c98d44",
+          "robot_gym/scripts/native_reference.py": "d34a48dda8b89ed8c4e0f781028354bb446d41fb7725b7aaf4c68cd9d3b6fb83",
+          "tests/test_native_reference.py": "8ecced6de015102b637a090da1523e8bced1918a0915e9117cd316ad1e5ca1ff"
+        }
+      },
+      "native_manifest_sha256": "320507f9d4d56c4b8a7de503a6dbafd2d7b7e33fe676ba42476ffa3c4778f67b",
+      "resolved_config_overrides": {
+        "asset.robot_file": {
+          "saved": "go2w_description.urdf",
+          "current": "C:\\Users\\Liamb\\SynologyDrive\\TUM\\3_Semester\\dodo_alive\\legged-robot_rl_genesis\\ressources\\robots\\go2w\\urdf\\go2w_measured_ed8dc93.urdf"
+        },
+        "domain_rand.push_robots": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_action_delay": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_base_mass": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_com": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_friction": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_kd": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_kp": {
+          "saved": true,
+          "current": false
+        },
+        "env.capture_closed_loop": {
+          "saved": null,
+          "current": true
+        },
+        "env.capture_joint_dynamics": {
+          "saved": null,
+          "current": true
+        },
+        "env.capture_transitions": {
+          "saved": false,
+          "current": true
+        },
+        "env.num_envs": {
+          "saved": 4096,
+          "current": 1
+        },
+        "env.play_mode": {
+          "saved": false,
+          "current": true
+        },
+        "init_state.angular_velocity_noise": {
+          "saved": 0.03,
+          "current": 0.0
+        },
+        "init_state.joint_position_noise": {
+          "saved": 0.03,
+          "current": 0.0
+        },
+        "init_state.joint_velocity_noise": {
+          "saved": 0.05,
+          "current": 0.0
+        },
+        "init_state.linear_velocity_noise": {
+          "saved": 0.03,
+          "current": 0.0
+        },
+        "init_state.orientation_noise": {
+          "saved": [
+            0.02,
+            0.02,
+            0.05
+          ],
+          "current": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "noise.add_noise": {
+          "saved": true,
+          "current": false
+        }
+      },
+      "raw_trace_sha256": "06b6abc6e9fe084be0a82289dd0c179c50c833b9bfa051a0bb687abf7cb6d375",
+      "recorded_duration_s": 14.0
+    },
+    "original-stand-armature0": {
+      "asset": "original",
+      "case": "stand",
+      "armature_override": 0.0,
+      "metrics": {
+        "failure": null,
+        "recorded_seconds": 10.0,
+        "initial_0_2": {
+          "complete": true,
+          "samples": 400,
+          "planar_speed_rms_m_s": 0.1831132471561432,
+          "yaw_rate_rms_rad_s": 0.2594783306121826,
+          "leg_dq_rms_rad_s": 3.945223569869995,
+          "body_roll_pitch_rate_rms_rad_s": 3.1864240169525146,
+          "height_mean_m": 0.4145568907260895,
+          "mean_velocity": [
+            -0.15052221715450287,
+            -0.01723182387650013,
+            -0.0008789472049102187
+          ],
+          "leg_dq_spectrum": {
+            "peak_Hz": 25.0,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 0.8141569651660298
+          },
+          "body_rate_spectrum": {
+            "peak_Hz": 25.0,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 0.906281213187742
+          },
+          "held_target_spectrum": {
+            "peak_Hz": 25.0,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 0.6578023230266714
+          },
+          "wheel_support_mean_N": [
+            54.27786636352539,
+            52.879661560058594,
+            43.544471740722656,
+            41.99668884277344
+          ],
+          "minimum_clearance_m": -0.006119882687926292
+        },
+        "settled_2_10": {
+          "complete": true,
+          "samples": 1600,
+          "planar_speed_rms_m_s": 0.2554354965686798,
+          "yaw_rate_rms_rad_s": 0.2762307822704315,
+          "leg_dq_rms_rad_s": 4.38853120803833,
+          "body_roll_pitch_rate_rms_rad_s": 3.6615211963653564,
+          "height_mean_m": 0.40696924924850464,
+          "mean_velocity": [
+            -0.23755331337451935,
+            -0.012821873649954796,
+            -0.01597793586552143
+          ],
+          "leg_dq_spectrum": {
+            "peak_Hz": 25.0,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.125,
+            "near_25Hz_power_fraction": 0.8441762552580443
+          },
+          "body_rate_spectrum": {
+            "peak_Hz": 25.0,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.125,
+            "near_25Hz_power_fraction": 0.9295320367757987
+          },
+          "held_target_spectrum": {
+            "peak_Hz": 25.0,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.125,
+            "near_25Hz_power_fraction": 0.681464056449005
+          },
+          "wheel_support_mean_N": [
+            52.99506759643555,
+            51.59174728393555,
+            43.02970886230469,
+            44.16318893432617
+          ],
+          "minimum_clearance_m": -0.006313548423349857
+        },
+        "final_2s": {
+          "complete": true,
+          "samples": 400,
+          "planar_speed_rms_m_s": 0.2164015769958496,
+          "yaw_rate_rms_rad_s": 0.3244132399559021,
+          "leg_dq_rms_rad_s": 4.33282995223999,
+          "body_roll_pitch_rate_rms_rad_s": 3.5890538692474365,
+          "height_mean_m": 0.41194137930870056,
+          "mean_velocity": [
+            -0.1950991451740265,
+            -0.0065026963129639626,
+            -0.045247726142406464
+          ],
+          "leg_dq_spectrum": {
+            "peak_Hz": 25.0,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 0.7805105305713047
+          },
+          "body_rate_spectrum": {
+            "peak_Hz": 25.0,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 0.8828802815910736
+          },
+          "held_target_spectrum": {
+            "peak_Hz": 25.0,
+            "sample_Hz": 200,
+            "resolution_Hz": 0.5,
+            "near_25Hz_power_fraction": 0.6188347955684481
+          },
+          "wheel_support_mean_N": [
+            53.86640930175781,
+            51.07986831665039,
+            41.96183776855469,
+            46.096431732177734
+          ],
+          "minimum_clearance_m": -0.004979939199984074
+        },
+        "last_5s_zero_drift": {
+          "signed_xyz_m": [
+            -1.1241546869277954,
+            -0.008139580488204956,
+            0.010589390993118286
+          ],
+          "planar_displacement_m": 1.1241841316223145,
+          "planar_path_m": 1.1521005630493164
+        },
+        "joint_minimum_margin_rad": [
+          0.6375784873962402,
+          1.8002887964248657,
+          0.1625685691833496,
+          0.6082096099853516,
+          1.805437684059143,
+          0.21452057361602783,
+          0.8963785767555237,
+          1.143298864364624,
+          0.26222217082977295,
+          0.8530303239822388,
+          1.1679160594940186,
+          0.21570348739624023
+        ],
+        "issued_action_at_clip_fraction_per_joint": [
+          0.476,
+          0.282,
+          0.61,
+          0.21,
+          0.522,
+          0.204,
+          0.676,
+          0.18,
+          0.754,
+          0.242,
+          0.764,
+          0.396,
+          0.696,
+          0.242,
+          0.79,
+          0.364
+        ],
+        "actor_spectrum": {
+          "peak_Hz": 25.0,
+          "sample_Hz": 50,
+          "resolution_Hz": 0.125,
+          "near_25Hz_power_fraction": 0.8600920976073624
+        },
+        "actor_period_two_amplitude_per_leg": [
+          0.5105439566075802,
+          0.14201723463833332,
+          0.02108566328883171,
+          0.4337386245280504,
+          0.04348351005464792,
+          0.013480249047279357,
+          0.9490700622461736,
+          0.4656509104612633,
+          0.9340644216351212,
+          0.8830090009607374,
+          0.4310928488522768,
+          0.937560362117365
+        ],
+        "maximum_force_effort_ratio_per_joint": [
+          1.0,
+          1.0,
+          0.6654732823371887,
+          0.9456349611282349,
+          1.0,
+          1.0,
+          0.5806015133857727,
+          0.9819138050079346,
+          0.812283992767334,
+          1.0,
+          0.7362881898880005,
+          0.6950790286064148,
+          0.7476209998130798,
+          1.0,
+          0.8054155707359314,
+          0.7638554573059082
+        ],
+        "nonwheel_force_above_1N_longest_s": 0.0,
+        "clearance_below_minus_2cm_longest_s": 0.0,
+        "unloaded_above_1mm_fraction_per_wheel": [
+          0.1565,
+          0.1505,
+          0.6275,
+          0.5865
+        ],
+        "support_mean_N": 191.96353149414062,
+        "credible_support": true,
+        "development_targets": {
+          "complete": true,
+          "planar_rms_below_005": false,
+          "yaw_rms_below_010": false,
+          "zero_drift_below_010": false
+        },
+        "frozen_actor_cpu_replay_max_error": 3.0994415283203125e-06
+      },
+      "trace_prefix": "original-stand-armature0/",
+      "native_source_identity": {
+        "head": "c2c2febed2fc4aea20d874876091a3377f2e9ed2",
+        "branch": "testing",
+        "status": " M .gitattributes\n M robot_gym/envs/base/legged_robot.py\n M robot_gym/utils/diagnostics.py\n M robot_gym/utils/urdf_reader.py\n?? ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf\n?? ressources/robots/go2w/urdf/go2w_reference_original.urdf\n?? robot_gym/scripts/native_reference.py\n?? tests/test_native_reference.py\n",
+        "dirty_diff_sha256": "da8d72dc06cd22d698cc092e502ca9ac5f52abc26ecceda7650c4f9a7bc373f0",
+        "untracked_sha256": {
+          "ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf": "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c",
+          "ressources/robots/go2w/urdf/go2w_reference_original.urdf": "495401f076d408858f322dd5227f3166be4fd63e65b8bc648fcbdeffd4c98d44",
+          "robot_gym/scripts/native_reference.py": "d34a48dda8b89ed8c4e0f781028354bb446d41fb7725b7aaf4c68cd9d3b6fb83",
+          "tests/test_native_reference.py": "2a08dd8712eb8b5012116962f5ea61e7c7048239ecfd3c9bb9490f637872f1c5"
+        }
+      },
+      "native_manifest_sha256": "7a0e49bc41dd8a6031a4c60f67a32814292142d8837d570c4784a7e455ac4d2e",
+      "resolved_config_overrides": {
+        "asset.robot_file": {
+          "saved": "go2w_description.urdf",
+          "current": "C:\\Users\\Liamb\\SynologyDrive\\TUM\\3_Semester\\dodo_alive\\legged-robot_rl_genesis\\ressources\\robots\\go2w\\urdf\\go2w_reference_original.urdf"
+        },
+        "domain_rand.push_robots": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_action_delay": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_base_mass": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_com": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_friction": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_kd": {
+          "saved": true,
+          "current": false
+        },
+        "domain_rand.randomize_kp": {
+          "saved": true,
+          "current": false
+        },
+        "env.capture_closed_loop": {
+          "saved": null,
+          "current": true
+        },
+        "env.capture_joint_dynamics": {
+          "saved": null,
+          "current": true
+        },
+        "env.capture_transitions": {
+          "saved": false,
+          "current": true
+        },
+        "env.num_envs": {
+          "saved": 4096,
+          "current": 1
+        },
+        "env.play_mode": {
+          "saved": false,
+          "current": true
+        },
+        "init_state.angular_velocity_noise": {
+          "saved": 0.03,
+          "current": 0.0
+        },
+        "init_state.joint_position_noise": {
+          "saved": 0.03,
+          "current": 0.0
+        },
+        "init_state.joint_velocity_noise": {
+          "saved": 0.05,
+          "current": 0.0
+        },
+        "init_state.linear_velocity_noise": {
+          "saved": 0.03,
+          "current": 0.0
+        },
+        "init_state.orientation_noise": {
+          "saved": [
+            0.02,
+            0.02,
+            0.05
+          ],
+          "current": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "noise.add_noise": {
+          "saved": true,
+          "current": false
+        }
+      },
+      "raw_trace_sha256": "8f4452b044b2973c56fed4e9679174843ffcb258b1b3cd4aa06d38bd5a6620c9",
+      "recorded_duration_s": 10.0
+    }
+  },
+  "trace_archive": {
+    "path": "go2w_native_reference_traces.npz",
+    "sha256": "97209469ede9264255b5b86e237d679bf6d6b353865e9ef1ef6f92de7c095b6d",
+    "bytes": 3708441,
+    "fields_per_case": [
+      "q",
+      "dq",
+      "base_pos",
+      "base_quat",
+      "linear_body",
+      "angular_body",
+      "targets",
+      "control_force",
+      "wheel_normal_force",
+      "clearance",
+      "nonwheel_normal_force",
+      "actions",
+      "observations",
+      "commands",
+      "physics_time",
+      "policy_time"
+    ],
+    "physics_rate_Hz": 200,
+    "Actor_rate_Hz": 50,
+    "encoding": "NumPy compressed numeric arrays, allow_pickle=False; keys case/field",
+    "semantics": "Post-physics 200Hz state; pre-step 50Hz Actor input/action; terminal physics rows before automatic reset. Control force getter recomputes clamped force, not measured integration impulse."
+  },
+  "criteria": {
+    "initial_interval_s": [
+      0,
+      2
+    ],
+    "settled_interval_s": [
+      2,
+      10
+    ],
+    "last_2s_planar_speed_rms_below_m_s": 0.05,
+    "last_2s_yaw_rate_rms_below_rad_s": 0.1,
+    "last_5s_zero_displacement_below_m": 0.1,
+    "oscillation": "At least 40% reduction of settled leg dq RMS and body roll/pitch angular-speed RMS versus nominal, without average height loss > 0.04 m. Continuous values retained.",
+    "support": "No terminal failure, persistent nonwheel forces >1 N for >0.1 s, or persistent modeled clearance < -0.02 m; inspect any crossing rather than label it measured penetration."
+  },
+  "metric_notes": {
+    "spectrum": "Demean, Hann, rFFT; aggregate per-channel power; near25 band24\u201326Hz (Actor clipped at Nyquist25); no claim above Nyquist.",
+    "period_two": "Absolute mean of demeaned issued leg actions times (-1)^tick over policy interval2s through case end.",
+    "joint_margin": "Name order is 12 P leg joints; continuous wheel angles have no finite position margin.",
+    "clip": "Issued actions at +/-1, not unobservable raw pre-clipping magnitudes.",
+    "forces": "Current-state recomputed Genesis control-force getter, not integration impulse or measured motor torque; differs from PhysX pre-step implicit force estimate.",
+    "settling": "Initial0\u20132 and settled2\u201310 separate. Sequence2\u201310 includes movement; forward uses5\u20138, stop8\u201314 and final12\u201314.",
+    "support": "Ground-only summed wheel |Fz|, modeled finite cylinder envelope; negative clearance is not a measured penetration."
+  },
+  "diagnosis": {
+    "finding": "Removing only the effective 0.1 kg m^2 joint armature on ORIGINAL reproduces sustained 25 Hz closed-loop body/joint/action oscillation and fails all three stand targets, with credible support and no terminal failure.",
+    "limit": "Establishes an armature dependency of this Genesis closed loop. Does not prove sole PhysX cause, hardware inertia, transfer success, broader robustness or training necessity.",
+    "measured_counterpart_not_run": "Enough evidence for next matched PhysX comparison; no armature search or additional native run.",
+    "historical_model_warning": "Measured model also changes camera frames/inertials and tire radius0.086->0.09167m. This comparison cannot isolate camera mass."
+  },
+  "recommended_PhysX_mapping": {
+    "trial": "One matched PhysX armature A/B on ORIGINAL: fresh 10 s exact-zero frozen-Actor rollouts at 0.0 and 0.1 kg m^2 on all 16 actuated joints; every other setting identical. Historical measured-asset PhysX nominal is context only.",
+    "armature_per_joint_kg_m2": {
+      "FL_hip_joint": 0.1,
+      "FL_thigh_joint": 0.1,
+      "FL_calf_joint": 0.1,
+      "FL_foot_joint": 0.1,
+      "FR_hip_joint": 0.1,
+      "FR_thigh_joint": 0.1,
+      "FR_calf_joint": 0.1,
+      "FR_foot_joint": 0.1,
+      "RL_hip_joint": 0.1,
+      "RL_thigh_joint": 0.1,
+      "RL_calf_joint": 0.1,
+      "RL_foot_joint": 0.1,
+      "RR_hip_joint": 0.1,
+      "RR_thigh_joint": 0.1,
+      "RR_calf_joint": 0.1,
+      "RR_foot_joint": 0.1
+    },
+    "active_Kp_Nm_per_rad": {
+      "FL_hip_joint": 40.0,
+      "FL_thigh_joint": 40.0,
+      "FL_calf_joint": 40.0,
+      "FL_foot_joint": 0.0,
+      "FR_hip_joint": 40.0,
+      "FR_thigh_joint": 40.0,
+      "FR_calf_joint": 40.0,
+      "FR_foot_joint": 0.0,
+      "RL_hip_joint": 40.0,
+      "RL_thigh_joint": 40.0,
+      "RL_calf_joint": 40.0,
+      "RL_foot_joint": 0.0,
+      "RR_hip_joint": 40.0,
+      "RR_thigh_joint": 40.0,
+      "RR_calf_joint": 40.0,
+      "RR_foot_joint": 0.0
+    },
+    "active_Kv_Nm_s_per_rad": {
+      "FL_hip_joint": 1.0,
+      "FL_thigh_joint": 1.0,
+      "FL_calf_joint": 1.0,
+      "FL_foot_joint": 1.0,
+      "FR_hip_joint": 1.0,
+      "FR_thigh_joint": 1.0,
+      "FR_calf_joint": 1.0,
+      "FR_foot_joint": 1.0,
+      "RL_hip_joint": 1.0,
+      "RL_thigh_joint": 1.0,
+      "RL_calf_joint": 1.0,
+      "RL_foot_joint": 1.0,
+      "RR_hip_joint": 1.0,
+      "RR_thigh_joint": 1.0,
+      "RR_calf_joint": 1.0,
+      "RR_foot_joint": 1.0
+    },
+    "passive_stiffness_Nm_per_rad": 0,
+    "passive_damping_Nm_s_per_rad": 0,
+    "passive_frictionloss_Nm": 0,
+    "effort_limits_Nm": {
+      "FL_hip_joint": 23.700000762939453,
+      "FL_thigh_joint": 23.700000762939453,
+      "FL_calf_joint": 35.54999923706055,
+      "FL_foot_joint": 23.700000762939453,
+      "FR_hip_joint": 23.700000762939453,
+      "FR_thigh_joint": 23.700000762939453,
+      "FR_calf_joint": 35.54999923706055,
+      "FR_foot_joint": 23.700000762939453,
+      "RL_hip_joint": 23.700000762939453,
+      "RL_thigh_joint": 23.700000762939453,
+      "RL_calf_joint": 35.54999923706055,
+      "RL_foot_joint": 23.700000762939453,
+      "RR_hip_joint": 23.700000762939453,
+      "RR_thigh_joint": 23.700000762939453,
+      "RR_calf_joint": 35.54999923706055,
+      "RR_foot_joint": 23.700000762939453
+    },
+    "wheel_target_cap_rad_s": 20,
+    "physics_dt_s": 0.005,
+    "policy_dt_s": 0.02,
+    "decimation": 4,
+    "actuator_delay_ticks": 0,
+    "required": "Verify PhysX effective armature readback by joint name; preserve implicit actuators, Actor, original asset, gains, targets, history and ground. Use API SI units; no USD gain conversion on API values or armature.",
+    "uncertainty": "Matching these parameters does not equate Genesis approximate_implicitfast/Newton/contact integration to PhysX implicit drive/solver."
+  },
+  "PhysX_context": {
+    "repository": "liambansbach/isaaclab_hpc_playground_v3",
+    "commit": "d33b88309ed88796e255380988c6dce8bbd10514",
+    "path": "outputs/locomotion/go2w_genesis_sim2sim_v1/actuation_calibration_01/",
+    "nominal_recorded_final_planar_rms_m_s": 0.24579624831676483,
+    "nominal_recorded_2_10_leg_dq_rms_rad_s": 4.692405700683594,
+    "note": "Different backend/measured deployment asset and armature0 context; cross-simulator values are contextual, not a paired causal experiment."
+  },
+  "budget": {
+    "native_scene_launches": 5,
+    "bounded_rollouts": 5,
+    "scheduled_simulation_s": 58,
+    "reset_setup_integration_s": 0.2,
+    "literal_integrated_s": 58.2,
+    "native_process_wall_s": 646.0272099000001,
+    "processes": [
+      {
+        "label": "original-stand",
+        "started_utc": "2026-10-01T15:47:56.219695Z",
+        "wall_seconds": 167.8385342,
+        "exit_code": 0,
+        "args": [
+          "-u",
+          "-m",
+          "robot_gym.scripts.native_reference",
+          "--candidate",
+          "P_ck2498",
+          "--asset",
+          "original",
+          "--case",
+          "stand",
+          "--output",
+          "evaluation/native_reference_20261001/original-stand"
+        ],
+        "ended_utc": "2026-10-01T15:50:44.0864409Z"
+      },
+      {
+        "label": "measured-stand",
+        "started_utc": "2026-10-01T15:51:02.2093452Z",
+        "wall_seconds": 135.2512117,
+        "exit_code": 0,
+        "args": [
+          "-u",
+          "-m",
+          "robot_gym.scripts.native_reference",
+          "--candidate",
+          "P_ck2498",
+          "--asset",
+          "measured",
+          "--case",
+          "stand",
+          "--output",
+          "evaluation/native_reference_20261001/measured-stand"
+        ],
+        "ended_utc": "2026-10-01T15:53:17.4739501Z"
+      },
+      {
+        "label": "original-sequence",
+        "started_utc": "2026-10-01T15:55:30.293031Z",
+        "wall_seconds": 109.5961621,
+        "exit_code": 0,
+        "args": [
+          "-u",
+          "-m",
+          "robot_gym.scripts.native_reference",
+          "--candidate",
+          "P_ck2498",
+          "--asset",
+          "original",
+          "--case",
+          "sequence",
+          "--output",
+          "evaluation/native_reference_20261001/original-sequence"
+        ],
+        "ended_utc": "2026-10-01T15:57:19.9063972Z"
+      },
+      {
+        "label": "measured-sequence-viewer",
+        "started_utc": "2026-10-01T15:59:19.0666762Z",
+        "wall_seconds": 123.5764275,
+        "exit_code": 0,
+        "args": [
+          "-u",
+          "-m",
+          "robot_gym.scripts.native_reference",
+          "--candidate",
+          "P_ck2498",
+          "--asset",
+          "measured",
+          "--case",
+          "sequence",
+          "--output",
+          "evaluation/native_reference_20261001/measured-sequence-viewer",
+          "--viewer"
+        ],
+        "ended_utc": "2026-10-01T16:01:22.6604844Z"
+      },
+      {
+        "label": "original-stand-armature0",
+        "started_utc": "2026-10-01T16:04:08.5726228Z",
+        "wall_seconds": 109.7648744,
+        "exit_code": 0,
+        "args": [
+          "-u",
+          "-m",
+          "robot_gym.scripts.native_reference",
+          "--candidate",
+          "P_ck2498",
+          "--asset",
+          "original",
+          "--case",
+          "stand",
+          "--output",
+          "evaluation/native_reference_20261001/original-stand-armature0",
+          "--zero-armature"
+        ],
+        "ended_utc": "2026-10-01T16:05:58.3655632Z"
+      }
+    ],
+    "import_only_inspection": "Two initial import-only inspections cancelled before Genesis initialization; cached import probe/preflight completed. No robot/GPU scenes in these processes.",
+    "conservative_import_inspection_allowance_s": 600,
+    "conservative_total_wall_upper_bound_s": 1246.0272099000001,
+    "ceilings": {
+      "launches": 8,
+      "rollouts": 10,
+      "rollout_s": 20,
+      "native_wall_s": 1800
+    },
+    "one_scene_process_GPU_at_a_time": true
+  },
+  "viewer": {
+    "attempts": 1,
+    "case": "measured-sequence-viewer",
+    "created": "960x72060Hz normal Genesis viewer; native log18:00:33CEST",
+    "outcome": "Viewer created and full14s rollout completed, exit0. No screenshot/independent visual capture obtained during its short window; no GUI retry or renderer changes."
+  },
+  "checks": {
+    "CPU_tests": "30 passed (native_reference, diagnostics, inference), exit0; initial new test import order hit existing circular import, corrected before final pass.",
+    "parity_and_integrity": "Unchanged publication checker validated ORIGINAL snapshot and all payloads/meshes,96CPU samples exact; GPU recorded error4.172325e-7.",
+    "trace_checks": "All arrays finite; exact direct commands and previous issued clipped normalized action history; frozen CPU replay <=5e-5 on all2900actual observations.",
+    "protected_files": "Canonical URDF, meshes, published payloads and training recipes unchanged.",
+    "static": "py_compile and git diff --check pass; existing base-environment Ruff0.12.0 E9/F63/F7/F82 passes. Ruff is absent from genesis-gpu; no installation performed.",
+    "assembly": "Offline assembly passed; initial inherited-stderr Git subprocess handle error fixed with standard-library Git blob hashing, no native rerun.",
+    "immutable_snapshot_whitespace": "Verbatim source whitespace retained. Only the two snapshot paths exempt blank-at-eol lint; file hashes are unchanged."
+  }
+}

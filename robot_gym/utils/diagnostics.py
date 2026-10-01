@@ -511,3 +511,31 @@ def loaded_properties(env):
         "effective_friction": torch.maximum(ratios * wheel, ground).clamp_min(0.01),
         "friction_rule": "Genesis collider/contact.py: max(wheel geometry friction * ratio, ground geometry friction * ratio, 0.01); ground ratio=1",
     }
+
+
+def joint_dynamics(robot, names):
+    """Effective post-build SI parameters through public installed Genesis getters.
+
+    None means unavailable, never inferred zero. Armature is joint-reflected
+    rotational inertia (kg m^2), distinct from link inertia and motor inertia.
+    """
+    indices = [robot.get_joint(n).dofs_idx_local[0] for n in names]
+    values, sources = {}, {}
+    for field in ("armature", "kp", "kv", "stiffness", "damping", "frictionloss"):
+        getter = getattr(robot, f"get_dofs_{field}", None)
+        sources[field] = f"RigidEntity.get_dofs_{field}" if getter else "unavailable"
+        values[field] = getter(indices).detach().cpu().reshape(-1).tolist() if getter else [None] * len(names)
+    for field, getter_name in (("force_range", "get_dofs_force_range"), ("position_limit", "get_dofs_limit")):
+        lo, hi = getattr(robot, getter_name)(indices)
+        values[field] = list(zip(lo.detach().cpu().reshape(-1).tolist(), hi.detach().cpu().reshape(-1).tolist()))
+        sources[field] = f"RigidEntity.{getter_name}"
+    result = {}
+    for i, name in enumerate(names):
+        row = {k: v[i] for k, v in values.items()}
+        row['position_limit'] = [x if np.isfinite(x) else None for x in row['position_limit']]
+        row['solver_parameters'] = json_safe(robot.get_joint(name).get_sol_params())
+        result[name] = row
+    return {"joints": result, "sources": sources,
+            "units": {"armature": "kg m^2 (joint-reflected)", "kp": "N m/rad", "kv": "N m s/rad (active)",
+                      "stiffness": "N m/rad (passive)", "damping": "N m s/rad (passive)",
+                      "frictionloss": "N m", "force_range": "N m", "position_limit": "rad"}}

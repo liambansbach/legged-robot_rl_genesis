@@ -991,3 +991,97 @@ Canonical assets are reused in place: the URDF and all 13 referenced meshes exis
 The published command, **python ressources/pretrained/go2w/check_policy.py**, exited **0** once on the final worktree package. A second invocation on a 9,223,263-byte temporary archive of staged tree 9c530f669a2a8ef209caf0dfb4cc6f68fb107dcd plus only required assets also exited **0**, using isolated Python and no ignored-file dependencies. Both checks: 96 samples, **0** maximum CPU reference difference (atol 2e-6), **4.17232513e-7** against clipped GPU-recorded outputs (atol 5e-5), unchanged normalizer buffers. Environment: Windows, Python 3.11.14, PyTorch 2.9.0+cu130, NumPy 2.2.6. Payloads are real Git blobs, not LFS pointers. Targeted Ruff and whitespace checks passed. All 65 protected source/evidence/bundle files remain unchanged.
 
 One local preparation assertion initially exited **1** before copying payloads: it compared the whole saved observation-scale dictionary to the four actor scales, overlooking the unused height_measurements entry. Comparing the actual four interface fields repaired the packaging assertion; preparation exited **0**, with no semantic change. Staged whitespace checking initially exited **2** on the deliberately preserved config CRLF endings; a config-only cr-at-eol attribute fixes that check without altering the snapshot bytes. Logs remain ignored under .migration-audit/publish-go2w-20260929. No simulator, optimizer, new trajectory, installation, transfer or hardware command ran. Linux/PyTorch compatibility and PhysX behavior remain pending. The next bounded Linux task is to fetch and run the public checker first, then reproduce the frozen nominal scene and the existing straight/[.5,+/-.1] feedback paths; do not extrapolate to a deployment envelope.
+
+## Native frozen-Actor reference — 1 October 2026
+
+Started on clean `testing` at `c2c2febed2fc4aea20d874876091a3377f2e9ed2`,
+origin/testing, ahead/behind 0/0. The existing `genesis-gpu` environment matches
+recorded Python 3.11.14, Torch 2.9.0+cu130, Genesis 1.4.1 and RSL-RL 5.5.1.
+The [portable JSON](go2w_native_reference.json) gives all exact code/package/
+Actor/asset identities, joint readback and metrics; the [3.7 MB numeric archive](go2w_native_reference_traces.npz)
+contains 200 Hz physics states/targets and 50 Hz Actor inputs/actions.
+
+The published P/CK2498 Actor is unchanged and loaded directly, with its embedded
+normalizer/clipping. Existing observation/control/reset/command paths are reused.
+The complete saved configuration is restored after the existing contract check;
+all diagnostic overrides are logged. Saved performance_mode=True,
+deterministic=False and batching are retained; normal play overrides the first
+two. There is no runner, export, feedback, brake, smoothing, DR, noise or push.
+
+Effective armature is **0.10000000149 kg m² at all 16 joints**, after build/reset.
+Active gains after control initialization/reset: legs Kp=40 Nm/rad, Kv=1 Nm s/rad;
+wheels Kp=0, Kv=1. Passive stiffness/damping/frictionloss are zero. Bare build
+defaults Kp=100/Kv=10 are replaced before inference. Integrator
+approximate_implicitfast, Newton 50/50 iterations; .005 s physics/one internal
+substep, .02 s policy/decimation four, delay zero, collisions and joint limits on.
+No global MuJoCo compatibility option changed. Current readback/source hashes
+cannot prove byte identity of the unrecorded historical installation.
+
+Explicit ORIGINAL snapshot `go2w_reference_original.urdf` matches publication
+commit `0ca8d747a94341ed94d59075c2899c5348de688a` (LF versus historical CRLF).
+MEASURED `go2w_measured_ed8dc93.urdf` exactly matches navigation commit
+`ed8dc93b3065a8e2a3a5919f032ed4690529117c`, including Git blob identity.
+All 13 shared meshes match its LFS hashes, permitting only DAE CRLF→LF.
+Canonical files/publication hashes remain unchanged; the unchanged checker used
+an isolated ORIGINAL root. Ambiguous basename fallback now fails.
+Total masses are 19.523000/19.683710 kg; merged base masses 6.923000/7.083710 kg.
+JSON records COM and inertia in principal and authored base frames. Camera/mount
+geometry/inertials and tire radius .086→.09167 m change together.
+
+| Exact-zero 10 s case | Last 2 s planar RMS, m/s | Last 2 s yaw RMS, rad/s | Last 5 s drift, m | 2–10 s leg dq RMS, rad/s | 2–10 s body roll/pitch rate RMS, rad/s |
+|---|---:|---:|---:|---:|---:|
+| ORIGINAL, source armature | .009971 | .000871 | .051004 | .003605 | .001927 |
+| MEASURED, source armature | .010069 | .000793 | .051976 | .003089 | .001728 |
+| ORIGINAL, only armature zero | .216402 | .324413 | 1.124184 | 4.388531 | 3.661521 |
+
+All five cases complete with credible support and no fall, timeout, rollout
+reset or incomplete interval. The public armature setter verifies zero before
+and after fresh reset. Zero-armature joint/body spectra peak at 25 Hz, with
+84.4%/93.0% power in 24–26 Hz; Actor peak is its 25 Hz Nyquist bin (86.0%).
+Maximum per-joint clipping is 79%; actual minimum leg margin stays .162569 rad.
+Source-armature stands pass all three development targets; zero armature fails
+all three. Initial 0–2 s and settled 2–10 s results are separate in JSON.
+
+Both fresh sequences use zero 0–3 s, +.2 m/s 3–8 s, zero 8–14 s.
+ORIGINAL/MEASURED mean vx over 5–8 s: .186334/.188612 m/s; tracking RMS:
+.014213/.011600 m/s; body-forward progress: .960430/.972647 m.
+Stop-edge-to-end displacement: .060951/.059478 m; final planar RMS:
+.008207/.007924 m/s. No gain/action-scale search ran.
+
+**Budget/checks:** 5 native starts/5 rollouts, 58 s scheduled +.20 s reset
+integration, 646.027 s process wall including compilation/GUI. A conservative
+600 s allowance for cancelled/completed import-only inspection keeps total below
+30 minutes. 30 CPU tests, frozen replay of all 2,900 observations (max 3.10e-6),
+integrity/history/command checks, py_compile, existing base Ruff 0.12.0 and
+whitespace checks pass. Initial test import order and an offline Windows Git
+stderr-handle error were corrected without native reruns. The sole normal viewer
+opened 960×720/60 Hz and completed the measured sequence, exit 0; no screenshot
+was captured or GUI retry made. Raw logs/evidence:
+`evaluation/native_reference_20261001`, `.migration-audit/native-reference-20261001`.
+
+**One next action:** matched PhysX exact-zero ORIGINAL armature A/B, 0.0 versus
+**0.1 kg m² at all 16 joints**, fresh 10 s resets, same Actor/gains/limits/
+timing/history/ground and verified backend readback. No USD degree conversion
+on API gains or armature. Historical measured-asset PhysX calibration is context,
+not a matched baseline. This proves a Genesis armature dependency; it does not
+prove the sole PhysX cause, hardware parameters, transfer success or training
+necessity. Enough evidence exists; the optional measured zero-armature run was skipped.
+
+Playback from the repository root, using the verified existing environment and
+fresh outputs; these commands perform no export:
+
+```powershell
+$go2wPrefix = (conda env list --json | ConvertFrom-Json).envs | Where-Object { (Split-Path $_ -Leaf) -eq 'genesis-gpu' }
+$Python = Join-Path $go2wPrefix 'python.exe'
+$env:NUMBA_CACHE_DIR = "$PWD/.migration-audit/diagnostics-20260925/numba-cache"
+$env:GS_CACHE_FILE_PATH = "$env:TEMP/go2w-diagnostics-genesis"
+$env:QD_OFFLINE_CACHE_FILE_PATH = "$env:TEMP/go2w-diagnostics-quadrants"
+$env:PYTHONIOENCODING = 'utf-8'
+$Replay = "evaluation/native_reference_replay_$(Get-Date -Format yyyyMMdd_HHmmss)"
+& $Python -m robot_gym.scripts.native_reference --candidate P_ck2498 --asset original --case sequence --output "${Replay}_original"
+& $Python -m robot_gym.scripts.native_reference --candidate P_ck2498 --asset measured --case sequence --output "${Replay}_measured" --viewer
+```
+
+Omit `--viewer` for headless playback. `--case stand` selects 10 s exact zero;
+`--zero-armature` is restricted to stand and verifies effective zero.
+Default training recipes remain unchanged.

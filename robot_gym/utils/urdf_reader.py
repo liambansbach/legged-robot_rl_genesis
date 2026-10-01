@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
@@ -23,13 +24,15 @@ class URDFReader():
 
     def __init__(self, robot_file_name: str):
         # public members
-        self.robot_file_name: str = robot_file_name
+        requested = Path(robot_file_name)
+        self._explicit_path = requested.resolve() if requested.is_absolute() or requested.parent != Path('.') else None
+        self.robot_file_name: str = requested.name
         self.robot_name: str = Path(robot_file_name).stem
         self.robot_file_format: str = ""
         self._check_robot_file_name()
 
         self.relevant_paths_dict: dict[str, Path] = self._get_paths()
-        self.robot_file_path_absolute: Path = Path(str(str(self.relevant_paths_dict[self.robot_file_format])+"/"+robot_file_name))
+        self.robot_file_path_absolute: Path = self.relevant_paths_dict[self.robot_file_format] / self.robot_file_name
         self.joint_names: list[str] = self._get_joint_names()
         self.foot_link_names: list[str] = self._get_foot_link_names()
         self.robot_file_path_relative: Path = self._get_relative_robot_file_path()
@@ -72,28 +75,27 @@ class URDFReader():
             "project_root": project_root,
         }
 
+        if self._explicit_path is not None:
+            if not self._explicit_path.is_file():
+                raise FileNotFoundError(self._explicit_path)
+            result[self.robot_file_format] = self._explicit_path.parent
+            return result
+
         robots_folder = Path(ROBOTS_DIR)
 
         robot_dirs = [p for p in robots_folder.iterdir() if p.is_dir()]
 
-        found = False
-
-        for folder in robot_dirs:
-            matches = list(folder.rglob(self.robot_file_name))
-
-            if matches:
-                result[folder.name] = folder.resolve()
-
-                file_path = matches[0].resolve()
-                result[self.robot_file_format] = file_path.parent
-
-                found = True
-                break
-
-        if not found:
+        matches = [(folder, path.resolve()) for folder in robot_dirs
+                   for path in folder.rglob(self.robot_file_name)]
+        if not matches:
             raise FileNotFoundError(
                 f"Robot file '{self.robot_file_name}' not found in any subfolder of {robots_folder}"
             )
+        if len(matches) != 1:
+            raise ValueError(f"Ambiguous robot filename '{self.robot_file_name}': {[str(p) for _, p in matches]}; supply an explicit path")
+        folder, file_path = matches[0]
+        result[folder.name] = folder.resolve()
+        result[self.robot_file_format] = file_path.parent
 
         return result
 
@@ -262,6 +264,6 @@ class URDFReader():
         """
         Return the relative robot file path
         """
-        return self.robot_file_path_absolute.relative_to(
-            self.relevant_paths_dict["project_root"]
-        )
+        return Path(os.path.relpath(
+            self.robot_file_path_absolute, self.relevant_paths_dict["project_root"]
+        ))
