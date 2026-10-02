@@ -9,6 +9,40 @@ class BaseTask:
     _gs_initialized = False
     _gs_backend = None
 
+    @staticmethod
+    def add_arguments(parser):
+        """Registered tasks may add their own recipe/evaluation selectors."""
+
+    @staticmethod
+    def configure(env_cfg, train_cfg, args):
+        """Apply task-specific recipe options before common CLI overrides."""
+
+    @staticmethod
+    def configure_evaluation(cfg, args):
+        """Task-owned inference sensitivity or controller options."""
+
+    @staticmethod
+    def validate_training(args, env_cfg, train_cfg):
+        """Validate initialization before constructing physics or a runner."""
+
+    def setup_runner(self, runner):
+        """Install task-owned training state, if any, before checkpoint loading."""
+
+    def install_training_diagnostics(self, runner, log_dir):
+        """Optional task-owned scalar diagnostics."""
+
+    def training_metadata(self):
+        return {}
+
+    def export_metadata(self):
+        return {}
+
+    def update_task_state(self):
+        """Update derived task state after termination checks and before rewards."""
+
+    def capture_task_state(self):
+        return {}
+
     def __init__(self, cfg: LeggedRobotCfg, sim_params, sim_device, headless):
         self.sim_params = sim_params
         self.headless = headless

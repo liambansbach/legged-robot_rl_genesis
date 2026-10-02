@@ -20,6 +20,7 @@ from robot_gym.utils.helpers import (
     get_args,
     update_cfg_from_args,
     class_to_dict,
+    update_class_from_dict,
     get_load_path,
     set_seed,
 )
@@ -72,6 +73,46 @@ class TaskRegistry:
             pass
 
         return env_cfg, train_cfg
+
+    def resolve_replay(self, args):
+        """Select once, restore saved class instances, then apply explicit runtime options."""
+        from pathlib import Path
+
+        defaults, training_defaults = self.get_cfgs(args.task)
+        env_cfg, train_cfg = self.get_cfgs(args.task)
+        # Recipe selection here only supplies a legacy experiment-name default.
+        update_cfg_from_args(env_cfg, train_cfg, args)
+        checkpoint = Path(get_load_path(
+            Path(ROBOT_GYM_ROOT_DIR) / "logs" / train_cfg.runner.experiment_name,
+            args.load_run if args.load_run is not None else -1,
+            args.checkpoint if args.checkpoint is not None else -1,
+        )).resolve()
+        config_path = Path(getattr(args, "reference_config", None) or checkpoint.with_name("config.yaml"))
+        with config_path.open(encoding="utf-8") as stream:
+            saved = yaml.safe_load(stream)
+        if not isinstance(saved, dict) or not all(isinstance(saved.get(k), dict) for k in ("env_cfg", "train_cfg")):
+            raise ValueError(f"Expected env_cfg and train_cfg mappings in {config_path}")
+        if saved.get("task", args.task) != args.task:
+            raise ValueError(f"Checkpoint task {saved['task']!r} conflicts with --task {args.task!r}")
+        asset = saved["env_cfg"].get("asset", {})
+        if asset.get("name") != defaults.asset.name:
+            raise ValueError(f"Saved asset {asset.get('name')!r} conflicts with task {args.task!r}")
+        for key in ("num_observations", "num_actions", "num_privileged_obs"):
+            if saved["env_cfg"].get("env", {}).get(key, getattr(defaults.env, key)) != getattr(defaults.env, key):
+                raise ValueError(f"Saved {key} conflicts with the registered {args.task} interface")
+        # Start from unprofiled defaults. Missing optional physics fields retain import behavior.
+        env_cfg, train_cfg = defaults, training_defaults
+        update_class_from_dict(env_cfg, saved["env_cfg"])
+        update_class_from_dict(train_cfg, saved["train_cfg"])
+        args._replay_restored = True
+        args.resolved_checkpoint = str(checkpoint)
+        update_cfg_from_args(env_cfg, train_cfg, args)
+        if args.episode_length_s is not None:
+            env_cfg.env.episode_length_s = args.episode_length_s
+        env_cfg.seed = args.seed if args.seed is not None else train_cfg.seed
+        train_cfg.runner.resume = True
+        print(f"Resolved checkpoint: {checkpoint}", flush=True)
+        return env_cfg, train_cfg, checkpoint
 
     # --------------------------------------------------------------------------
     # Simulation Params (Genesis-specific)
@@ -200,9 +241,8 @@ class TaskRegistry:
 
         # Apply CLI overrides
         _, train_cfg = update_cfg_from_args(None, train_cfg, args)
-        if save_config and getattr(train_cfg, "go2w_profile", None) == "transfer_v1":
-            from robot_gym.scripts.train import validate_fresh_transfer
-            validate_fresh_transfer(args, train_cfg)
+        if save_config:
+            type(env).validate_training(args, env.cfg, train_cfg)
 
         effective_run_name = (
             train_cfg.runner.run_name
@@ -243,7 +283,9 @@ class TaskRegistry:
 
         resume_path = None
 
-        if train_cfg.runner.resume:
+        if getattr(args, "resolved_checkpoint", None) is not None:
+            resume_path = args.resolved_checkpoint
+        elif train_cfg.runner.resume:
             if log_root is None:
                 raise ValueError("Cannot resume when log_root is None.")
 
@@ -252,10 +294,9 @@ class TaskRegistry:
                 load_run=train_cfg.runner.load_run,
                 checkpoint=train_cfg.runner.checkpoint,
             )
-            if save_config and getattr(args, "task", None) == "go2w":
-                from robot_gym.utils.diagnostics import check_continuation_output
 
-                check_continuation_output(resume_path, log_dir)
+        if not save_config:
+            log_dir = None  # Inference uses the selected run without creating a new training log.
 
         runner = OnPolicyRunner(
             env=env,
@@ -267,20 +308,24 @@ class TaskRegistry:
         runner.add_git_repo_to_log(__file__)
 
         runner.checkpoint_path = resume_path
-        from robot_gym.envs.go2w.go2w_config import uses_event_steps
-        if uses_event_steps(env.cfg):
-            from robot_gym.envs.go2w.step_events import install_event_training
-            install_event_training(runner, env)
+        env.setup_runner(runner)
         if resume_path is not None: 
             print(f"Loading model from: {resume_path}")
             runner.load(resume_path)
+            # Task-state loading may change commands/curriculum; never issue the first
+            # action from a TensorDict captured before loading.
+            env.compute_observations()
 
+
+        if save_config and args.training_diagnostics:
+            env.install_training_diagnostics(runner, log_dir)
 
         # save config as yaml in log_dir for reproducibility
         if save_config and log_dir is not None:
             os.makedirs(log_dir, exist_ok=True)
 
             full_cfg = {
+                "task": args.task,
                 "train_cfg": class_to_dict(train_cfg),
             }
 

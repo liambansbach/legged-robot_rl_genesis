@@ -134,7 +134,7 @@ def apply_go2w_profile(env_cfg, train_cfg, name):
             new_env.asset.robot_file = MEASURED_URDF
             new_env.asset.sha256 = MEASURED_SHA256
             new_env.asset.source_commit = "ed8dc93b3065a8e2a3a5919f032ed4690529117c"
-            new_env.asset.contact_height = verify_measured_asset()
+            new_env.asset.contact_height = 0.09167
             new_env.asset.default_armature = 0.01
             new_env.control.armature = {joint: 0.01 for joint in LEG_JOINTS + WHEEL_JOINTS}
             new_env.control.passive_stiffness = 0.0
@@ -145,7 +145,6 @@ def apply_go2w_profile(env_cfg, train_cfg, name):
             new_env.domain_rand.scale_base_inertia_with_mass = True
             new_env.sim.batch_dofs_info = new_env.sim.batch_links_info = True
             new_env.sim.integrator = "approximate_implicitfast"
-            check_target_intervals(new_env)
         if new_train is not None:
             new_train.go2w_profile = name
             new_train.go2w_behavior = "event_step_v1"
@@ -197,7 +196,6 @@ def apply_go2w_profile(env_cfg, train_cfg, name):
             env_cfg.domain_rand.kp_scale_range = [0.85, 1.15]
             env_cfg.domain_rand.kd_scale_range = [0.85, 1.15]
             env_cfg.domain_rand.action_delay_steps_range = [0, 2]
-            check_target_intervals(env_cfg)
         if train_cfg is not None and getattr(train_cfg, "go2w_profile", None) != name:
             train_cfg.go2w_profile = name
             train_cfg.actor.distribution_cfg = {
@@ -228,7 +226,6 @@ def apply_go2w_profile(env_cfg, train_cfg, name):
         env_cfg.rewards.reposition_speed = 0.15
         env_cfg.rewards.scales.foot_swing_clearance = 0.12
         env_cfg.rewards.scales.stand_still = -2.0
-        check_target_intervals(env_cfg)
     if train_cfg is not None and getattr(train_cfg, "go2w_profile", None) != name:
         train_cfg.go2w_profile = name
         train_cfg.actor.distribution_cfg = {
@@ -241,12 +238,12 @@ def apply_go2w_profile(env_cfg, train_cfg, name):
         train_cfg.runner.save_interval = 250
 
 
-def check_target_intervals(cfg):
+def check_target_intervals(cfg, reader=None):
     """Candidate offsets must remain at least 0.02 rad inside the authored hard limits."""
     import xml.etree.ElementTree as ET
     from robot_gym.utils.urdf_reader import URDFReader
 
-    root = ET.parse(URDFReader(cfg.asset.robot_file).robot_file_path_absolute).getroot()
+    root = (reader or URDFReader(cfg.asset.robot_file)).root
     intervals = {}
     for name in LEG_JOINTS:
         limit = root.find(f"joint[@name='{name}']/limit")
@@ -359,6 +356,7 @@ class GO2WCfg(GO2Cfg):
         clip_actions = 1.0
 
     class domain_rand(GO2Cfg.domain_rand):
+        armature_groups = [LEG_JOINTS, WHEEL_JOINTS]
         friction_range = [0.6, 1.2]
         friction_links = ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
         added_mass_range = [-0.5, 1.5]

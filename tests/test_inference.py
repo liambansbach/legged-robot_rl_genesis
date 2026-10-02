@@ -102,9 +102,9 @@ class InferenceTests(unittest.TestCase):
         from unittest.mock import patch
         from robot_gym.utils.helpers import get_args
 
-        with patch('sys.argv', ['evaluate']):
+        with patch('sys.argv', ['evaluate', '--task', 'go2w']):
             self.assertEqual(get_args().eval_mode, 'nominal')
-        with patch('sys.argv', ['evaluate', '--eval_mode', 'closed_loop']):
+        with patch('sys.argv', ['evaluate', '--task', 'go2w', '--eval_mode', 'closed_loop']):
             self.assertEqual(get_args().eval_mode, 'closed_loop')
         for t, expected in [(0, (0, 0, 0)), (2, (1, 0, 0)), (2.5, (1, .125, .5)),
                             (3, (1, .5, 1)), (13, (1, 10.5, 1)),
@@ -197,7 +197,7 @@ class InferenceTests(unittest.TestCase):
         env.torque_limits = torch.ones(16)
         env.reset = Mock()
         with TemporaryDirectory() as out, patch(
-                'robot_gym.scripts.diagnostic_bank.rollout_closed_loop', return_value=(data, reason)) as rollout:
+                'robot_gym.envs.go2w.diagnostic_bank.rollout_closed_loop', return_value=(data, reason)) as rollout:
             result = evaluate_closed_loop(env, None, Path(out))
             self.assertEqual(list(result['tests']), ['straight'])
             self.assertEqual(result['position_limits'], [[None, None]] * 16)

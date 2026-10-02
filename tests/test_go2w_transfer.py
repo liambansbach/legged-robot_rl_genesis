@@ -61,7 +61,7 @@ class TransferCPU(unittest.TestCase):
         apply_go2w_profile(cfg, training, "transfer_v1")
         self.assertEqual(before, class_to_dict(cfg))
         legacy, _ = task_registry.get_cfgs("go2w")
-        self.assertFalse(hasattr(legacy.control, "armature"))
+        self.assertIsNone(legacy.control.armature)
 
     def test_reject_initialization_before_environment(self):
         for options in (("--resume",), ("--load_run", "old"), ("--checkpoint", "0"),
@@ -127,7 +127,8 @@ class TransferCPU(unittest.TestCase):
             cfg, _ = recipe()
             select_transfer_dynamics(cfg, args_for(1, "--transfer_armature", selection, "--transfer_delay", "2"))
             self.assertFalse(cfg.domain_rand.randomize_armature)
-            self.assertEqual(set(cfg.control.armature.values()), {expected})
+            self.assertEqual(set(cfg.control.armature.values()), {.01})
+            self.assertEqual(cfg.control.armature_override, None if selection == "nominal" else expected)
             self.assertEqual(cfg.domain_rand.action_delay_steps_range, [2, 2])
 
     def test_nominal_export_metadata_and_panel(self):

@@ -25,11 +25,13 @@ COMMANDS = [
 
 
 class FixedCommandTests(unittest.TestCase):
-    def test_no_export_is_opt_in_and_retains_brake_protection(self):
+    def test_export_is_opt_in_and_retains_brake_protection(self):
         with patch.object(sys, "argv", ["play", "--task", "go2w"]):
             args = get_args()
         self.assertFalse(args.no_export)
-        self.assertTrue(should_export_policy(args))
+        self.assertFalse(should_export_policy(args))
+        with patch.object(sys, "argv", ["play", "--task", "go2w", "--export"]):
+            self.assertTrue(should_export_policy(get_args()))
         for option in ("--no_export", "--zero_command_brake"):
             with patch.object(sys, "argv", ["play", "--task", "go2w", option]):
                 self.assertFalse(should_export_policy(get_args()))
@@ -115,7 +117,7 @@ class FixedCommandTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "inference-only"):
             train(args)
         args.task = "go2"
-        with self.assertRaisesRegex(ValueError, "specific to go2w"):
+        with self.assertRaisesRegex(ValueError, "conflicts with task"):
             update_cfg_from_args(env, cfg, args)
 
     def make_env(self, task):

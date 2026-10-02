@@ -1282,3 +1282,42 @@ estimator-aware policy training may be necessary. Do not copy the reference's
 `common_step_counter / 24` clock or fixed update assumptions into this 64-step run.
 There is no executable estimator, estimator checkpoint or online learning here,
 and simulator-navigation results using truth must be described accordingly.
+
+
+## Shared pipeline cleanup (2026-10-02)
+
+Replay resolves and prints one checkpoint, safely restores the saved environment
+and training class configuration, then applies explicit runtime overrides.
+`--load_run` selects the input run; `--checkpoint -1` selects its latest saved model.
+No historical profile is required. Explicit task/profile/interface conflicts fail
+before simulation. Missing optional physical settings retain imported behavior;
+Dodo and Go2 do not acquire Go2-W motor overrides. Task rules and evaluation code
+now live under `envs/go2w`; historical script/import paths are thin wrappers.
+
+Export is opt-in (`--export`), under the selected run's
+`exported/model_<number>/`; `--no_export` is still accepted. Fixed body command axes
+are vx/vy in m/s and yaw rate in rad/s: any supplied axis makes omitted axes zero;
+no axes preserves command sampling. Command-range curriculum is independent.
+`--steps` counts policy ticks: 900 at .02 s means 18 simulated seconds excluding
+startup/reset settling. Ticks span resets. `--episode_length_s 30` allows an 18 s
+session without an episode timeout, while actual falls still reset.
+
+A separate functional fix refreshes the first observation after checkpoint task
+state loading (which can resample commands), then obtains a new policy tensor.
+Issued/clipped versus delayed/applied action history and reset semantics are unchanged.
+The 200-tick nominal CK1999 cleanup comparison at [.2,0,0] had max state/action
+absolute difference 0 (tolerance 1e-4), no terminal reset. This is a short regression,
+not locomotion qualification. Existing owner CK300/CK1999 screens remain in
+`evaluation/transfer_v1_ck300_20261002_132929` and
+`evaluation/transfer_v1_ck1999_20261002_133544`; they are Genesis nominal results.
+Cleanup evidence is in ignored `evaluation/transfer_v2_preparation/cleanup_*`.
+
+```powershell
+conda activate genesis-gpu
+$Run = 'transfer_v1_seed1_20261002_090639_2026-10-02_09-09-17'
+python -m robot_gym.scripts.play --task go2w --experiment_name go2w_transfer_v1 --load_run $Run --checkpoint -1 --num_envs 1 --command_vx 0.5 --steps 900 --episode_length_s 30
+# Stand: replace --command_vx 0.5 with --command_vx 0.
+# Lateral/yaw: use --command_vy 0.3 or --command_yaw 0.8, respectively.
+# Omit all command axes for sampled commands; add --export only to export.
+python -m robot_gym.scripts.play --task go2w --help
+```

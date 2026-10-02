@@ -8,6 +8,70 @@ from .go2w_config import uses_event_steps
 
 
 class Go2WEnv(Go2Env):
+    @staticmethod
+    def add_arguments(parser):
+        from .cli import add_arguments
+        add_arguments(parser)
+
+    @staticmethod
+    def configure(env_cfg, train_cfg, args):
+        from .cli import configure
+        configure(env_cfg, train_cfg, args)
+
+    @staticmethod
+    def configure_evaluation(cfg, args):
+        from .deployment import select_transfer_dynamics
+        select_transfer_dynamics(cfg, args)
+
+    @staticmethod
+    def validate_training(args, env_cfg, train_cfg):
+        from .training import validate_training
+        validate_training(args, env_cfg, train_cfg)
+
+    def setup_runner(self, runner):
+        if self.event_step:
+            from .step_events import install_event_training
+            install_event_training(runner, self)
+
+    def install_training_diagnostics(self, runner, log_dir):
+        from pathlib import Path
+        from .training_diagnostics import TrainingDiagnostics
+        TrainingDiagnostics(runner, self, Path(log_dir) / "diagnostics.jsonl")
+
+    def training_metadata(self):
+        from .training import training_metadata
+        return training_metadata(self)
+
+    def export_metadata(self):
+        from .deployment import transfer_contract
+        metadata = {"observation_order": ["body_linear_velocity", "body_angular_velocity",
+                    "projected_gravity", "body_velocity_command", "leg_position_error",
+                    "joint_velocity", "previous_clipped_action"]}
+        if self.cfg.control.armature is not None:
+            metadata.update(transfer_contract(self))
+        return metadata
+
+    def update_task_state(self):
+        if self.event_step:
+            self._update_step_events()
+
+    def capture_task_state(self):
+        state = {}
+        if getattr(self.cfg.env, "capture_closed_loop", False):
+            # Preserve the issued/delayed action and cached loads before reset clears them.
+            state["applied_actions"] = self.applied_actions.clone()
+            if getattr(self, "wheel_geometry_enabled", getattr(self, "step_recovery", False)):
+                state["wheel_normal_force"] = self.wheel_normal_force.clone()
+                state["loaded_wheels"] = self.loaded_wheels.clone()
+        if getattr(self.cfg.env, "capture_precision", False):
+            for name in ("wheel_clearance", "wheel_link_quat", "wheel_reposition_velocity_body"):
+                state[name] = getattr(self, name).clone()
+            if getattr(self, "event_step", False):
+                for name in ("completed", "valid", "censored", "censored_count", "peak_actual",
+                             "peak_use", "reposition", "duration", "quality", "payment", "gate"):
+                    state["event_" + name] = getattr(self.step_events, name).clone()
+        return state
+
     def enable_zero_command_brake(self):
         if getattr(self.cfg, "go2w_profile", None) == "step_recovery_v1" or uses_event_steps(self.cfg):
             raise ValueError(
@@ -118,27 +182,17 @@ class Go2WEnv(Go2Env):
                 self.step_events = WheelStepEvents(self.num_envs, self.device,
                                                    self.cfg.rewards.event_step, self.wheel_geometry)
 
-    def _create_envs(self):
-        super()._create_envs()
-        if not hasattr(self.cfg.control, "armature"):
-            return
-        if set(self.cfg.control.armature) != set(self.joint_names):
-            raise ValueError("Explicit armature must map exactly the 16 motor joints")
-        nominal = torch.tensor([self.cfg.control.armature[n] for n in self.joint_names], device=self.device)
-        self.armature_samples = nominal.expand(self.num_envs, -1).clone()
-        if self.cfg.domain_rand.randomize_armature:
-            low, high = self.cfg.domain_rand.armature_range
-            # One leg and one wheel draw per environment, symmetric across left/right.
-            groups = low + (high - low) * torch.rand((self.num_envs, 2), device=self.device)
-            wheels = torch.tensor([n.endswith("_foot_joint")
-                                   for n in self.joint_names], device=self.device)
-            self.armature_samples[:] = torch.where(wheels[None], groups[:, 1:2], groups[:, 0:1])
-        self.robot.set_dofs_armature(self.armature_samples, self.joint_dof_idx)
-        for field in ("stiffness", "damping", "frictionloss"):
-            values = torch.full_like(self.armature_samples, getattr(self.cfg.control, "passive_" + field))
-            getattr(self.robot, "set_dofs_" + field)(values, self.joint_dof_idx)
-        actual = self.robot.get_dofs_armature(self.joint_dof_idx)
-        torch.testing.assert_close(actual, self.armature_samples)
+    def validate_asset(self):
+        from .go2w_config import check_target_intervals
+        if getattr(self.cfg, "go2w_profile", None):
+            check_target_intervals(self.cfg, self.urdf_reader)
+        if self.cfg.control.armature is not None:
+            radii = [float(self.urdf_reader.root.find(
+                f"link[@name='{name}']/collision/geometry/cylinder").get("radius"))
+                for name in self.cfg.asset.foot_link_names]
+            if len(set(radii)) != 1:
+                raise ValueError("Go2-W contact-height metadata requires equal wheel radii")
+            self.cfg.asset.contact_height = radii[0]
 
     def _update_wheel_support(self, contacts):
         from robot_gym.utils.diagnostics import summed_normal_force

@@ -1,9 +1,10 @@
+"""Shared CLI, configuration conversion, checkpoint selection and seeding."""
+
 import os
 import torch
 import numpy as np
 import random
 import argparse
-import math
 
 def class_to_dict(obj) -> dict:
     if not  hasattr(obj,"__dict__"):
@@ -24,14 +25,17 @@ def class_to_dict(obj) -> dict:
         result[key] = element
     return result
 
-def update_class_from_dict(obj, dict):
-    for key, val in dict.items():
-        attr = getattr(obj, key, None)
-        if isinstance(attr, type):
-            update_class_from_dict(attr, val)
+def update_class_from_dict(obj, values):
+    """Restore nested config objects; authored dictionaries replace dictionaries."""
+    for key, value in values.items():
+        if key.startswith("_"):
+            raise ValueError(f"Private configuration key is not supported: {key}")
+        current = getattr(obj, key, None)
+        if isinstance(value, dict) and current is not None and hasattr(current, "__dict__"):
+            update_class_from_dict(current, value)
         else:
-            setattr(obj, key, val)
-    return
+            setattr(obj, key, value)
+
 
 def set_seed(seed):
     if seed == -1:
@@ -46,7 +50,7 @@ def set_seed(seed):
     torch.cuda.manual_seed_all(seed)
 
 def get_load_path(root, load_run=-1, checkpoint=-1):
-    if not os.path.isdir(root):
+    if not os.path.isdir(root) and not (load_run is not None and os.path.isabs(str(load_run))):
         raise ValueError(f"No runs in this directory: {root}")
 
     if str(load_run) == "-1":
@@ -113,57 +117,10 @@ def get_load_path(root, load_run=-1, checkpoint=-1):
     return load_path
 
 def update_cfg_from_args(env_cfg, cfg_train, args):
-    profile = getattr(args, "go2w_profile", None)
-    if profile is not None:
-        if args.task != "go2w":
-            raise ValueError("--go2w_profile is specific to go2w")
-        if getattr(args, "zero_command_brake", False):
-            raise ValueError("Go2-W step recovery requires zero-command braking disabled")
-        entropy = 0.003 if profile in ("event_step_v1", "transfer_v1") else 0.001
-        if getattr(args, "tracking_sigma_x", None) not in (None, 0.25) or getattr(args, "entropy_coef", None) not in (None, entropy):
-            raise ValueError(f"{profile} fixes tracking_sigma_x=0.25 and entropy_coef={entropy}")
-        from robot_gym.envs.go2w.go2w_config import apply_go2w_profile
-
-        apply_go2w_profile(env_cfg, cfg_train, profile)
-    finetune = getattr(args, "go2w_finetune", None)
-    if finetune is not None:
-        if args.task != "go2w" or profile != "step_recovery_v1":
-            raise ValueError("--go2w_finetune requires go2w with --go2w_profile step_recovery_v1")
-        from robot_gym.envs.go2w.go2w_config import apply_go2w_finetune
-
-        apply_go2w_finetune(env_cfg, cfg_train, finetune)
-    stance_weight = getattr(args, "sagittal_stance_weight", None)
-    if stance_weight is not None:
-        if args.task != "go2w" or profile != "event_step_v1":
-            raise ValueError("--sagittal_stance_weight requires go2w with --go2w_profile event_step_v1")
-        if not math.isfinite(stance_weight) or stance_weight <= 0:
-            raise ValueError("--sagittal_stance_weight must be finite and positive")
-        if env_cfg is not None:
-            env_cfg.rewards.sagittal_stance_weight = stance_weight
-    quality_profile = getattr(args, "event_quality_profile", None)
-    if quality_profile is not None:
-        if args.task != "go2w" or profile != "event_step_v1":
-            raise ValueError("--event_quality_profile requires go2w with --go2w_profile event_step_v1")
-        from robot_gym.envs.go2w.go2w_config import apply_go2w_event_quality
-        apply_go2w_event_quality(env_cfg, quality_profile)
-    if getattr(args, "zero_command_brake", False) and args.task != "go2w":
-        raise ValueError("--zero_command_brake is specific to go2w playback/evaluation")
-    entropy = getattr(args, "entropy_coef", None)
-    if entropy is not None:
-        if args.task != "go2w":
-            raise ValueError("--entropy_coef is specific to go2w")
-        if not math.isfinite(entropy) or entropy < 0:
-            raise ValueError("--entropy_coef must be finite and nonnegative")
-        if cfg_train is not None:
-            cfg_train.algorithm.entropy_coef = entropy
-    sigma_x = getattr(args, "tracking_sigma_x", None)
-    if sigma_x is not None:
-        if args.task != "go2w":
-            raise ValueError("--tracking_sigma_x is specific to go2w")
-        if not math.isfinite(sigma_x) or sigma_x <= 0:
-            raise ValueError("--tracking_sigma_x must be finite and positive")
-        if env_cfg is not None:
-            env_cfg.rewards.tracking_sigma_x = sigma_x
+    from robot_gym.utils.task_registry import task_registry
+    if env_cfg is not None and env_cfg.asset.name != task_registry.env_cfgs[args.task].asset.name:
+        raise ValueError(f"Configuration asset {env_cfg.asset.name!r} conflicts with task {args.task!r}")
+    task_registry.get_task_class(args.task).configure(env_cfg, cfg_train, args)
     # seed
     if env_cfg is not None:
         # num envs
@@ -194,26 +151,13 @@ def get_args():
     parser = argparse.ArgumentParser(description="RL Policy")
 
     custom_parameters = [
-        {"name": "--go2w_finetune", "choices": ["coverage", "coverage_mobility", "precision_clearance"], "default": None, "help": "Explicit step_recovery_v1 continuation/evaluation design; unset preserves sampling and rewards"},
-        {"name": "--no_export", "action": "store_true", "help": "Playback: skip automatic policy export; source selection still uses --load_run"},
-        {"name": "--go2w_profile", "choices": ["step_recovery_v1", "event_step_v1", "transfer_v1"], "default": None, "help": "Explicit Go2-W action/reward/training profile; unset preserves the baseline"},
-        {"name": "--sagittal_stance_weight", "type": float, "default": None, "help": "Explicit event_step_v1 stance weight; full-demand weight stays 0.12; select the saved value for evaluation/play"},
-        {"name": "--event_quality_profile", "choices": ["sufficient_clearance"], "default": None, "help": "Opt-in event quality and payment; select the saved choice for evaluation/play"},
-        {"name": "--zero_command_brake", "action": "store_true", "help": "Go2-W inference only: blend wheel targets to zero for a complete zero body command"},
-        {"name": "--entropy_coef", "type": float, "default": None, "help": "Go2-W entropy weight; unset preserves the registered config"},
-        {"name": "--tracking_sigma_x", "type": float, "default": None, "help": "Go2-W forward squared-error denominator; unset preserves the registered config"},
-        {"name": "--skip_zero_action_probe", "action": "store_true", "help": "Bank evaluation: retain all policy cases, omit the equilibrium zero-action probe"},
-        {"name": "--diagnostic_trace", "action": "store_true", "help": "Read substep control forces, summed ground loads and cylinder geometry"},
+        {"name": "--no_export", "action": "store_true", "help": "Compatibility: keep replay export disabled (the default)"},
         {"name": "--training_diagnostics", "action": "store_true", "help": "Opt-in RSL-RL and unclipped reward JSONL diagnostics"},
-        {"name": "--reference_config", "help": "Explicit audited saved config, if not next to the checkpoint"},
-        {"name": "--eval_mode", "choices": ["nominal", "bank", "equilibrium", "sustained", "closed_loop", "precision_screen", "precision_dr", "transfer_screen"], "default": "nominal"},
-        {"name": "--transfer_armature", "choices": ["nominal", "low", "high"], "default": None, "help": "transfer_v1 inference-only explicit motor armature: .01/.005/.02 kg m^2"},
-        {"name": "--transfer_delay", "type": int, "choices": [0, 1, 2], "default": None, "help": "transfer_v1 inference-only held action delay in policy steps"},
-        {"name": "--transfer_cases", "nargs": "+", "choices": ["stand", "forward", "reverse", "yaw_positive", "yaw_negative", "lateral_positive", "lateral_negative", "mixed"], "help": "transfer_screen subset; unset runs the small complete command panel"},
-        {"name": "--bank_seed", "type": int, "default": 240925, "help": "Local NumPy generator for a fixed 32-condition bank"},
-        {"name": "--output", "default": "evaluation/go2w", "help": "Evaluation output directory"},
+        {"name": "--output", "default": "evaluation", "help": "Evaluation output directory"},
         {"name": "--logger", "choices": ["tensorboard", "wandb"], "help": "Override training logger"},
-        {"name": "--steps", "type": int, "default": 1000, "help": "Number of play steps"},
+        {"name": "--steps", "type": int, "default": 1000, "help": "Replay policy ticks; 900 at dt=.02 is 18 s, excluding reset settling; spans episode resets"},
+        {"name": "--episode_length_s", "type": float, "help": "Replay episode timeout in seconds; session length is still --steps"},
+        {"name": "--export", "action": "store_true", "help": "Opt-in replay export under the selected run/exported/model_<checkpoint>"},
         {"name": "--command_vx", "type": float, "help": "Fixed play vx in m/s; omitted axes default to zero"},
         {"name": "--command_vy", "type": float, "help": "Fixed play vy in m/s; omitted axes default to zero"},
         {"name": "--command_yaw", "type": float, "help": "Fixed play yaw rate in rad/s; omitted axes default to zero"},
@@ -236,7 +180,18 @@ def get_args():
         name = param.pop("name")
         parser.add_argument(name, **param)
 
+    from robot_gym.utils.task_registry import task_registry
+    selection = argparse.ArgumentParser(add_help=False)
+    selection.add_argument("--task", default="dodo")
+    task_name = selection.parse_known_args()[0].task
+    task_registry.get_task_class(task_name).add_arguments(parser)
     args = parser.parse_args()
+    if args.steps <= 0:
+        parser.error("--steps must be positive")
+    if args.episode_length_s is not None and (not np.isfinite(args.episode_length_s) or args.episode_length_s <= 0):
+        parser.error("--episode_length_s must be finite and positive")
+    if args.export and args.no_export:
+        parser.error("--export and --no_export conflict")
 
     args.sim_device = args.rl_device
 

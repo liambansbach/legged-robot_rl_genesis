@@ -2,6 +2,7 @@ from .base_config import BaseConfig
 
 class LeggedRobotCfg(BaseConfig):
     class env:
+        record_command_families = False
         capture_transitions = False  # opt-in deterministic evaluation traces
         num_envs = 4096
         num_observations = 36
@@ -138,6 +139,11 @@ class LeggedRobotCfg(BaseConfig):
             "joint_b": 0.}
 
     class control:
+        armature = None  # None retains imported motor dynamics; values are joint-reflected kg m^2.
+        armature_override = None  # Evaluation sensitivity; never deployment nominal.
+        passive_stiffness = None
+        passive_damping = None
+        passive_frictionloss = None
         control_type = 'P' # P: position, V: velocity, T: torques. Can also be a per-joint dict.
         # PD Drive parameters:
         stiffness = {'joint_a': 10.0, 'joint_b': 15.}  # [N*m/rad]
@@ -153,6 +159,7 @@ class LeggedRobotCfg(BaseConfig):
         decimation = 4
 
     class asset:
+        default_armature = None  # None omits the import override, preserving simulator defaults.
         robot_file = ""
         name = "legged_robot"
         robot_name = None
@@ -168,6 +175,10 @@ class LeggedRobotCfg(BaseConfig):
 
 
     class domain_rand:
+        randomize_armature = False
+        armature_range = None
+        armature_groups = None  # Robot-owned lists of joint names, one shared draw per group/environment.
+        scale_base_inertia_with_mass = False
         randomize_friction = False
         friction_range = [0.7, 1.3]
 
@@ -265,6 +276,7 @@ class LeggedRobotCfg(BaseConfig):
         velocity_arrow_radius = 0.03
 
     class sim:
+        integrator = None  # None retains the installed simulator default.
         deterministic = False
         dt =  0.005
         substeps = 1

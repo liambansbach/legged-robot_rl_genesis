@@ -33,6 +33,7 @@ class URDFReader():
 
         self.relevant_paths_dict: dict[str, Path] = self._get_paths()
         self.robot_file_path_absolute: Path = self.relevant_paths_dict[self.robot_file_format] / self.robot_file_name
+        self.root = ET.parse(self.robot_file_path_absolute).getroot()
         self.joint_names: list[str] = self._get_joint_names()
         self.foot_link_names: list[str] = self._get_foot_link_names()
         self.robot_file_path_relative: Path = self._get_relative_robot_file_path()
@@ -43,11 +44,9 @@ class URDFReader():
         suffix = Path(self.robot_file_name).suffix.lower()
 
         if suffix == ".urdf":
-            print(f"Loading URDF file: {self.robot_file_name}")
             self.robot_file_format = "urdf"
 
         elif suffix == ".xml":
-            print(f"Loading XML file: {self.robot_file_name}")
             self.robot_file_format = "xml"
 
         else:
@@ -103,8 +102,7 @@ class URDFReader():
     def _extract_joints_from_urdf(self) -> list[str]:
         """Extract all non-fixed joints from URDF in the exact declared order."""
 
-        tree = ET.parse(self.robot_file_path_absolute)
-        root = tree.getroot()
+        root = self.root
 
         joint_names = []
         for joint in root.findall(".//joint"):
@@ -121,8 +119,7 @@ class URDFReader():
         """Extract all non-fixed joints from an MJCF XML in the exact declared order."""
         import xml.etree.ElementTree as ET
 
-        tree = ET.parse(self.robot_file_path_absolute)
-        root = tree.getroot()
+        root = self.root
 
         joint_names = []
 

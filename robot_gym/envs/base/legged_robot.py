@@ -27,6 +27,11 @@ class LeggedRobot(BaseTask):
 
         # get robot info from urdf and update asset-config accordingly
         self.urdf_reader = URDFReader(robot_file_name=self.cfg.asset.robot_file)
+        expected_joints = self.cfg.asset.joint_names
+        if expected_joints is not None and list(expected_joints) != self.urdf_reader.joint_names:
+            raise ValueError("Saved/configured joint order differs from the selected asset")
+        self.validate_asset()
+        print(f"Simulated asset: {self.urdf_reader.robot_file_path_absolute}", flush=True)
 
         self._parse_cfg(self.cfg)
         super().__init__(self.cfg, sim_params, sim_device, headless)
@@ -101,8 +106,7 @@ class LeggedRobot(BaseTask):
         self._update_robot_state()
         self.check_termination()
 
-        if getattr(self, "event_step", False):
-            self._update_step_events()
+        self.update_task_state()
 
         if not getattr(self.cfg.env, "play_mode", False):
             self.compute_reward()
@@ -114,19 +118,7 @@ class LeggedRobot(BaseTask):
                 "time_out_buf", "reset_buf", "episode_length_buf",
             )}
             self.transition_state["fallen"] = self._compute_fallen_mask().clone()
-            if getattr(self.cfg.env, "capture_closed_loop", False):
-                # Preserve the issued/delayed action and cached loads before reset clears them.
-                self.transition_state["applied_actions"] = self.applied_actions.clone()
-                if getattr(self, "wheel_geometry_enabled", getattr(self, "step_recovery", False)):
-                    self.transition_state["wheel_normal_force"] = self.wheel_normal_force.clone()
-                    self.transition_state["loaded_wheels"] = self.loaded_wheels.clone()
-            if getattr(self.cfg.env, "capture_precision", False):
-                for name in ("wheel_clearance", "wheel_link_quat", "wheel_reposition_velocity_body"):
-                    self.transition_state[name] = getattr(self, name).clone()
-                if getattr(self, "event_step", False):
-                    for name in ("completed", "valid", "censored", "censored_count", "peak_actual",
-                                 "peak_use", "reposition", "duration", "quality", "payment", "gate"):
-                        self.transition_state["event_" + name] = getattr(self.step_events, name).clone()
+            self.transition_state.update(self.capture_task_state())
             if getattr(self, "physics_diagnostics", None) is not None:
                 self.transition_state.update(self.physics_diagnostics.capture())
         # Reward the command that generated this transition, then choose the next command.
@@ -369,7 +361,7 @@ class LeggedRobot(BaseTask):
         """ Initializes the genesis scene with the provided configuration"""
 
         rigid_overrides = {}
-        if hasattr(self.cfg.sim, "integrator"):
+        if self.cfg.sim.integrator is not None:
             rigid_overrides["integrator"] = getattr(gs.integrator, self.cfg.sim.integrator)
 
         self.sim: Scene = Scene(
@@ -916,7 +908,7 @@ class LeggedRobot(BaseTask):
                     merge_fixed_links=self.cfg.asset.merge_fixed_links,
                     links_to_keep=list(links_to_keep),
                     **({"default_armature": self.cfg.asset.default_armature}
-                       if hasattr(self.cfg.asset, "default_armature") else {}),
+                       if self.cfg.asset.default_armature is not None else {}),
                 ),
                 material=gs.materials.Rigid(friction=1.0,
                     friction_rolling=self.cfg.sim.friction_rolling,
@@ -1046,6 +1038,45 @@ class LeggedRobot(BaseTask):
         # set PD gains
         self._build_pd_gains_from_cfg()
         self._set_pd_gains()
+        self._set_motor_dynamics()
+
+    def validate_asset(self):
+        """Robot-specific geometry checks use this task's final parsed asset."""
+
+    def _set_motor_dynamics(self):
+        """Optional explicit motor dynamics; no changes to floating-base DOFs."""
+        cfg, dr = self.cfg.control, self.cfg.domain_rand
+        if cfg.armature is not None:
+            if set(cfg.armature) != set(self.joint_names):
+                raise ValueError("Armature must map exactly the actuated joint names")
+            nominal = torch.tensor([cfg.armature[n] for n in self.joint_names], device=self.device)
+            if cfg.armature_override is not None:
+                nominal.fill_(cfg.armature_override)
+            if not torch.isfinite(nominal).all() or (nominal < 0).any():
+                raise ValueError("Armature values must be finite and nonnegative")
+            self.armature_samples = nominal.expand(self.num_envs, -1).clone()
+            if dr.randomize_armature:
+                low, high = dr.armature_range
+                groups = dr.armature_groups
+                names = [name for group in groups for name in group]
+                if sorted(names) != sorted(self.joint_names) or not 0 <= low <= high < float('inf'):
+                    raise ValueError("Armature randomization requires a finite range and disjoint complete joint groups")
+                draws = low + (high - low) * torch.rand((self.num_envs, len(groups)), device=self.device)
+                for i, group in enumerate(groups):
+                    ids = [self.joint_names.index(name) for name in group]
+                    self.armature_samples[:, ids] = draws[:, i:i+1]
+            values = self.armature_samples if self.cfg.sim.batch_dofs_info else self.armature_samples[0]
+            self.robot.set_dofs_armature(values, self.joint_dof_idx)
+            torch.testing.assert_close(self.robot.get_dofs_armature(self.joint_dof_idx), values)
+        elif dr.randomize_armature:
+            raise ValueError("Armature randomization requires an explicit nominal mapping")
+        for field in ("stiffness", "damping", "frictionloss"):
+            value = getattr(cfg, "passive_" + field)
+            if value is not None:
+                if not np.isfinite(value) or value < 0:
+                    raise ValueError(f"Passive {field} must be finite and nonnegative")
+                shape = (self.num_envs, self.num_dof) if self.cfg.sim.batch_dofs_info else (self.num_dof,)
+                getattr(self.robot, "set_dofs_" + field)(torch.full(shape, value, device=self.device), self.joint_dof_idx)
 
     def _build_pd_gains_from_cfg(self):
         """ Read the stiffness and damping values for each joint from the config file and store them in tensors.
@@ -1157,7 +1188,7 @@ class LeggedRobot(BaseTask):
         if dr.randomize_base_mass:
             nominal = self.robot.get_links_mass(base)
             target = nominal + gs_rand_float(*dr.added_mass_range, (self.num_envs, 1), self.device)
-            if getattr(dr, "scale_base_inertia_with_mass", False):
+            if dr.scale_base_inertia_with_mass:
                 # Public solver API; entity.set_links_mass leaves inertia unchanged.
                 self.nominal_base_mass = nominal.clone()
                 self.nominal_base_inertia = self.robot.get_links_inertia(base).clone()
@@ -1176,7 +1207,7 @@ class LeggedRobot(BaseTask):
         needs_dof_batching = (
             dr.randomize_kp
             or dr.randomize_kd
-            or getattr(dr, "randomize_armature", False)
+            or dr.randomize_armature
         )
 
         needs_link_batching = dr.randomize_base_mass or dr.randomize_com
