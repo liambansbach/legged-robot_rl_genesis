@@ -72,7 +72,7 @@ class DiagnosticsTests(unittest.TestCase):
             )
             self.assertEqual(env.rewards.tracking_sigma_x, 0.25)
         args.task, args.entropy_coef = "go2", 0.001
-        with self.assertRaisesRegex(ValueError, "specific to go2w"):
+        with self.assertRaisesRegex(ValueError, "conflicts with task"):
             update_cfg_from_args(env, train, args)
 
     def test_entropy_continuation_exception_requires_exact_explicit_request(self):
@@ -117,7 +117,7 @@ class DiagnosticsTests(unittest.TestCase):
                 task_registry.get_cfgs("go2w")[0].rewards.tracking_sigma_x, 0.25
             )
         args.task, args.tracking_sigma_x = "go2", 0.09
-        with self.assertRaisesRegex(ValueError, "specific to go2w"):
+        with self.assertRaisesRegex(ValueError, "conflicts with task"):
             update_cfg_from_args(env, cfg, args)
 
     def test_training_contract_rejects_unexplained_behavior_changes(self):

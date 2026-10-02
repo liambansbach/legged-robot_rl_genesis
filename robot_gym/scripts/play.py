@@ -5,8 +5,9 @@ From the repository root in the installed Genesis environment::
     python -m robot_gym.scripts.play --task dodo --experiment_name dodo_walking --load_run RUN_DIRECTORY --checkpoint -1
 
 Replace RUN_DIRECTORY with a directory under logs/<experiment_name>. Latest (-1)
-is resolved and printed once; explicit numbers work too. --run_name labels
-training output; --load_run selects replay input. No historical profile is needed.
+is resolved and printed once; explicit numbers work too. --load_run selects replay
+input; --run_name is a compatibility alias when --load_run is absent (and labels
+training output in train.py). No historical profile is needed.
 
 No command flags retains task sampling. Any --command_vx (m/s), --command_vy
 (m/s), or --command_yaw (rad/s) fixes the body command, with omitted axes zero.

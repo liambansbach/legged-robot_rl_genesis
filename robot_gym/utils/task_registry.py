@@ -82,9 +82,13 @@ class TaskRegistry:
         env_cfg, train_cfg = self.get_cfgs(args.task)
         # Recipe selection here only supplies a legacy experiment-name default.
         update_cfg_from_args(env_cfg, train_cfg, args)
+        selected_run = args.load_run
+        if selected_run is None and args.run_name is not None:
+            selected_run = args.run_name
+            print("Using --run_name as a replay selector; prefer --load_run.", flush=True)
         checkpoint = Path(get_load_path(
             Path(ROBOT_GYM_ROOT_DIR) / "logs" / train_cfg.runner.experiment_name,
-            args.load_run if args.load_run is not None else -1,
+            selected_run if selected_run is not None else -1,
             args.checkpoint if args.checkpoint is not None else -1,
         )).resolve()
         config_path = Path(getattr(args, "reference_config", None) or checkpoint.with_name("config.yaml"))

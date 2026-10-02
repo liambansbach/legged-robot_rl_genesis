@@ -49,6 +49,8 @@ class ReplayTests(unittest.TestCase):
                 self.assertEqual(training.runner.obs_groups, train.runner.obs_groups)
                 configure_nominal(restored, args)
                 self.assertFalse(restored.noise.add_noise)
+                args.load_run, args.run_name = None, str(path)
+                self.assertEqual(task_registry.resolve_replay(args)[2], checkpoint)
 
     def test_real_transfer_run_does_not_need_profile_and_restores_original_reward(self):
         run = Path("logs/go2w_transfer_v1/transfer_v1_seed1_20261002_090639_2026-10-02_09-09-17").resolve()
