@@ -7,26 +7,38 @@ from robot_gym.envs import *  # noqa: F401,F403 -> ensures task registration
 from robot_gym.utils import get_args, task_registry 
 
 """
-Example play command (command line call) with all arguments specified:
+Replay a saved Go2-W transfer_v1 checkpoint from the repository root.
+Activate the existing Genesis environment first (conda activate genesis-gpu).
 
     PowerShell:
     python -m robot_gym.scripts.play `
-        --task dodo `
-        --experiment_name daimao_walking `
-        --run_name run_01 `
-        --load_run -1 `
-        --checkpoint -1 `
-        --rl_device cuda:0
+        --task go2w `
+        --go2w_profile transfer_v1 `
+        --experiment_name go2w_transfer_v1 `
+        --load_run transfer_v1_seed1_20261002_090639_2026-10-02_09-09-17 `
+        --checkpoint 1999 `
+        --num_envs 1 `
+        --rl_device cuda:0 `
+        --no_export
+
+This example selects the existing model_1999.pt in that run. For another run,
+replace --load_run and --checkpoint with its directory name and saved model
+number, and select the matching --go2w_profile. Go2-W checks the saved config
+before building the simulator and requires explicit run/checkpoint selection;
+omitted selectors and -1 (latest) are rejected.
 
     --task: Task name defined in task_registry envs/__init__.py
     --experiment_name: Name of the experiment (used to locate logs directory).
     --run_name: Logging name only; does not select the source checkpoint.
-    --load_run: Name of the training run to load. If -1: load the latest run.
-    --checkpoint: Saved model checkpoint number. If -1: load the latest checkpoint.
+    --load_run: Training run directory under logs/<experiment_name>.
+    --checkpoint: Number in model_<number>.pt, not a filename or update budget.
+    --go2w_profile: Reconstruct the selected Go2-W training configuration.
+    --num_envs: Number of robots to visualize (one in the replay example).
     --rl_device: Device used for inference (cpu, cuda, cuda:0, etc.).
     --headless: Force display off (no rendering). Usually disabled for visualization.
+    --no_export: Replay only; skip the default policy export.
 
-Not all arguments are required. A simple call could look like this:
+Other tasks retain their legacy latest-run/checkpoint defaults; for Dodo only:
     python -m robot_gym.scripts.play --task dodo --experiment_name dodo_walking_test
 """
 
