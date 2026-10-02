@@ -172,8 +172,7 @@ class URDFReader():
             raise RuntimeError("robot_file_path is not set before calling _get_foot_link_names().")
 
         path: Path = self.robot_file_path_absolute
-        tree = ET.parse(path)
-        root = tree.getroot()
+        root = self.root
 
         # --- XML / MJCF -----------------------------------------------------
         if self.robot_file_format == "xml":

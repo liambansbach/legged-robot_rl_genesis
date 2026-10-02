@@ -68,8 +68,10 @@ def play(args):
         if "Viewer closed" not in str(error):
             raise
     finally:
-        if env is not None:
+        from robot_gym.envs.base.base_task import BaseTask
+        if BaseTask._gs_initialized:
             gs.destroy()
+            BaseTask._gs_initialized = False
 
 
 if __name__ == "__main__":
