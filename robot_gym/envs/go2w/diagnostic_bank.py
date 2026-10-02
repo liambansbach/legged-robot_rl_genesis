@@ -765,6 +765,8 @@ def rollout_precision(env, policy, schedule):
                     "foot_contacts", "wheel_normal_force", "loaded_wheels", "wheel_clearance",
                     "wheel_link_quat", "wheel_reposition_velocity_body", "fallen", "time_out_buf",
                     "reset_buf", "episode_length_buf", "nonfoot_contact_count")}
+                if "wheel_center_lateral_speed" in state:
+                    values["wheel_center_lateral_speed"] = state["wheel_center_lateral_speed"]
                 if getattr(env, "event_step", False):
                     values.update({key: value for key, value in state.items() if key.startswith("event_")})
                 finite = torch.stack([torch.isfinite(v).reshape(env.num_envs, -1).all(1) for v in values.values()]).all(0) & finite_policy
@@ -807,6 +809,8 @@ def precision_metrics(data, schedule, dt, metadata, initial):
         velocity = np.concatenate((d["base_lin_vel"], d["base_ang_vel"]), axis=-1)
         world_velocity = rotate_wxyz(torch.from_numpy(d["base_quat"]), torch.from_numpy(d["base_lin_vel"])).numpy()
         heading = np.unwrap(heading_wxyz(torch.from_numpy(d["base_quat"])).numpy())
+        # Conventional body roll/pitch from the authored base, independent of visual meshes.
+        body_rpy = Rotation.from_quat(d["base_quat"][:, [1, 2, 3, 0]]).as_euler("xyz")
         inverse = torch.from_numpy(d["base_quat"]).clone(); inverse[:, 1:] *= -1
         feet = rotate_wxyz(inverse[:, None], torch.from_numpy(d["foot_pos"] - d["base_pos"][:, None])).numpy()
         axles = wheel_axles_body(torch.from_numpy(d["base_quat"]), torch.from_numpy(d["wheel_link_quat"]),
@@ -859,6 +863,14 @@ def precision_metrics(data, schedule, dt, metadata, initial):
                  "force_limit_fraction_per_joint": (np.abs(d["torques"][sl]) >= .99*np.asarray(metadata["force_limits"])).mean(0).tolist(),
                  "max_abs_force_ratio": float(np.max(np.abs(d["torques"][sl])/np.asarray(metadata["force_limits"])))}
             p["last_second"]["mean_error_vx_vy_yaw"] = (velocity[tail][:, [0,1,5]].mean(0)-command).tolist()
+            p["body_roll_pitch_mean_rad"] = body_rpy[tail, :2].mean(0).tolist()
+            p["body_roll_pitch_rms_rad"] = np.sqrt((body_rpy[tail, :2]**2).mean(0)).tolist()
+            p["body_roll_pitch_peak_to_peak_rad"] = np.ptp(body_rpy[sl, :2], axis=0).tolist()
+            p["counter_command_peak_vx_vy_yaw"] = np.maximum(
+                0, -velocity[sl][:, [0, 1, 5]] * np.sign(command)).max(0).tolist()
+            if "wheel_center_lateral_speed" in d:
+                p["loaded_center_lateral_rms_per_wheel_m_s"] = np.sqrt(np.mean(
+                    d["loaded_wheels"][sl] * d["wheel_center_lateral_speed"][sl]**2, axis=0)).tolist()
             p["one_second_windows"] = [velocity_window_metrics(velocity[start:min(start+round(1/dt),end)], np.asarray(command))
                                        for start in range(offset, end, round(1/dt))]
             result["phases"].append(p)
@@ -887,7 +899,7 @@ def precision_metrics(data, schedule, dt, metadata, initial):
     return results
 
 
-def transfer_schedule():
+def transfer_schedule(profile="transfer_v1"):
     """Small direct command panel for checkpoints from the continuous fresh run."""
     zero = (0., 0., 0.)
     result = {"stand": [(10, zero)]}
@@ -896,6 +908,10 @@ def transfer_schedule():
                           ("lateral_positive", (0, .1, 0)), ("lateral_negative", (0, -.1, 0)),
                           ("mixed", (.2, .1, .3))):
         result[name] = [(3, zero), (5, command), (6, zero)]
+    if profile == "transfer_v2":
+        from .go2w_config import TRANSFER_V2_REVIEW_COMMANDS
+        result.update({name: [(3, zero), (5, command), (6, zero)]
+                       for name, command in TRANSFER_V2_REVIEW_COMMANDS.items()})
     return result
 
 
@@ -914,7 +930,7 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
                                     for pair in env.dof_pos_limits.cpu().tolist()],
                 "position_limits_semantics": "null denotes an unbounded continuous joint",
                 "wheel_target_limit": env.cfg.control.wheel_velocity_target_limit}
-    schedules = transfer_schedule() if transfer else precision_schedule(dr, getattr(env, "event_step", False))
+    schedules = transfer_schedule(env.cfg.go2w_profile) if transfer else precision_schedule(dr, getattr(env, "event_step", False))
     if case_names:
         if not transfer:
             raise ValueError("--transfer_cases requires transfer_screen")

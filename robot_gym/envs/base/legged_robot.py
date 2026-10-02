@@ -225,8 +225,10 @@ class LeggedRobot(BaseTask):
         self.rew_buf[:] = 0.
         for i in range(len(self.reward_functions)):
             name = self.reward_names[i]
-            rew = self.reward_functions[i]()
-            rew = rew * self.reward_scales[name]
+            raw = self.reward_functions[i]()
+            rew = raw * self.reward_scales[name]
+            if getattr(self, "training_diagnostics", None) is not None:
+                self.training_diagnostics.reward_term(name, raw, rew)
             self.rew_buf += rew
             self.episode_sums[name] += rew
         if getattr(self, "training_diagnostics", None) is not None:

@@ -4,9 +4,10 @@ import math
 
 
 def add_arguments(parser):
+    from .go2w_config import TRANSFER_V2_REVIEW_COMMANDS
     parameters = [
         {"name": "--go2w_finetune", "choices": ["coverage", "coverage_mobility", "precision_clearance"], "default": None, "help": "Explicit step_recovery_v1 continuation/evaluation design; unset preserves sampling and rewards"},
-        {"name": "--go2w_profile", "choices": ["step_recovery_v1", "event_step_v1", "transfer_v1"], "default": None, "help": "Explicit Go2-W action/reward/training profile; unset preserves the baseline"},
+        {"name": "--go2w_profile", "choices": ["step_recovery_v1", "event_step_v1", "transfer_v1", "transfer_v2"], "default": None, "help": "Opt-in training recipe; replay restores the saved profile automatically"},
         {"name": "--sagittal_stance_weight", "type": float, "default": None, "help": "Explicit event_step_v1 stance weight; full-demand weight stays 0.12; select the saved value for evaluation/play"},
         {"name": "--event_quality_profile", "choices": ["sufficient_clearance"], "default": None, "help": "Opt-in event quality and payment; select the saved choice for evaluation/play"},
         {"name": "--zero_command_brake", "action": "store_true", "help": "Go2-W inference only: blend wheel targets to zero for a complete zero body command"},
@@ -16,9 +17,9 @@ def add_arguments(parser):
         {"name": "--diagnostic_trace", "action": "store_true", "help": "Read substep control forces, summed ground loads and cylinder geometry"},
         {"name": "--reference_config", "help": "Explicit audited saved config, if not next to the checkpoint"},
         {"name": "--eval_mode", "choices": ["nominal", "bank", "equilibrium", "sustained", "closed_loop", "precision_screen", "precision_dr", "transfer_screen"], "default": "nominal"},
-        {"name": "--transfer_armature", "choices": ["nominal", "low", "high"], "default": None, "help": "transfer_v1 inference-only explicit motor armature: .01/.005/.02 kg m^2"},
-        {"name": "--transfer_delay", "type": int, "choices": [0, 1, 2], "default": None, "help": "transfer_v1 inference-only held action delay in policy steps"},
-        {"name": "--transfer_cases", "nargs": "+", "choices": ["stand", "forward", "reverse", "yaw_positive", "yaw_negative", "lateral_positive", "lateral_negative", "mixed"], "help": "transfer_screen subset; unset runs the small complete command panel"},
+        {"name": "--transfer_armature", "choices": ["nominal", "low", "high"], "default": None, "help": "Transfer inference-only explicit motor armature: .01/.005/.02 kg m^2"},
+        {"name": "--transfer_delay", "type": int, "choices": [0, 1, 2], "default": None, "help": "Transfer inference-only held action delay in policy steps"},
+        {"name": "--transfer_cases", "nargs": "+", "choices": ["stand", "forward", "reverse", "yaw_positive", "yaw_negative", "lateral_positive", "lateral_negative", "mixed", *TRANSFER_V2_REVIEW_COMMANDS], "help": "transfer_screen subset; unset runs the small complete command panel"},
         {"name": "--bank_seed", "type": int, "default": 240925, "help": "Local NumPy generator for a fixed 32-condition bank"},
     ]
     for parameter in parameters:
@@ -41,9 +42,10 @@ def configure(env_cfg, cfg_train, args):
             raise ValueError("--go2w_profile is specific to go2w")
         if getattr(args, "zero_command_brake", False):
             raise ValueError("Go2-W step recovery requires zero-command braking disabled")
-        entropy = 0.003 if profile in ("event_step_v1", "transfer_v1") else 0.001
-        if getattr(args, "tracking_sigma_x", None) not in (None, 0.25) or getattr(args, "entropy_coef", None) not in (None, entropy):
-            raise ValueError(f"{profile} fixes tracking_sigma_x=0.25 and entropy_coef={entropy}")
+        entropy = 0.003 if profile in ("event_step_v1", "transfer_v1", "transfer_v2") else 0.001
+        denominator = 0.09 if profile == "transfer_v2" else 0.25
+        if getattr(args, "tracking_sigma_x", None) not in (None, denominator) or getattr(args, "entropy_coef", None) not in (None, entropy):
+            raise ValueError(f"{profile} fixes tracking_sigma_x={denominator} and entropy_coef={entropy}")
         from robot_gym.envs.go2w.go2w_config import apply_go2w_profile
 
         apply_go2w_profile(env_cfg, cfg_train, profile)

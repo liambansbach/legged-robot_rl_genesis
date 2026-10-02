@@ -4,9 +4,9 @@ def select_transfer_dynamics(cfg, args):
     """Logged inference overrides, applied only after saved-recipe validation."""
     selection = getattr(args, "transfer_armature", None)
     delay = getattr(args, "transfer_delay", None)
-    if getattr(cfg, "go2w_profile", None) != "transfer_v1":
+    if getattr(cfg, "go2w_profile", None) not in ("transfer_v1", "transfer_v2"):
         if selection is not None or delay is not None:
-            raise ValueError("Transfer dynamics selectors require transfer_v1")
+            raise ValueError("Transfer dynamics selectors require transfer_v1 or transfer_v2")
         return
     cfg.domain_rand.randomize_armature = False
     cfg.control.armature_override = None if selection in (None, "nominal") else cfg.domain_rand.armature_range[0 if selection == "low" else 1]

@@ -7,6 +7,22 @@ from robot_gym.envs.go2.go2_env import Go2Env
 from .go2w_config import uses_event_steps
 
 
+def lateral_wheel_center_velocity(link_quat, link_vel, link_ang, geometry):
+    """World-frame cylinder-center velocity along its horizontal axle (m/s).
+
+    Genesis get_links_vel(relative=True) already refers to the authored origin.
+    Transport once to the collision center. This is a scrubbing surrogate, not
+    material-point tire slip; wheel spin about a centered axle contributes zero.
+    """
+    from robot_gym.utils.diagnostics import rotate_wxyz
+    offset = rotate_wxyz(link_quat, geometry[0])
+    center_velocity = link_vel + torch.linalg.cross(link_ang, offset)
+    lateral = rotate_wxyz(link_quat, geometry[1]).clone()
+    lateral[..., 2] = 0
+    lateral = lateral / lateral.norm(dim=-1, keepdim=True).clamp_min(1e-6)
+    return (center_velocity * lateral).sum(dim=-1)
+
+
 class Go2WEnv(Go2Env):
     @staticmethod
     def add_arguments(parser):
@@ -64,7 +80,7 @@ class Go2WEnv(Go2Env):
                 state["wheel_normal_force"] = self.wheel_normal_force.clone()
                 state["loaded_wheels"] = self.loaded_wheels.clone()
         if getattr(self.cfg.env, "capture_precision", False):
-            for name in ("wheel_clearance", "wheel_link_quat", "wheel_reposition_velocity_body"):
+            for name in ("wheel_clearance", "wheel_link_quat", "wheel_reposition_velocity_body", "wheel_center_lateral_speed"):
                 state[name] = getattr(self, name).clone()
             if getattr(self, "event_step", False):
                 for name in ("completed", "valid", "censored", "censored_count", "peak_actual",
@@ -98,6 +114,7 @@ class Go2WEnv(Go2Env):
             self.wheel_normal_force[env_ids] = 0
             self.loaded_wheels[env_ids] = False
             self.wheel_reposition_velocity_body[env_ids] = 0
+            self.wheel_center_lateral_speed[env_ids] = 0
         if hasattr(self, "step_events"):
             self.step_events.reset(env_ids)
         brake = getattr(self, "zero_command_brake", None)
@@ -118,6 +135,7 @@ class Go2WEnv(Go2Env):
             getattr(self.cfg, "go2w_profile", None) == "step_recovery_v1"
         )
         self.event_step = uses_event_steps(self.cfg)
+        self.transfer_v2 = getattr(self.cfg, "go2w_profile", None) == "transfer_v2"
         self.wheel_geometry_enabled = self.step_recovery or self.event_step
         if self.event_step:
             self.completed_updates = getattr(self.cfg, "_event_completed_updates", 0)
@@ -125,6 +143,12 @@ class Go2WEnv(Go2Env):
                                              if n.endswith("_hip_joint")], device=self.device)
             self.sagittal_indices = torch.tensor([i for i, n in enumerate(self.joint_names)
                                                   if n.endswith(("_thigh_joint", "_calf_joint"))], device=self.device)
+            if self.transfer_v2:
+                support = {name.removesuffix("_foot"): i for i, name in enumerate(self.cfg.asset.foot_link_names)}
+                self.hip_support_indices = torch.tensor([support[self.joint_names[i].rsplit("_", 2)[0]]
+                                                        for i in self.hip_indices.tolist()], device=self.device)
+                self.sagittal_support_indices = torch.tensor([support[self.joint_names[i].rsplit("_", 2)[0]]
+                                                             for i in self.sagittal_indices.tolist()], device=self.device)
         self.leg_action_indices = [
             i
             for i, n in enumerate(self.joint_names)
@@ -177,6 +201,7 @@ class Go2WEnv(Go2Env):
             self.wheel_normal_force = torch.zeros_like(self.wheel_clearance)
             self.loaded_wheels = torch.zeros_like(self.foot_contacts)
             self.wheel_reposition_velocity_body = torch.zeros_like(self.foot_pos)
+            self.wheel_center_lateral_speed = torch.zeros_like(self.wheel_clearance)
             if self.event_step:
                 from .step_events import WheelStepEvents
                 self.step_events = WheelStepEvents(self.num_envs, self.device,
@@ -230,6 +255,11 @@ class Go2WEnv(Go2Env):
                 self.base_lin_vel,
                 self.base_ang_vel,
             )
+            if self.transfer_v2 or getattr(self.cfg.env, "capture_precision", False):
+                self.wheel_center_lateral_speed[:] = lateral_wheel_center_velocity(
+                    wheel_quat, self.foot_lin_vel, self.robot.get_links_ang(self.foot_link_indices_local),
+                    self.wheel_geometry,
+                )
 
     def _reset_command_timer(self, env_ids):
         n = len(env_ids)
@@ -323,6 +353,16 @@ class Go2WEnv(Go2Env):
                 self.diagnostic_long_moving_commands[env_ids] = (
                     (families != 0) & (self.command_steps_left[env_ids] > round(3 / self.dt))
                 )
+        if self.transfer_v2:
+            from .step_events import step_demand
+            cfg = self.cfg.commands
+            # These are segment probabilities. Preserve already drawn 8-15 s holds.
+            eligible = ((families == 3) | (families == 5) | (families == 6))
+            eligible &= step_demand(self.commands[env_ids]) > 0
+            eligible &= self.command_steps_left[env_ids] < round(cfg.moving_long_duration_range[0] / self.dt)
+            selected = env_ids[eligible & (torch.rand(n, device=self.device) < cfg.discovery_segment_probability)]
+            self.command_steps_left[selected] = self._sample_interval_steps(
+                cfg.discovery_segment_duration_range, len(selected), self.dt)
         if hasattr(self, "step_events"):
             self.step_events.command_changed(self.commands)
 
@@ -356,16 +396,33 @@ class Go2WEnv(Go2Env):
 
     def _reward_hip_pose(self):
         error = (self.dof_pos - self.default_dof_pos)[:, self.hip_indices]
+        if self.transfer_v2:
+            return self._supported_pose(error, self.hip_support_indices, "hip")
         return (1 - 0.5 * self._step_demand()) * error.square().mean(dim=1)
 
     def _reward_sagittal_pose(self):
         error = (self.dof_pos - self.default_dof_pos)[:, self.sagittal_indices]
+        if self.transfer_v2:
+            return self._supported_pose(error, self.sagittal_support_indices, "sagittal")
         stance = getattr(self.cfg.rewards, "sagittal_stance_weight", None)
         if stance is not None:
             gate = self._step_demand()
             # The existing -0.6 scale and policy dt are applied by the accumulator.
             return ((stance * (1 - gate) + 0.12 * gate) / 0.6) * error.square().mean(dim=1)
         return (1 - 0.8 * self._step_demand()) * error.square().mean(dim=1)
+
+    def _supported_pose(self, error, support_indices, group):
+        coefficients = self.cfg.rewards.support_pose[group]
+        demand = self._step_demand()[:, None]
+        moving = torch.where(self.loaded_wheels[:, support_indices], coefficients["loaded"], coefficients["unloaded"])
+        coefficient = coefficients["stand"] * (1 - demand) + moving * demand
+        return (coefficient * error.square()).mean(dim=1)
+
+    def _reward_wheel_swing(self):
+        return self.step_events.dense_swing(self.wheel_clearance, self.commands, self.cfg.rewards.dense_swing)
+
+    def _reward_lateral_wheel_scrub(self):
+        return self._step_demand() * (self.loaded_wheels * self.wheel_center_lateral_speed.square()).mean(dim=1)
 
     def _reward_prolonged_unloading(self):
         return ((self.step_events.unloaded_time - 0.60) / 0.20).clamp(0, 1).square().mean(dim=1)

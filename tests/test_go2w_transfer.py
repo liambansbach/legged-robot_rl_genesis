@@ -233,6 +233,9 @@ class TransferPlant(unittest.TestCase):
 
 @unittest.skipUnless(os.environ.get("GO2W_TRANSFER_GPU") == "smoke", "one fresh two-update smoke only")
 class TransferSmoke(unittest.TestCase):
+    profile = "transfer_v1"
+    output = OUT
+
     def test_two_updates_serialization_and_export(self):
         import genesis as gs
         from robot_gym.utils.training_diagnostics import verify_resume_state
@@ -284,7 +287,8 @@ class TransferSmoke(unittest.TestCase):
             return runner,cfg
         try:
             args = args_for(64, "--max_iterations", "2", "--training_diagnostics",
-                            "--experiment_name", "go2w_transfer_v1_smoke", "--run_name", "transfer_v1_smoke_seed1_20261001")
+                            "--go2w_profile", self.profile, "--experiment_name", f"go2w_{self.profile}_smoke",
+                            "--run_name", f"{self.profile}_smoke_seed1_20261002")
             with patch.object(task_registry,"make_alg_runner",construct):
                 runner = train(args)
             env = runner.env
@@ -326,7 +330,8 @@ class TransferSmoke(unittest.TestCase):
             measurements.update(run=str(out), checkpoint_sha256=sha256(checkpoint), losses=losses,
                                 export_max_error=float((actual-expected).abs().max()),
                                 completed_updates=env.completed_updates, status="passed")
-            write_json(OUT / "smoke.json",measurements)
+            self.output.mkdir(parents=True, exist_ok=True)
+            write_json(self.output / "smoke.json",measurements)
             print("TRANSFER SMOKE PASS",out, "parity",measurements["export_max_error"],flush=True)
         finally:
             gs.destroy()

@@ -283,7 +283,7 @@ def loaded_properties(env):
         "effective_friction": torch.maximum(ratios * wheel, ground).clamp_min(0.01),
         "friction_rule": "Genesis collider/contact.py: max(wheel geometry friction * ratio, ground geometry friction * ratio, 0.01); ground ratio=1",
     }
-    if getattr(env.cfg, "go2w_profile", None) == "transfer_v1":
+    if env.cfg.control.armature is not None:
         for field in ("armature", "stiffness", "damping", "frictionloss"):
             result[field] = getattr(robot, "get_dofs_" + field)(env.joint_dof_idx).clone()
     return result

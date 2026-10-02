@@ -23,7 +23,7 @@ class WheelStepEvents:
         shape = (count, 4)
         for name in ("unloaded_time", "reload_time", "support_time", "elapsed", "duration",
                      "credit", "gate", "onset_height", "peak_actual", "peak_use", "quality",
-                     "payment", "reposition"):
+                     "payment", "reposition", "limb_clearance", "instant_reposition"):
             setattr(self, name, torch.zeros(shape, device=device))
         for name in ("unloaded", "supported", "active", "confirmed", "support_valid",
                      "completed", "valid", "censored"):
@@ -116,6 +116,10 @@ class WheelStepEvents:
         frozen_pos = self.onset_base + rotate_wxyz(self.onset_quat, relative_pos)
         frozen_quat = transform_quat_by_quat(relative_quat, self.onset_quat)
         limb = cylinder_clearance(frozen_pos, frozen_quat, *self.geometry) - self.onset_height
+        # Instantaneous geometry for dense feedback. Completed-event thresholds,
+        # peak accounting and the event's existing limb_factor remain unchanged.
+        self.limb_clearance.copy_(limb)
+        self.instant_reposition.copy_(rotate_wxyz(self.onset_quat, center - self.takeoff)[..., :2].norm(dim=-1))
         usable = torch.minimum(actual.clamp_min(0), c["limb_factor"] * limb.clamp_min(0))
         sampling = self.active & self.unloaded
         self.peak_actual[:] = torch.where(sampling, torch.maximum(self.peak_actual, actual), self.peak_actual)
@@ -154,6 +158,18 @@ class WheelStepEvents:
         self.credit.masked_fill_(end, 0)
         self.support_time.masked_fill_(cancel, 0)
         self.payment.masked_fill_(failed[:, None], 0)
+
+    def dense_swing(self, actual_clearance, commands, cfg):
+        """Continuous shaping from the existing attempt; not a completed-step label."""
+        height = torch.minimum(actual_clearance, self.limb_clearance).clamp_min(0)
+        height_score = (height / cfg["height_target"]).clamp(0, 1) * torch.exp(
+            -(torch.relu(height - cfg["upper_tail_start"]) / cfg["upper_tail_width"]).square())
+        initial = cfg["initial_lift_credit"]
+        reposition = initial + (1 - initial) * (self.instant_reposition / cfg["reposition_target"]).clamp(0, 1)
+        eligible = (self.active & self.unloaded & self.support_valid
+                    & (self.supported.sum(dim=1, keepdim=True) >= 2)
+                    & (self.elapsed <= self.cfg["duration_range"][1]))
+        return step_demand(commands) * (height_score * reposition * eligible).mean(dim=1)
 
 
 def project_log_std(optimizer, distribution):

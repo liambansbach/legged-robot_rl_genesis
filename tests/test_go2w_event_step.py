@@ -504,7 +504,10 @@ class EventRefactorTests(unittest.TestCase):
             cls.original[name] = namespace
 
     def assert_state_equal(self, old, new):
-        self.assertEqual(vars(old).keys(), vars(new).keys())
+        # V2 exposes two instantaneous geometry values; historical event state
+        # and all of its accounting must still agree exactly.
+        self.assertEqual(set(vars(new)) - set(vars(old)), {"limb_clearance", "instant_reposition"})
+        self.assertFalse(set(vars(old)) - set(vars(new)))
         for name, value in vars(old).items():
             if torch.is_tensor(value):
                 torch.testing.assert_close(getattr(new, name), value, rtol=0, atol=0, equal_nan=True)

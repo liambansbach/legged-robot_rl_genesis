@@ -29,6 +29,12 @@ WHEEL_JOINTS = [
 MEASURED_URDF = "go2w_measured_ed8dc93.urdf"
 MEASURED_SHA256 = "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c"
 
+TRANSFER_V2_REVIEW_COMMANDS = {
+    "forward_fast": (0.5, 0, 0),
+    "lateral_strong_positive": (0, 0.3, 0), "lateral_strong_negative": (0, -0.3, 0),
+    "yaw_strong_positive": (0, 0, 0.8), "yaw_strong_negative": (0, 0, -0.8),
+}
+
 
 def uses_event_steps(cfg):
     """Explicit shared behavior, including the unchanged legacy event profile."""
@@ -122,7 +128,7 @@ def apply_go2w_event_quality(env_cfg, name):
 
 def apply_go2w_profile(env_cfg, train_cfg, name):
     """One explicit candidate; never mutate the registered config or its dictionaries."""
-    if name == "transfer_v1":
+    if name in ("transfer_v1", "transfer_v2"):
         # Reuse selected P behavior; operational continuation state is never copied.
         new_env = env_cfg if env_cfg is not None and getattr(env_cfg, "go2w_profile", None) != name else None
         new_train = train_cfg if train_cfg is not None and getattr(train_cfg, "go2w_profile", None) != name else None
@@ -145,10 +151,28 @@ def apply_go2w_profile(env_cfg, train_cfg, name):
             new_env.domain_rand.scale_base_inertia_with_mass = True
             new_env.sim.batch_dofs_info = new_env.sim.batch_links_info = True
             new_env.sim.integrator = "approximate_implicitfast"
+            if name == "transfer_v2":
+                new_env.rewards.scales.orientation = -4.0
+                new_env.rewards.tracking_sigma_x = 0.09  # (m/s)^2, not Gaussian std.
+                new_env.rewards.support_pose = {
+                    "hip": {"stand": 2.0, "loaded": 1.0, "unloaded": 0.2},
+                    "sagittal": {"stand": 2.0, "loaded": 0.6, "unloaded": 0.06},
+                }
+                new_env.rewards.scales.hip_pose = -1.0
+                new_env.rewards.scales.sagittal_pose = -1.0
+                new_env.rewards.dense_swing = {
+                    "height_target": 0.04, "upper_tail_start": 0.07,
+                    "upper_tail_width": 0.02, "reposition_target": 0.04,
+                    "initial_lift_credit": 0.2,
+                }
+                new_env.rewards.scales.wheel_swing = 0.4
+                new_env.rewards.scales.lateral_wheel_scrub = -2.0
+                new_env.commands.discovery_segment_probability = 0.70
+                new_env.commands.discovery_segment_duration_range = [2.0, 4.0]
         if new_train is not None:
             new_train.go2w_profile = name
             new_train.go2w_behavior = "event_step_v1"
-            new_train.runner.experiment_name = "go2w_transfer_v1"
+            new_train.runner.experiment_name = f"go2w_{name}"
             new_train.runner.max_iterations = 2000
             new_train.runner.save_interval = 100
             new_train.runner.logger = "tensorboard"
@@ -156,7 +180,7 @@ def apply_go2w_profile(env_cfg, train_cfg, name):
             new_train.runner.load_run = None
             new_train.runner.checkpoint = None
             new_train.runner.resume_path = None
-            new_train.runner.run_name = "transfer_v1_seed1"
+            new_train.runner.run_name = f"{name}_seed1"
         return
     if name == "event_step_v1":
         if env_cfg is not None and getattr(env_cfg, "go2w_profile", None) != name:
@@ -240,7 +264,6 @@ def apply_go2w_profile(env_cfg, train_cfg, name):
 
 def check_target_intervals(cfg, reader=None):
     """Candidate offsets must remain at least 0.02 rad inside the authored hard limits."""
-    import xml.etree.ElementTree as ET
     from robot_gym.utils.urdf_reader import URDFReader
 
     root = (reader or URDFReader(cfg.asset.robot_file)).root

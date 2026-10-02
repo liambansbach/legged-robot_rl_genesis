@@ -1,4 +1,11 @@
-# Go2-W diagnostics and reproducibility — 25 September 2026
+# Go2-W diagnostics and reproducibility
+
+Current workflows: [saved-config replay](#shared-pipeline-cleanup-2026-10-02)
+and [fresh transfer_v2 preparation](#transfer_v2-support-aware-stepping-candidate-2026-10-02).
+Older dated entries below preserve historical evidence and commands; their former
+selection/export rules are superseded by the current replay section and `--help`.
+
+## Archived diagnostics — 25 September 2026
 
 The workspace started clean on `testing` at the audited HEAD `3bfb7608b0e3ff75627eb96b2d1c4903c9b7b661`; HEAD remains unchanged. The working changes are this diagnostics pass. No URDF, training reward values, action scales, observations, gains, physics or PPO defaults were changed. CK1598, CK800, CK999, their saved configs and both uploaded ZIP archives retain their original SHA-256 hashes. No generic exports were written.
 
@@ -1289,6 +1296,8 @@ and simulator-navigation results using truth must be described accordingly.
 Replay resolves and prints one checkpoint, safely restores the saved environment
 and training class configuration, then applies explicit runtime overrides.
 `--load_run` selects the input run; `--checkpoint -1` selects its latest saved model.
+For existing owner commands, `--run_name` also selects replay input when
+`--load_run` is absent; the CLI prints that compatibility choice.
 No historical profile is required. Explicit task/profile/interface conflicts fail
 before simulation. Missing optional physical settings retain imported behavior;
 Dodo and Go2 do not acquire Go2-W motor overrides. Task rules and evaluation code
@@ -1321,3 +1330,208 @@ python -m robot_gym.scripts.play --task go2w --experiment_name go2w_transfer_v1 
 # Omit all command axes for sampled commands; add --export only to export.
 python -m robot_gym.scripts.play --task go2w --help
 ```
+
+
+## transfer_v2: support-aware stepping candidate (2026-10-02)
+
+`--go2w_profile transfer_v2` opts into one **fresh** recipe, experiment
+`go2w_transfer_v2`. It is a prospective engineering candidate, not a qualified
+gait or a sim2sim/hardware result. V1 saved recipes/checkpoints remain authoritative
+when replayed. No checkpoint, optimizer, normalizer or curriculum initializes v2.
+
+The measured embodiment, nominal .01 and randomized [.005,.02] kg m^2 motor
+armature, 40/1 leg and 0/1 wheel active gains, zero passive assumptions, effort and
+velocity limits, mass/inertia handling, action scales and timing remain v1's.
+Actor/Critic/actions remain **56/56/16**, both networks consume `policy`; separate
+fresh normalizers, simulator body/base-link-origin velocity, MLP [512,256,128],
+ELU, PPO, log std .40 projected to [.10,.70], entropy .003, LR 3e-4, gamma .995,
+64 rollout steps and symmetry augmentation are unchanged. No estimator is added.
+
+The active reward path is below. `mean_L`, `mean_W` and `sum_L/W` mean reductions
+over the 12 leg / four wheel joints; hip/sagittal means use four/eight joints.
+`e=q-q_nominal`, `G=max(clamp((abs(vy_cmd)-.01)/.04),
+clamp((abs(yaw_cmd)-.10)/.15))`, with clamps in [0,1]. `loaded` is wheel normal
+load >8 N; the event tracker separately uses its existing 6/10 N hysteresis.
+Scales are applied once. **Every continuous term gets policy dt=.02 once**;
+`step_event` instead uses its already accumulated gate-time credit. Raw values,
+weighted contributions and total reward clipping are different quantities.
+
+| Active term | Actual raw formula / reduction and units | Scale v1 -> v2 | Gate / accounting |
+|---|---|---|---|
+| tracking_lin_vel | exp(-ex^2/Dx-ey^2/Dy), dimensionless | +1 unchanged; Dx .25 -> .09, Dy .04 | All commands; dt |
+| tracking_ang_vel | .25 exp(-ez^2/.25)+.75 exp(-ez^2/.04), dimensionless | +.8 unchanged | All commands; dt |
+| orientation | sum(projected_gravity_xy^2), dimensionless, locally quadratic in tilt | -1.2 -> **-4** | All commands; dt |
+| base_height | (base_z-.415)^2, m^2 | -8 unchanged | All commands; dt |
+| lin_vel_z | vz^2, (m/s)^2 | -1 unchanged | All commands; dt |
+| ang_vel_xy | sum(omega_xy^2), (rad/s)^2 | -.25 unchanged | All commands; dt |
+| hip_pose | V1: (1-.5G) mean_hip(e^2); v2: mean_hip(C_i e_i^2), rad^2 | -2 -> -1 | V2 C=2 at G=0; at G=1, 1 loaded / .2 unloaded; linear interpolation; dt |
+| sagittal_pose | V1: ((2(1-G)+.12G)/.6) mean_sagittal(e^2); v2: mean_sagittal(C_i e_i^2), rad^2 | -.6 -> -1 | V2 C=2 at G=0; at G=1, .6 loaded / .06 unloaded; linear interpolation; dt |
+| step_event | sum_W(quality * gate-time credit), seconds of capped credit | +.15 unchanged | Completed valid attempts only; **no extra dt** |
+| wheel_swing | G mean_W(eligible * height_score * reposition_score), dimensionless | disabled -> **+.4** | Existing supported-to-unloaded attempt; >=2 other supports; not failed; within .6 s; dt |
+| lateral_wheel_scrub | G mean_W(loaded * u_lateral^2), (m/s)^2 | disabled -> **-2** | Loaded cylinder centers, ground-tangent axle projection; dt |
+| normalized_effort | mean_L((tau/limit)^2)+mean_W((tau/limit)^2), dimensionless | -.03 unchanged | All commands; instantaneous control effort surrogate; dt |
+| leg_acc / wheel_acc | sum_L/W(((dq-dq_previous)/dt)^2), rad^2/s^4 | -2.5e-7 / -1e-7 unchanged | All commands; dt |
+| leg_action_rate / wheel_action_rate | sum_L/W((issued_action-previous_issued)^2), normalized action^2 | -.01 / -.005 unchanged | All commands; dt |
+| leg_motion | (1-G) mean_L(dq^2), (rad/s)^2 | -.02 unchanged | Vanishes at full step demand; dt |
+| stand_still | sum(vxy^2)+yaw_rate^2+.02 mean_W(dq^2), mixed motion surrogate | -2 unchanged | Command norm <1e-6; dt |
+| unnecessary_wheel_air | (1-G) mean_W(event_unloaded), dimensionless | -.25 unchanged | Vanishes at full step demand; dt |
+| prolonged_unloading | mean_W(clamp((unloaded_time-.6)/.2,0,1)^2), dimensionless | -.2 unchanged | Existing unload clock; dt |
+| insufficient_support | relu(2-count_W(load>6 N))^2, dimensionless | -1 unchanged | All commands; dt |
+| wheel_crossover | sum_front/rear(relu(.045-yL)^2+relu(.045+yR)^2+.5 relu(.14-yL+yR)^2), m^2 | -2 unchanged | Body-frame wheel origins; dt |
+| dof_pos_limits | sum_L(relu(abs(q-mid)-.9*half_range)), rad | -2 unchanged | Finite position-controlled joint limits; dt |
+| torque_limits | sum_all(relu(abs(tau)-.9*effort_limit)), Nm | -.5 unchanged | All commands; dt |
+| collision | min(nonwheel_contact_count,4), count | -.5 unchanged | All commands; dt |
+| termination | reset AND NOT timeout, indicator | -10 unchanged | dt; added **after** total nonterminal clipping |
+
+`only_positive_rewards=True` is retained: sum weighted nonterminal terms, clamp
+that sum to >=0, then add termination. Dense `foot_swing_clearance`, default_pose,
+point-foot sliding, generic action-rate/acceleration and other zero-scale inherited
+terms remain disabled. In particular, the old link-height swing method is not used.
+The tracking denominators have units (m/s)^2; for exp(-e^2/D), conventional Gaussian
+std is sqrt(D/2). This is unrelated to Gaussian policy exploration std.
+
+V2 maps each wheel's support to its own hip/thigh/calf by names once. Coefficients
+are nonnegative and a single negative scale applies afterward. Swing legs have
+freedom while loaded legs retain a posture cost; instantaneous left/right actions
+are not constrained to match. Nominal angles/root pose and the .415 m height target
+are unchanged. Orientation remains the gravity formula, with no extra tilt reward.
+
+The dense height is min(actual oriented-cylinder clearance, frozen-base
+limb-contributed clearance), clamped below at zero. Its score rises linearly to
+4 cm, remains broad through 4-6 cm (flat until 7 cm), then decays with a 2 cm
+upper-tail width. Reposition score is .2+.8 clamp(horizontal frozen-body center
+displacement/.04,0,1). Event geometry/attempt age/support/reset state are reused;
+only two instantaneous geometry values were exposed. Base rocking, startup/drop,
+loaded sliding and wheel spin cannot substitute for limb lift/reposition. Holding
+a leg up beyond the existing .6 s maximum earns no dense reward. The existing
+8 mm completed-event threshold, 1 cm minimum reposition, .04/.06 s unload/reload
+dwells and .12 s prior support remain. Dense feedback is not a successful-step label.
+
+Scrubbing is explicitly a **lateral wheel-center surrogate**, not exact tire
+material-point slip. Installed Genesis 1.4.1 `get_links_vel(relative=True)` already
+returns authored-origin velocity in world axes. The code adds omega_link cross
+collision_offset_world once, then projects onto the normalized horizontal axle.
+It preserves ideal aligned rolling and exempts unloaded repositioning. It does
+not require perfectly slip-free yaw or disable wheel velocity control.
+
+Family probabilities/ranges and lateral magnitude curriculum are unchanged.
+For pure lateral, pure yaw and mixed segments with G>0, probability .70 selects
+2-4 s duration; already drawn 8-15 s segments remain. Other durations/families and
+long stands retain their previous draws. These are **segment probabilities**, not
+fractions of training time. V1 uses no additional random draws. The early-check
+curriculum caveat remains: lateral tails start around update 500 and mature at 1500.
+
+The old nominal screens motivate this candidate: CK1999 tracked vx=.2 at mean
+.15581 m/s (RMSE .04548), had weak lateral means around +.02025/-.02124 m/s and
+near-zero mixed lateral response; mixed FL-calf raw action clipped on 66.8% of the
+command phase. This is action saturation, not evidence of torque saturation.
+There were zero qualified events and zero completed >=2 mm geometric swings;
+startup clearance was excluded. Its stand final planar RMS .00874 m/s and five-second
+net drift 2.88 cm improved. These are the existing five-second command-phase
+screens, not measurements of the owner's separate .5/.3/.8 replay screenshots.
+Recorded training reward clipping was 1.87% at iteration 300 and .96% at 1999;
+ten std entries reached .1 at 1999. No entropy schedule was introduced.
+
+Preparation evidence is in ignored `evaluation/transfer_v2_preparation/`.
+The native readback confirmed all 16 nominal armatures at .01, leg gains 40/1,
+wheel gains 0/1 and zero passive stiffness/damping/friction. Intended nominal q
+and zero dq were applied before the first physics step despite Genesis's import
+`qpos0` warning. Settled base height was .415873 m, supporting retention of .415.
+Offline bounded FK reached 4 cm actual clearance plus 3 cm lateral reposition
+at that height for every wheel, with normalized actions no larger than .833.
+This is geometric reachability. Four brief single-leg target pulses with the
+other legs nominal stayed loaded (no measured positive clearance or failure)
+and tilted the base by up to 5.22 degrees. Coordinated load-bearing steps remain
+unproven; this one script does not establish infeasibility. No action box, gain,
+nominal angle or root-pose change was made to conceal that limitation.
+
+A separate inference-only CK1999 capture used three fresh 300-tick sessions;
+these **new 2-6 s windows** differ from the owner's 900-tick sessions and the
+earlier five-second nominal screens. No terminal failure occurred:
+
+| Fixed command | Mean requested-axis velocity | Requested-axis RMSE | Signed mean roll / pitch | Roll / pitch RMS | Loaded lateral-center RMS |
+|---|---:|---:|---:|---:|---:|
+| [.5,0,0] | .44191 m/s | .05810 m/s | -.074 / -4.388 deg | .086 / 4.391 deg | .00124 m/s |
+| [0,.3,0] | .08752 m/s | .36661 m/s | -4.651 / 1.311 deg | 5.669 / 2.521 deg | .07168 m/s |
+| [0,0,.8] | .83479 rad/s | .03654 rad/s | 1.858 / 4.998 deg | 1.934 / 5.002 deg | .04469 m/s |
+
+Angles come from the actual base quaternion (extrinsic xyz); negative pitch is
+nose-up in these axes. No screenshot angle was used. `native_probe.json/npz`
+retain the state/support traces. One earlier probe stopped on a test-only CPU/GPU
+tensor-device mismatch before target pulses; its `native_probe_setup_error.*`
+evidence is retained. Correcting that helper did not modify the simulator stack.
+
+The **one** fresh 64-environment/two-update smoke passed: 128 policy ticks,
+8192 environment transitions, 80 optimizer steps, finite losses/gradients,
+separate initially empty normalizers, empty optimizer and zero curriculum/iteration,
+randomized dynamics and selective-reset isolation, checkpoint serialization and
+export parity on 160 observations including actual post-reset observations.
+Maximum exported/runtime action error was 8.05e-7. Its run is
+`logs/go2w_transfer_v2_smoke/transfer_v2_smoke_seed1_20261002_2026-10-02_16-38-50`;
+it is wiring evidence only, with zero qualified completed steps.
+
+Clipping is a material early-learning uncertainty: updates 0/1 clipped 68.97/68.77%
+of nonterminal sums, discarding mean negative magnitudes .01798/.02080 per tick.
+Among nonterminal states without nonwheel contact and with G>0, 61.72/58.24% were
+clipped. Scrub contributions hidden there averaged -2.84e-5/-2.90e-5 per valid
+demand tick. Inherited angular-motion costs averaged -.01259/-.01274 and support
+costs -.00487/-.00439 per tick; new orientation costs were -.00036/-.00122,
+and mean dense swing feedback was only 3.15e-7/2.52e-7. This does not justify
+weakening the requested scrub/posture coefficients or changing termination from
+two untrained updates. The coefficients and positive-sum clamp are retained;
+the early checkpoint review must inspect whether clipping subsides as control
+improves. Raw and weighted terms are saved separately in the smoke diagnostics.
+
+All 100 focused CPU checks passed (97 on the combined run, three updated fixture
+expectations retested successfully). Ruff, syntax compilation and diff checks
+passed. The exact fresh CLI was resolved and validated without constructing a
+training environment; the owner's original `--run_name ... --checkpoint -1`
+replay command also resolved CK1999 successfully. CPU checks cover saved-config/latest replay for all three registered
+robots, fixed axes/duration, legacy observations/action history/symmetry, support
+mapping, swing exclusions/cycles, scrubbing reflection/transport, command segment
+draws and full reward accumulation/clipping. Logs retain actual results, including
+initial fixture fixes. No new GUI, Isaac test or full v2 review panel was run.
+
+From the repository root, the exact **fresh long-run command**, prepared but not executed:
+
+```powershell
+conda activate genesis-gpu
+python -m robot_gym.scripts.train --task go2w --go2w_profile transfer_v2 --experiment_name go2w_transfer_v2 --run_name transfer_v2_seed1 --num_envs 4096 --max_iterations 2000 --seed 1 --logger tensorboard --training_diagnostics --rl_device cuda:0 --headless
+```
+
+The recipe saves every 100 updates. Review checkpoints around 300-500 from this
+same continuous run by inference; this does not mean stop/resume or initialize a
+second training stage. The smoke checkpoint is never a training parent.
+The following review panel is prepared, **not executed during preparation**:
+
+```powershell
+$Run = Read-Host 'Exact run directory printed by training (under logs/go2w_transfer_v2)'
+python -m robot_gym.scripts.evaluate --task go2w --experiment_name go2w_transfer_v2 --load_run $Run --checkpoint 300 --eval_mode transfer_screen --num_envs 1 --seed 1 --rl_device cuda:0 --headless --diagnostic_trace --output evaluation/transfer_v2_ck300_nominal
+# Optional smaller selection uses the same evaluator:
+# --transfer_cases stand forward_fast lateral_strong_positive yaw_strong_negative mixed
+python -m robot_gym.scripts.play --task go2w --experiment_name go2w_transfer_v2 --load_run $Run --checkpoint -1 --num_envs 1 --command_vy 0.3 --steps 900 --episode_length_s 30
+```
+
+The v2 screen adds vx=.5, vy=+/-.3 and yaw=+/-.8 to the retained stand, vx=.2,
+reverse, vy=+/-.1, yaw=+/-.4 and [.2,.1,.3] cases, each moving case with a final
+six-second stop. Reports include full-phase means/RMSE and counter-command peaks,
+signed/RMS base roll/pitch, loaded scrub, actual clearance and per-wheel completed
+cycles, action clipping and physical motion amplitudes. `--diagnostic_trace` adds
+the existing bounded physics-rate recorder. Normal training only aggregates cheap
+scalars: per-family posture, completed per-wheel step heights/counts, scrubbing,
+per-term raw/weighted rewards, total clipping and existing action/std diagnostics.
+
+Development review targets are small steady stand/straight tilt bias (roughly
+within 2 degrees), improved full-phase lateral tracking without the old large
+loaded counter-bursts, and repeated supported/unloaded/repositioned/reloaded
+centimeter-scale steps in substantial lateral/yaw demand. Quiet standing alone
+cannot qualify stepping, and synthetic or smoke checks cannot qualify learned gait.
+
+Receiving Isaac work still needs the new Actor's own embedded normalizer and
+explicit nominal motor dynamics readback (its existing armature=0 override must
+be adapted). Keep the measured model, official Plane, verified inertia import and
+56/56-to-16 interface/controller. No new Isaac test, navigation training or hardware
+execution occurred here. Armature/ranges, passive zeros, mass/COM and tire/sensor
+geometry remain development assumptions. Future velocity estimation remains the
+separate documented causal-history/shadow/closed-loop project; this run continues
+to use simulator velocity and contains no estimator code or checkpoint.

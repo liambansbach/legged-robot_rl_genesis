@@ -318,7 +318,7 @@ class ContractTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "braking disabled"):
                 update_cfg_from_args(env, train, args)
             args.task = "go2"
-            with self.assertRaisesRegex(ValueError, "specific to go2w"):
+            with self.assertRaisesRegex(ValueError, "conflicts with task"):
                 update_cfg_from_args(env, train, args)
 
     def test_profile_target_mapping_symmetry_and_continuous_lift_path(self):
@@ -459,6 +459,7 @@ class ContractTests(unittest.TestCase):
         )
         with patch.object(Go2Env, "reset_idx"):
             before = e.wheel_clearance[1].clone()
+            e.wheel_center_lateral_speed = torch.zeros_like(e.wheel_clearance)
             e.reset_idx(torch.tensor([0]))
             self.assertEqual(e.wheel_clearance[0].count_nonzero(), 0)
             self.assertEqual(e.loaded_wheels[0].count_nonzero(), 0)

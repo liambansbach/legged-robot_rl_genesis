@@ -63,16 +63,16 @@ def prepare_go2w_continuation(args, env_cfg, train_cfg):
 
 def validate_fresh_transfer(args, train_cfg):
     """Training-only guard, before any simulator/runner or checkpoint construction."""
-    if getattr(train_cfg, "go2w_profile", None) != "transfer_v1":
+    if getattr(train_cfg, "go2w_profile", None) not in ("transfer_v1", "transfer_v2"):
         return
     forbidden = ("resume", "load_run", "checkpoint", "reference_config", "go2w_finetune",
                  "sagittal_stance_weight", "event_quality_profile", "transfer_armature", "transfer_delay", "transfer_cases")
     if any(bool(getattr(args, key, False)) if key == "resume" else getattr(args, key, None) is not None
            for key in forbidden):
-        raise ValueError("transfer_v1 training is fresh only; omit resume/load/checkpoint/continuation arguments")
+        raise ValueError(f"{train_cfg.go2w_profile} training is fresh only; omit resume/load/checkpoint/continuation arguments")
     if (train_cfg.runner.resume or train_cfg.runner.load_run is not None
             or train_cfg.runner.checkpoint is not None or train_cfg.runner.resume_path is not None):
-        raise ValueError("transfer_v1 training must not inherit checkpoint initialization")
+        raise ValueError(f"{train_cfg.go2w_profile} training must not inherit checkpoint initialization")
 
 
 
