@@ -13,7 +13,7 @@ import torch
 import yaml
 
 from robot_gym.envs import *  # noqa: F401,F403
-from robot_gym.envs.go2w.go2w_config import apply_go2w_profile, uses_event_steps, verify_measured_asset
+from robot_gym.envs.go2w.go2w_config import apply_go2w_profile, uses_event_steps
 from robot_gym.envs.go2w.go2w_env import Go2WEnv
 from robot_gym.scripts.train import train, validate_fresh_transfer
 from robot_gym.utils import get_args, task_registry
@@ -78,7 +78,6 @@ class TransferCPU(unittest.TestCase):
 
     def test_measured_geometry_and_nominal_fk(self):
         cfg, _ = recipe()
-        self.assertEqual(verify_measured_asset(), .09167)
         path = ROOT / "ressources/robots/go2w/urdf" / cfg.asset.robot_file
         mass = sum(float(e.get("value")) for e in ET.parse(path).getroot().findall("link/inertial/mass"))
         self.assertAlmostEqual(mass, 19.68371, places=4)

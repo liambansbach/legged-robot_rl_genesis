@@ -49,7 +49,8 @@ def train(args):
 
 
 # Minimal historical imports for existing diagnostic tools.
-from robot_gym.envs.go2w.training import prepare_go2w_continuation, validate_fresh_transfer  # noqa: E402,F401
+from robot_gym.envs.go2w.diagnostics import prepare_go2w_continuation  # noqa: E402,F401
+from robot_gym.envs.go2w.go2w_config import validate_fresh_transfer  # noqa: E402,F401
 
 if __name__ == "__main__":
     train(get_args())

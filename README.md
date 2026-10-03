@@ -142,21 +142,32 @@ Training pipeline:
 
 ### Play (Evaluation)
 
-```bash
-python -m robot_gym.scripts.play --task=dodo
+```powershell
+python -m robot_gym.scripts.play --task dodo --experiment_name dodo_walking --load_run RUN_DIRECTORY --checkpoint -1
 ```
 
-- loads latest checkpoint
-- runs inference policy
-- exports JIT automatically
+Replace `RUN_DIRECTORY` with the selected directory under `logs/dodo_walking`.
+Replay restores that run's saved configuration and prints its resolved checkpoint.
+`--checkpoint -1` selects the latest checkpoint within that run; explicit numbers
+also work. `--run_name` remains a replay-selector alias for older commands.
+
+Supplying any of `--command_vx`, `--command_vy` (m/s), or `--command_yaw` (rad/s)
+fixes the command in body axes; omitted axes become zero. With none supplied,
+commands are sampled. `--steps` counts policy ticks across resets: 900 ticks at
+Go2-W's .02 s policy period means 18 simulated seconds, excluding reset settling.
+`--episode_length_s` separately changes the timeout; falls still reset.
+Use `python -m robot_gym.scripts.play --task go2w --help` for all Go2-W options.
 
 ### Export Policy
 
-Saved automatically to:
+Replay exports only when `--export` is supplied. The existing exporter embeds the
+Actor normalizer once and writes under the selected run:
 
 ```bash
-logs/<experiment>/exported/policies/policy_1.pt
+logs/<experiment>/<run>/exported/model_<checkpoint>/policy_1.pt
 ```
+
+`--no_export` remains accepted for compatibility; export is disabled by default.
 
 ### Observations
 

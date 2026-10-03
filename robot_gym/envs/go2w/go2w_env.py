@@ -26,12 +26,12 @@ def lateral_wheel_center_velocity(link_quat, link_vel, link_ang, geometry):
 class Go2WEnv(Go2Env):
     @staticmethod
     def add_arguments(parser):
-        from .cli import add_arguments
+        from .go2w_config import add_arguments
         add_arguments(parser)
 
     @staticmethod
     def configure(env_cfg, train_cfg, args):
-        from .cli import configure
+        from .go2w_config import configure
         configure(env_cfg, train_cfg, args)
 
     @staticmethod
@@ -41,7 +41,7 @@ class Go2WEnv(Go2Env):
 
     @staticmethod
     def validate_training(args, env_cfg, train_cfg):
-        from .training import validate_training
+        from .go2w_config import validate_training
         validate_training(args, env_cfg, train_cfg)
 
     def setup_runner(self, runner):
@@ -55,8 +55,16 @@ class Go2WEnv(Go2Env):
         TrainingDiagnostics(runner, self, Path(log_dir) / "diagnostics.jsonl")
 
     def training_metadata(self):
-        from .training import training_metadata
-        return training_metadata(self)
+        from .step_events import lateral_high
+        from .deployment import transfer_contract
+        result = {"profile": getattr(self.cfg, "go2w_profile", None)}
+        if self.event_step:
+            result.update(completed_updates=self.completed_updates,
+                          lateral_high=lateral_high(self.completed_updates, self.cfg.commands))
+        if self.cfg.control.armature is not None:
+            result["deployment_contract"] = transfer_contract(self)
+            result["runtime_armature_min_max_kg_m2"] = [float(self.armature_samples.min()), float(self.armature_samples.max())]
+        return result
 
     def export_metadata(self):
         from .deployment import transfer_contract

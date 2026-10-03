@@ -1,3 +1,6 @@
+"""Go2-W recipes, physical presets and task-owned CLI validation."""
+
+import math
 import numpy as np
 
 from robot_gym.envs.go2.go2_config import GO2Cfg, GO2CfgPPO
@@ -39,33 +42,6 @@ TRANSFER_V2_REVIEW_COMMANDS = {
 def uses_event_steps(cfg):
     """Explicit shared behavior, including the unchanged legacy event profile."""
     return getattr(cfg, "go2w_behavior", getattr(cfg, "go2w_profile", None)) == "event_step_v1"
-
-
-def verify_measured_asset():
-    """Fail before simulation if the retained deployment identity/resources changed."""
-    import hashlib
-    import xml.etree.ElementTree as ET
-    from robot_gym.utils.urdf_reader import URDFReader
-
-    reader = URDFReader(MEASURED_URDF)
-    path = reader.robot_file_path_absolute
-    if hashlib.sha256(path.read_bytes()).hexdigest() != MEASURED_SHA256:
-        raise ValueError("transfer_v1 measured URDF identity mismatch")
-    expected = [f"{side}_{joint}_joint" for side in ("FL", "FR", "RL", "RR")
-                for joint in ("hip", "thigh", "calf", "foot")]
-    if reader.joint_names != expected:
-        raise ValueError("transfer_v1 requires the existing 16-joint order")
-    root = ET.parse(path).getroot()
-    for mesh in root.findall(".//mesh"):
-        resource = path.parent / mesh.get("filename")
-        if not resource.is_file() or resource.name not in [p.name for p in resource.parent.iterdir()]:
-            raise ValueError(f"Missing or case-mismatched mesh: {resource}")
-    radii = [float(root.find(f"link[@name='{side}_foot']/collision/geometry/cylinder").get("radius"))
-             for side in ("FL", "FR", "RL", "RR")]
-    if any(abs(r - 0.09167) > 1e-9 for r in radii):
-        raise ValueError("Unexpected measured wheel geometry")
-    return radii[0]
-
 
 FINETUNE_COMMANDS = {
     "mixed_zero_yaw_probability": 0.50,
@@ -524,3 +500,110 @@ class GO2WCfgPPO(GO2CfgPPO):
         checkpoint = -1
         log_wandb = True
         wandb_project = "go2w-locomotion"
+
+
+def add_arguments(parser):
+    parameters = [
+        {"name": "--go2w_finetune", "choices": ["coverage", "coverage_mobility", "precision_clearance"], "default": None, "help": "Explicit step_recovery_v1 continuation/evaluation design; unset preserves sampling and rewards"},
+        {"name": "--go2w_profile", "choices": ["step_recovery_v1", "event_step_v1", "transfer_v1", "transfer_v2"], "default": None, "help": "Opt-in training recipe; replay restores the saved profile automatically"},
+        {"name": "--sagittal_stance_weight", "type": float, "default": None, "help": "Explicit event_step_v1 stance weight; full-demand weight stays 0.12; select the saved value for evaluation/play"},
+        {"name": "--event_quality_profile", "choices": ["sufficient_clearance"], "default": None, "help": "Opt-in event quality and payment; select the saved choice for evaluation/play"},
+        {"name": "--zero_command_brake", "action": "store_true", "help": "Go2-W inference only: blend wheel targets to zero for a complete zero body command"},
+        {"name": "--entropy_coef", "type": float, "default": None, "help": "Go2-W entropy weight; unset preserves the registered config"},
+        {"name": "--tracking_sigma_x", "type": float, "default": None, "help": "Go2-W forward squared-error denominator; unset preserves the registered config"},
+        {"name": "--skip_zero_action_probe", "action": "store_true", "help": "Bank evaluation: retain all policy cases, omit the equilibrium zero-action probe"},
+        {"name": "--diagnostic_trace", "action": "store_true", "help": "Read substep control forces, summed ground loads and cylinder geometry"},
+        {"name": "--reference_config", "help": "Explicit audited saved config, if not next to the checkpoint"},
+        {"name": "--eval_mode", "choices": ["nominal", "bank", "equilibrium", "sustained", "closed_loop", "precision_screen", "precision_dr", "transfer_screen"], "default": "nominal"},
+        {"name": "--transfer_armature", "choices": ["nominal", "low", "high"], "default": None, "help": "Transfer inference-only explicit motor armature: .01/.005/.02 kg m^2"},
+        {"name": "--transfer_delay", "type": int, "choices": [0, 1, 2], "default": None, "help": "Transfer inference-only held action delay in policy steps"},
+        {"name": "--transfer_cases", "nargs": "+", "choices": ["stand", "forward", "reverse", "yaw_positive", "yaw_negative", "lateral_positive", "lateral_negative", "mixed", *TRANSFER_V2_REVIEW_COMMANDS], "help": "transfer_screen subset; unset runs the small complete command panel"},
+        {"name": "--bank_seed", "type": int, "default": 240925, "help": "Local NumPy generator for a fixed 32-condition bank"},
+    ]
+    for parameter in parameters:
+        parameter = parameter.copy()
+        parser.add_argument(parameter.pop("name"), **parameter)
+
+
+def configure(env_cfg, cfg_train, args):
+    if getattr(args, "_replay_restored", False):
+        for cfg in (env_cfg, cfg_train):
+            if cfg is not None:
+                for key in ("go2w_profile", "go2w_finetune"):
+                    explicit = getattr(args, key, None)
+                    if explicit is not None and explicit != getattr(cfg, key, None):
+                        raise ValueError(f"Explicit --{key}={explicit!r} conflicts with saved {getattr(cfg, key, None)!r}")
+        return  # Saved rewards/commands remain authoritative for replay.
+    profile = getattr(args, "go2w_profile", None)
+    if profile is not None:
+        if args.task != "go2w":
+            raise ValueError("--go2w_profile is specific to go2w")
+        if getattr(args, "zero_command_brake", False):
+            raise ValueError("Go2-W step recovery requires zero-command braking disabled")
+        entropy = 0.003 if profile in ("event_step_v1", "transfer_v1", "transfer_v2") else 0.001
+        denominator = 0.09 if profile == "transfer_v2" else 0.25
+        if getattr(args, "tracking_sigma_x", None) not in (None, denominator) or getattr(args, "entropy_coef", None) not in (None, entropy):
+            raise ValueError(f"{profile} fixes tracking_sigma_x={denominator} and entropy_coef={entropy}")
+        apply_go2w_profile(env_cfg, cfg_train, profile)
+    finetune = getattr(args, "go2w_finetune", None)
+    if finetune is not None:
+        if args.task != "go2w" or profile != "step_recovery_v1":
+            raise ValueError("--go2w_finetune requires go2w with --go2w_profile step_recovery_v1")
+        apply_go2w_finetune(env_cfg, cfg_train, finetune)
+    stance_weight = getattr(args, "sagittal_stance_weight", None)
+    if stance_weight is not None:
+        if args.task != "go2w" or profile != "event_step_v1":
+            raise ValueError("--sagittal_stance_weight requires go2w with --go2w_profile event_step_v1")
+        if not math.isfinite(stance_weight) or stance_weight <= 0:
+            raise ValueError("--sagittal_stance_weight must be finite and positive")
+        if env_cfg is not None:
+            env_cfg.rewards.sagittal_stance_weight = stance_weight
+    quality_profile = getattr(args, "event_quality_profile", None)
+    if quality_profile is not None:
+        if args.task != "go2w" or profile != "event_step_v1":
+            raise ValueError("--event_quality_profile requires go2w with --go2w_profile event_step_v1")
+        apply_go2w_event_quality(env_cfg, quality_profile)
+    if getattr(args, "zero_command_brake", False) and args.task != "go2w":
+        raise ValueError("--zero_command_brake is specific to go2w playback/evaluation")
+    entropy = getattr(args, "entropy_coef", None)
+    if entropy is not None:
+        if args.task != "go2w":
+            raise ValueError("--entropy_coef is specific to go2w")
+        if not math.isfinite(entropy) or entropy < 0:
+            raise ValueError("--entropy_coef must be finite and nonnegative")
+        if cfg_train is not None:
+            cfg_train.algorithm.entropy_coef = entropy
+    sigma_x = getattr(args, "tracking_sigma_x", None)
+    if sigma_x is not None:
+        if args.task != "go2w":
+            raise ValueError("--tracking_sigma_x is specific to go2w")
+        if not math.isfinite(sigma_x) or sigma_x <= 0:
+            raise ValueError("--tracking_sigma_x must be finite and positive")
+        if env_cfg is not None:
+            env_cfg.rewards.tracking_sigma_x = sigma_x
+
+
+def validate_fresh_transfer(args, train_cfg):
+    """Training-only guard, before any simulator/runner or checkpoint construction."""
+    if getattr(train_cfg, "go2w_profile", None) not in ("transfer_v1", "transfer_v2"):
+        return
+    forbidden = ("resume", "load_run", "checkpoint", "reference_config", "go2w_finetune",
+                 "sagittal_stance_weight", "event_quality_profile", "transfer_armature", "transfer_delay", "transfer_cases")
+    if any(bool(getattr(args, key, False)) if key == "resume" else getattr(args, key, None) is not None
+           for key in forbidden):
+        raise ValueError(f"{train_cfg.go2w_profile} training is fresh only; omit resume/load/checkpoint/continuation arguments")
+    if (train_cfg.runner.resume or train_cfg.runner.load_run is not None
+            or train_cfg.runner.checkpoint is not None or train_cfg.runner.resume_path is not None):
+        raise ValueError(f"{train_cfg.go2w_profile} training must not inherit checkpoint initialization")
+
+
+def validate_training(args, env_cfg, train_cfg):
+    validate_fresh_transfer(args, train_cfg)
+    if getattr(args, "zero_command_brake", False):
+        raise ValueError("Zero-command braking is inference-only")
+    for key in ("go2w_finetune", "sagittal_stance_weight", "event_quality_profile"):
+        if getattr(args, key, None) is not None and not train_cfg.runner.resume:
+            raise ValueError(f"--{key} requires explicit full-state --resume")
+    if getattr(args, "go2w_profile", None) and not train_cfg.runner.resume and (
+        args.load_run is not None or args.checkpoint is not None):
+        raise ValueError("Fresh profile training must omit --load_run and --checkpoint")

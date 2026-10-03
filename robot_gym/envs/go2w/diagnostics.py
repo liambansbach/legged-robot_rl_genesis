@@ -287,3 +287,64 @@ def loaded_properties(env):
         for field in ("armature", "stiffness", "damping", "frictionloss"):
             result[field] = getattr(robot, "get_dofs_" + field)(env.joint_dof_idx).clone()
     return result
+
+
+def prepare_go2w_continuation(args, env_cfg, train_cfg):
+    """Check the explicit saved parent before constructing the simulator."""
+    from pathlib import Path
+    from robot_gym import ROBOT_GYM_ROOT_DIR
+    from robot_gym.utils.helpers import get_load_path, class_to_dict
+    from robot_gym.utils.urdf_reader import URDFReader
+    from robot_gym.utils.diagnostics import check_training_continuation, sha256
+
+    if args.load_run in (None, "-1") or args.checkpoint is None or args.checkpoint < 0:
+        raise ValueError(
+            "Go2-W continuation requires explicit --load_run and --checkpoint"
+        )
+    if not args.run_name or any(c in args.run_name for c in "/\\"):
+        raise ValueError(
+            "Go2-W continuation requires a new --run_name (a folder name, not a path)"
+        )
+    root = Path(ROBOT_GYM_ROOT_DIR) / "logs" / train_cfg.runner.experiment_name
+    checkpoint = Path(get_load_path(root, args.load_run, args.checkpoint)).resolve()
+    config = checkpoint.with_name("config.yaml")
+    if args.reference_config and Path(args.reference_config).resolve() != config:
+        raise ValueError(
+            "Training continuation requires the saved config beside its checkpoint"
+        )
+    env_cfg.asset.joint_names = URDFReader(env_cfg.asset.robot_file).joint_names
+    reference = check_training_continuation(
+        config,
+        class_to_dict(env_cfg),
+        class_to_dict(train_cfg),
+        args.tracking_sigma_x,
+        args.entropy_coef,
+        getattr(args, "go2w_finetune", None),
+        getattr(args, "sagittal_stance_weight", None),
+        getattr(args, "event_quality_profile", None),
+    )
+    if (getattr(args, "sagittal_stance_weight", None) is not None
+            or getattr(args, "event_quality_profile", None) is not None):
+        import torch
+        state = torch.load(checkpoint, map_location="cpu", weights_only=False)
+        progress = (state.get("infos") or {}).get("event_step_v1", {})
+        count = progress.get("completed_updates")
+        if type(count) is not int or count < 0:
+            raise ValueError("Missing event_step_v1 completed-update state")
+        # Restore runtime progress before even the new scene's first command draw.
+        env_cfg._event_completed_updates = count
+    saved_git = checkpoint.parent / "git" / f"{Path(ROBOT_GYM_ROOT_DIR).name}.diff"
+    source_snapshot = None
+    if saved_git.is_file():
+        # Existing RSL-RL git snapshot includes the training HEAD and dirty patch.
+        source_snapshot = {
+            "path": str(saved_git),
+            "sha256": sha256(saved_git),
+            "head": saved_git.read_text().splitlines()[1],
+        }
+    return {
+        "checkpoint": str(checkpoint),
+        "checkpoint_sha256": sha256(checkpoint),
+        "saved_config": reference,
+        "saved_source_snapshot": source_snapshot,
+    }
