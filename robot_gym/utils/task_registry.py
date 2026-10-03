@@ -102,7 +102,10 @@ class TaskRegistry:
         if asset.get("name") != defaults.asset.name:
             raise ValueError(f"Saved asset {asset.get('name')!r} conflicts with task {args.task!r}")
         for key in ("num_observations", "num_actions", "num_privileged_obs"):
-            if saved["env_cfg"].get("env", {}).get(key, getattr(defaults.env, key)) != getattr(defaults.env, key):
+            expected = getattr(defaults.env, key)
+            if key == "num_observations":
+                expected = self.get_task_class(args.task).replay_observation_dim(saved["env_cfg"], expected)
+            if saved["env_cfg"].get("env", {}).get(key, expected) != expected:
                 raise ValueError(f"Saved {key} conflicts with the registered {args.task} interface")
         # Start from unprofiled defaults. Missing optional physics fields retain import behavior.
         env_cfg, train_cfg = defaults, training_defaults

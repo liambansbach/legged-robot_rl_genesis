@@ -25,6 +25,11 @@ class BaseTask:
     def validate_training(args, env_cfg, train_cfg):
         """Validate initialization before constructing physics or a runner."""
 
+    @staticmethod
+    def replay_observation_dim(saved, default):
+        """Tasks with an explicit saved interface variant may resolve its dimension."""
+        return default
+
     def setup_runner(self, runner):
         """Install task-owned training state, if any, before checkpoint loading."""
 

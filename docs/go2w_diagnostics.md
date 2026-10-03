@@ -1,10 +1,12 @@
 # Go2-W diagnostics and reproducibility
 
-Current status: [v3 preparation blocked by the fixed-target pose check](#transfer_v3-preparation-blocked-2026-10-03).
+Current workflow: [frozen reference and phase-guided V3](#frozen-reference-and-phase-guided-v3-2026-10-03).
 Use [saved-config replay](#shared-pipeline-cleanup-2026-10-02) for existing runs.
 Older dated entries below preserve historical evidence and commands; their former
 selection/export rules are superseded by the current replay section and `--help`.
 The older v2 long-run command is historical, not the next training recommendation.
+The earlier fixed-target failure is retained as evidence; the owner superseded it
+as a prerequisite for the V3 pilot.
 
 ## Archived diagnostics — 25 September 2026
 
@@ -1727,3 +1729,261 @@ checks cannot be advertised as preserving results without evidence.
 at the intended plant, then demonstrate a coordinated free-base lift before
 implementing and piloting v3. No IsaacLab, navigation, estimator or hardware work
 was performed.
+
+## Frozen reference and phase-guided V3 — 2026-10-03
+
+The owner replaced the preceding physical gate: RL may learn support offsets and
+feedback around the desired actual posture. The failed fixed-target trial remains
+a dynamic observation; it is neither a kinematic failure nor a proof that active
+stabilization is impossible. No support controller, gravity compensation, IK action
+override or per-tick pose setter was added.
+
+### Frozen viewer and reference
+
+`tests/go2w_pose_viewer.py` builds a bare measured-URDF/Plane scene once. It resolves
+the 16 motor DOFs by name, writes q with `set_dofs_position(..., zero_velocity=True)`,
+then writes an identity authored-base quaternion and a known height. Installed
+Genesis 1.4.1 setters update forward kinematics. Joint state setters do **not** lock
+an articulation; zero_velocity clears velocities instantaneously (all entity DOFs
+on this API). This tool keeps state frozen by never advancing dynamics. It refreshes
+`scene.visualizer.update(force=True)`, allowing the standard camera interaction,
+and exits after the wall-clock duration, window close or Ctrl+C.
+
+One headless measurement and a three-second GUI smoke completed. No camera-based
+posture measurement or dynamic equilibrium is claimed. All four chains use the
+shared reference hip=0, thigh=.70, calf=-1.40 rad; wheel angle zero is reset state,
+not a wheel-position objective. Imported joint readback matches the requested
+float32 tensor exactly. Authored quaternion [1,0,0,0] and roll/pitch 0/0 are imposed
+and read back, not freely attained.
+
+| Wheel | Floor gap at h_ref (m) | Collision center in base axes (m) | Center minus own thigh-origin x (m) |
+|---|---:|---|---:|
+| FL | 7.45e-9 | [.20203251, .19010000, -.33607170] | .00863251 |
+| FR | 7.45e-9 | [.20203251, -.19010000, -.33607170] | .00863251 |
+| RL | 7.45e-9 | [-.18476747, .19010000, -.33607170] | .00863253 |
+| RR | 7.45e-9 | [-.18476747, -.19010000, -.33607170] | .00863253 |
+
+Imported h_ref is **.427741706 m**; pure URDF FK used by the recipe gives
+.427741656 m (50 nm difference). The reward reference is that model geometry,
+with a 15 mm height deadband. Reset z is h_ref+.003 = **.430741656 m**, before
+existing reset noise. The lowest nonwheel collision-vertex bound is .04185 m
+above the plane; exact self-contact was not evaluated without a contact solve.
+The import qpos0 warning concerns the import reference; explicit q was reapplied
+after build and checked against limits. Nothing was simulated to make it settle.
+
+From the repository root:
+
+```powershell
+conda activate genesis-gpu
+python -m tests.go2w_pose_viewer --duration 60
+python -m tests.go2w_pose_viewer --headless --output evaluation/pose_reference.json
+# Optional elevated view; h_ref and the reward target stay unchanged:
+python -m tests.go2w_pose_viewer --duration 60 --height-offset 0.003
+```
+
+### V3 contract and objective
+
+`--go2w_profile transfer_v3` selects a fresh-only recipe. Old profiles and their
+saved poses/rewards remain unchanged. Actor/Critic both consume `policy`, now
+**58/58 inputs and 16 actions**, with the existing separate normalizers and
+[512,256,128] ELU networks. Slots 0:56 retain the existing quantity/order/scaling/
+noise/action-history semantics, but position errors refer to V3 q_ref. Slots
+56:58 append noiseless, unscaled sin/cos of the phase before the normalizer.
+Simulator velocity still means current body-axis velocity at the authored base
+origin. No estimator or privileged critic exists.
+
+At policy boundary t the Actor sees phase p. Four held-target .005 s physics
+steps integrate its action; reward and terminal capture use **that same p**.
+Then p advances by .02/.8 modulo 1 for the next observation. Getters and command
+changes never advance/reset phase. A selected environment's episode reset assigns
+uniform p in training and zero in nominal inference; the existing initial reset
+includes one zero-action policy tick. Sin/cos both negate under sagittal reflection
+(p -> p+.5), with the old velocity/joint/action reflection unchanged. Export records
+this timing, reference pose/height, motor dynamics and its own embedded normalizer.
+A 56-input Isaac player is not compatible without supplying this phase contract.
+
+FL+RR have offset 0, FR+RL .5. With local phase u=(p+offset)%1, stance fraction
+f=.65 and t=clamp((u-f)/(1-f),0,1), E=sin(pi*t)^2 during u>=f, otherwise zero.
+There are all-four-stance overlaps, never a prescribed all-foot jump. Command
+demand G uses smoothstep of max(clamp((|vy|-.01)/.04), clamp((|yaw|-.10)/.15)).
+Desired swing S=G*E and desired cylinder gap h*=.04*S. These smooth phase/demand
+envelopes use no observed-contact eligibility. Command steps are not filtered;
+phase continues and motor-target transitions remain the Actor's responsibility.
+
+Let H(z)=.5*z^2 for |z|<=1, else |z|-.5. All rows except fall are rates multiplied
+by policy dt=.02 **once**. There is no total-positive clipping. Terms use actual
+state, never equality of motor targets to q_ref. Continuous wheels have no absolute
+angle objective. The complete nonzero reward set is:
+
+| Term | Raw formula / reduction and units | Scale |
+|---|---|---:|
+| x / y / yaw tracking | Independent 1-H((command-actual)/s); s=.25 m/s, .15 m/s, .35 rad/s | 1 / 1 / .8 |
+| Phase clearance | mean over four H((actual oriented-cylinder gap-h*)/.04 m), including loaded wheels and stance | -1 |
+| Phase support | mean[S*min(F/F0,2)^2+(1-S)*relu(.2-F/F0)^2]; F is nonnegative wheel normal load, F0=nominal model weight/4 (~48.27 N) | -.5 |
+| Orientation | sum(projected_gravity[:2]^2), dimensionless | -4 |
+| Height | H(relu(abs(base_z-h_ref)-.015 m)/.05 m) | -1 |
+| x corridor | mean H(relu(abs(dx-dx_ref)-(.04+.05*S) m)/.05 m); dx uses cylinder center minus own thigh ORIGIN in BASE axes | -.5 |
+| Rolling actual pose | (1-G)*mean of 12 leg joint position-error squares, rad^2 | -.5 |
+| Effort | leg mean + wheel mean of (control torque/limit)^2 | -.03 |
+| Leg / wheel action rate | sum squared consecutive issued clipped action differences in each group | -.01 / -.005 |
+| Vertical / roll-pitch motion | vz^2 (m/s)^2 / sum(omega_xy^2) (rad/s)^2 | -.2 / -.05 |
+| Insufficient support | relu(2-count(F>6 N))^2 | -.5 |
+| Nonwheel collision | nonwheel-contact count capped at 4 | -2 |
+| Joint soft limits | inherited sum of radian excursions outside the soft P-joint range; no wheel angle limit | -2 |
+| Effort limits | inherited sum relu(abs(torque)-soft_limit*effort_limit), Nm | -.5 |
+| Lateral scrubbing | G*mean(loaded*u_lateral^2), (m/s)^2; axle-projected cylinder-center velocity, not point-foot rolling slip | -.2 |
+| Fall | reset AND not timeout; discrete, no dt | -5 |
+
+V3 constructs no WheelStepEvents machine; event, credit, dwell, dense-event swing
+and prolonged-unloading rewards are absent. Existing offline geometric cycle
+measurement remains available. Stance clearance/support and insufficient-support
+costs oppose all-foot heave; actual vertical motion/height are also measured. The
+x corridor neither penalizes y/z nor cancels opposing front/rear extensions.
+No strong absolute-action penalty penalizes useful constant support offsets.
+
+CPU examples show nonzero cost for a grounded requested swing and reduced cost
+after a partial lift/unload, before any completed event. At ideal actual posture
+with a .3 m/s lateral command but zero velocity, even the peak missed diagonal
+swing/load costs leave a positive .8 reward/s; immediate falling costs -5. Mixed
+command ranges are kept narrower so trying is not made intrinsically worse by
+extreme combined startup errors. This consistency check does not guarantee PPO
+cannot discover termination or motion artifacts; pilot episode duration, returns
+and physical evaluation are required.
+
+Segment draw probabilities: stand15%, straight20%, arc7%, pure yaw20%, precision10%,
+pure lateral20%, mixed8%. Pure lateral magnitudes are .1-.3 m/s; pure yaw .3-.8
+rad/s, with both signs. Straight/arc vx is -.35 to .6 m/s. Mixed ranges are
+vx +/-.3, vy +/-.2 m/s, yaw +/-.5 rad/s. Precision retains the small-command
+scaling. 80% of lateral/yaw/mixed segment draws use 2-4 s; other draws retain the
+short/sustained mixture. Stand retains its 25% chance of a 3-6 s hold. These are
+segment probabilities, not time fractions. No lateral-tail curriculum runs in V3.
+
+The plant and PPO remain: measured embodiment, .01 nominal armature with [.005,.02]
+training uncertainty, 40/1 legs, 0/1 wheels, zero passive assumptions, unchanged
+action/force/velocity limits and mass/inertia randomization, .02/.005 s timing.
+Native PPO uses 64 rollout ticks, LR3e-4/adaptive KL.01, gamma.995, lambda.95,
+clip.2, gradient bound1, five epochs/eight minibatches, initial log std.4 bounded
+[.1,.7] with the existing projection, entropy.003, and sagittal augmentation.
+No optimizer, noise, gain or reward sweep was run.
+
+### One fresh pilot and nominal inference
+
+The single authorized pilot completed **200 updates / 4096 environments / 64 ticks**
+(52,428,800 transitions), seed 1, in
+`logs/go2w_transfer_v3_pilot/transfer_v3_pilot_seed1_2026-10-03_12-23-42`.
+Native zero-based checkpoint labels are 0, 100 and **199**. No checkpoint initialized
+it and no subsequent learning ran. Fresh actor/critic normalizers and optimizer,
+58/58 dimensions, selective phase reset, getter purity, stored armature persistence,
+finite state/losses and checkpoint round-trip were checked in that same process.
+The deterministic exported Actor agreed within **1.67e-6** on 64 new observations,
+including actual post-reset state. Export is under that run's `exported/model_199/`.
+The existing plant/API assumptions were retained; this was not a gain calibration.
+
+Available diagnostic labels 0 / 100 / 198 give measured mean minibatch KL
+.10277 / .01301 / .01421, LR .00001 / .001946 / .001297, and effective std ranges
+[.4000,.4005] / [.2805,.3798] / [.2093,.3456]. No joint reached the .1 floor.
+Signed negative-reward fractions were 46.35% / .859% / .083%; total-reward clipping
+was **zero** by design. At 198 the largest per-joint deterministic mean clipping
+fraction was 3.20%. Clearance raw mean .03418 contributed -.000684/tick; support
+.05701 contributed -.000570/tick; three tracking terms together contributed
+.051630/tick. Raw kernels, weighted terms, exploration std and sensor/reset noise
+are different quantities. No claim about V2's current clipping is inferred here.
+
+The retained diagnostics JSONL has 188 rows (12 labels missing); TensorBoard has
+190 collection-time records, last label 198. These gaps are recorded in
+`evaluation/transfer_v3_pilot_preparation/pilot_summary.json`, not filled with zeros.
+The console, final checkpoint and round-trip checks confirm all 200 updates. The
+console's update 199 reports mean episode length 1000 ticks, mean return 47.14 and
+4.32 s/update (3.41 collection + .91 learning). The full learn loop took 15m17s,
+excluding startup. Collection is the first profiling candidate for speed work;
+no speed optimization or claim of an equivalent faster setup was tested.
+At diagnostic 198, actual time exposure was stand15.66%, straight12.19%, arc4.48%,
+yaw25.99%, precision6.17%, lateral25.70%, mixed9.82%, distinct from segment draws.
+
+One nominal inference process evaluated eight cases with fresh resets, no noise/DR,
+.01 armature and zero delay. Stand lasts 10 s; other cases use 3 s zero, 5 s command,
+6 s stop. All completed without falls, nonwheel contacts or censored intervals.
+The table uses the **entire five-second command window**, not a selected good second.
+Cycles require observed unloading/reloading (6/10 N hysteresis) and positive cylinder
+clearance; >=2 mm counts have no dwell filter and can include contact chatter.
+The >=2 cm column is per wheel in FL/FR/RL/RR order, excluding startup/drop.
+
+| Command | Mean commanded axis (m/s or rad/s) | Axis RMSE | Mean height (m) | Mean roll/pitch (deg) | Completed >=2 cm cycles |
+|---|---:|---:|---:|---|---|
+| vx=.2 | .1798 | .0251 | .4001 | .14 / 1.71 | 0/0/0/0 |
+| vx=.5 | .4248 | .0811 | .3995 | -.23 / 1.28 | 0/0/0/0 |
+| vy=.3 | .2596 | .0546 | .4036 | -.83 / 5.15 | 1/0/0/6 |
+| vy=-.3 | -.2508 | .0616 | .4028 | 1.21 / 5.40 | 0/1/6/0 |
+| yaw=.8 | .7624 | .1088 | .4055 | 1.81 / 2.04 | 0/0/0/0 |
+| yaw=-.8 | -.7754 | .1125 | .4048 | -1.74 / 2.00 | 0/0/0/0 |
+| [.2,.1,.3] | [.1678,.0875,.2932] | [.0379,.0176,.0939] | .4021 | -.08 / 3.20 | 0/0/0/0 |
+
+The positive-lateral RR wheel completed six 2.02-2.61 cm cycles, five starting more
+than a second after command onset. Negative-lateral RL completed six 2.19-2.63 cm
+cycles, also five later cycles. Their body-relative vertical rises were generally
+1.2-2.1 cm and horizontal repositioning 12-16 cm: these are actual moving limbs,
+with some body-motion contribution to ground clearance. The positive FL 4.43 cm
+peak was only an onset transient. Other wheels participated at smaller clearances;
+>=2 mm counts were 8/12/7/7 and 8/6/6/7. Yaw maxima were 1.60 cm / .75 cm, not
+repeated centimeter-scale stepping in all wheels. The 4 cm desired apex was not
+achieved as a sustained four-wheel pattern.
+
+Lateral contact duties (load>8 N) were [.688,.700,.680,.632] / [.632,.728,.676,.636].
+No sampled all-wheel-unloaded interval occurred; negative lateral had one of 250
+command samples with fewer than two loaded wheels. Peak wheel loads reached
+344.5/332.9 N. Lateral roll/pitch RMS was 1.44/5.75 and 1.60/5.96 degrees, with
+pitch peak-to-peak 7.79/7.86 degrees. Compactness improved relative to the prior
+extended V2 pose: mean body-axis front/rear cylinder spacing .409/.413 m, maximum
+.457/.471 m; per-wheel |dx| remained below .090 m. Lateral counter-command peaks
+in the requested axis were zero at the recorded policy boundaries. Deterministic
+action clipping still reached 18.4% FL hip / 15.6% FR hip during lateral motion and
+23.6% RL calf / 22.4% RR calf during yaw; this does not establish torque saturation.
+
+Stand final-two-second planar/yaw RMS was .01164 m/s / .04206 rad/s and last-five-
+second drift .0304 m, with mean height .4033 m and pitch 1.95 degrees. Across the
+seven stop windows final planar RMS ranged .00951-.01679 m/s, yaw .03748-.08257
+rad/s, and last-five-second drift .0255-.0406 m. Desired height remains .42774 m;
+the learned actual height is still 2-3 cm lower, not a reason to silently redefine
+the target. Periodic load transfer is visible even while standing. This pilot
+shows useful lateral learning and repeated rear-wheel cycles, with uneven swing
+participation, pitch oscillation, impact peaks and incomplete yaw stepping still
+unresolved. It is not a finished gait, a Sim2Sim result or hardware validation.
+
+Evidence: `evaluation/transfer_v3_pilot_preparation/{pose_reference.json,pilot_checks.json,pilot_summary.json}`
+and `evaluation/transfer_v3_pilot_ck199_nominal/{metrics.json,*.npz,lateral_cycles.png}`.
+These ordinary ignored outputs retain the traces and per-wheel events. Existing V1/V2
+files and the old failed fixed-target probe were left intact. Focused CPU validation
+passed 23 distinct checks across V3, legacy symmetry/replay and common CLI/config paths;
+seven V3 tests were rerun after the final evaluation-only geometry capture change.
+Syntax and diff checks passed. Ruff passed on the new/core changed files; the two
+older evaluation modules retain the same 18 pre-existing import/semicolon findings.
+No redundant learning smoke or second pilot ran. The only shared-code addition is
+the small saved-interface hook; phase kernels, recipes, rewards, symmetry and
+evaluation remain in the Go2-W package.
+
+### Implemented commands after this pilot
+
+Exact inference replay of the pilot (no export unless `--export` is supplied):
+
+```powershell
+conda activate genesis-gpu
+python -m robot_gym.scripts.play --task go2w --experiment_name go2w_transfer_v3_pilot --load_run transfer_v3_pilot_seed1_2026-10-03_12-23-42 --checkpoint 199 --num_envs 1 --command_vy 0.3 --steps 900 --episode_length_s 30 --rl_device cuda:0
+```
+
+Omitted command axes are zero; use `--command_vx .5` or `--command_yaw .8` instead
+for the other axes, or `--command_vx 0` for exact stand. `--checkpoint -1` selects
+latest **within this selected run**. 900 ticks = 18 simulated seconds, while the
+episode timeout is 30 s; falls still reset. The saved V3 config restores the 58-input
+interface and new reference without repeating the profile argument.
+
+Prepared fresh main command, **not executed** (2000 updates, save every 100):
+
+```powershell
+python -m robot_gym.scripts.train --task go2w --go2w_profile transfer_v3 --experiment_name go2w_transfer_v3 --run_name transfer_v3_seed1 --num_envs 4096 --max_iterations 2000 --seed 1 --logger tensorboard --training_diagnostics --rl_device cuda:0 --headless
+```
+
+This starts fresh; the pilot is never a training parent. The next useful action is
+to inspect the saved pilot's lateral/yaw replay and load/clearance traces before
+authorizing a separate main run. A later Isaac adapter must supply the 58-input
+phase timing, new q_ref/height and its own exported normalizer/dynamics, retaining
+simulator base-origin velocity. No Isaac, navigation or estimator changes were made.

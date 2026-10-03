@@ -129,6 +129,59 @@ def apply_go2w_event_quality(env_cfg, name):
 
 def apply_go2w_profile(env_cfg, train_cfg, name):
     """One explicit candidate; never mutate the registered config or its dictionaries."""
+    if name == "transfer_v3":
+        new_env = env_cfg if env_cfg is not None and getattr(env_cfg, "go2w_profile", None) != name else None
+        new_train = train_cfg if train_cfg is not None and getattr(train_cfg, "go2w_profile", None) != name else None
+        apply_go2w_profile(new_env, new_train, "transfer_v1")
+        if new_env is not None:
+            c = new_env
+            c.go2w_profile, c.go2w_behavior = name, "phase_guided"
+            c.env.num_observations = 58
+            c.init_state.default_joint_angles = v3_joint_reference()
+            height, dx = v3_reference_geometry()
+            c.init_state.pos = [0., 0., height + V3_SPAWN_CLEARANCE]
+            c.init_state.rot = [1., 0., 0., 0.]
+            c.rewards.base_height_target = height
+            c.phase_guidance = {"period_s": .8, "stance_fraction": .65, "apex_m": .04,
+                                "offsets": {"FL_foot": 0., "FR_foot": .5, "RL_foot": .5, "RR_foot": 0.},
+                                "randomize_reset": True}
+            c.rewards.phase_objective = {"tracking_scales": [.25, .15, .35],
+                "height_tolerance_m": .015, "height_scale_m": .05,
+                "clearance_scale_m": .04, "corridor_stance_m": .04,
+                "corridor_swing_m": .09, "corridor_scale_m": .05,
+                "wheel_thigh_dx_reference_m": dx}
+            # Replace the legacy stack, including all event/credit dependencies.
+            for key in dir(c.rewards.scales):
+                if not key.startswith("_"):
+                    setattr(c.rewards.scales, key, 0.)
+            for key, scale in {"tracking_x": 1., "tracking_y": 1., "tracking_yaw": .8,
+                               "phase_clearance": -1., "phase_support": -.5,
+                               "orientation": -4., "reference_height": -1., "wheel_corridor": -.5,
+                               "rolling_pose": -.5, "normalized_effort": -.03,
+                               "leg_action_rate": -.01, "wheel_action_rate": -.005,
+                               "lin_vel_z": -.2, "ang_vel_xy": -.05,
+                               "insufficient_support": -.5, "collision": -2.,
+                               "dof_pos_limits": -2., "torque_limits": -.5,
+                               "lateral_wheel_scrub": -.2, "termination": -5.}.items():
+                setattr(c.rewards.scales, key, scale)
+            c.rewards.only_positive_rewards = False
+            c.rewards.discrete_reward_names = ["termination"]
+            c.commands.curriculum = False
+            c.commands.stand_command_probability = .15
+            c.commands.moving_mixture_probabilities = [.20, .07, .20, .10, .20, .08]
+            c.commands.pure_lateral_magnitude_range = [.1, .3]
+            c.commands.pure_yaw_magnitude_range = [.3, .8]
+            c.commands.ranges.lin_vel_x = [-.35, .6]
+            c.commands.ranges.lin_vel_y = [-.3, .3]
+            c.commands.ranges.ang_vel_yaw = [-.8, .8]
+            c.commands.phase_mixed_ranges = [[-.3, .3], [-.2, .2], [-.5, .5]]
+            c.commands.discovery_segment_probability = .8
+            c.commands.discovery_segment_duration_range = [2., 4.]
+        if new_train is not None:
+            new_train.go2w_profile, new_train.go2w_behavior = name, "phase_guided"
+            new_train.runner.experiment_name = "go2w_transfer_v3"
+            new_train.runner.run_name = "transfer_v3_seed1"
+        return
     if name in ("transfer_v1", "transfer_v2"):
         # Reuse selected P behavior; operational continuation state is never copied.
         new_env = env_cfg if env_cfg is not None and getattr(env_cfg, "go2w_profile", None) != name else None
@@ -313,6 +366,7 @@ class GO2WCfg(GO2Cfg):
         }
 
     class env(GO2Cfg.env):
+        capture_precision = False  # Wheel geometry only for bounded evaluation.
         # base_lin_vel(3) + base_ang_vel(3) + projected_gravity(3)
         # + commands(3) + leg_pos(12) + dof_vel(16) + actions(16) = 56
         num_observations = 56
@@ -530,7 +584,7 @@ class GO2WCfgPPO(GO2CfgPPO):
 def add_arguments(parser):
     parameters = [
         {"name": "--go2w_finetune", "choices": ["coverage", "coverage_mobility", "precision_clearance"], "default": None, "help": "Explicit step_recovery_v1 continuation/evaluation design; unset preserves sampling and rewards"},
-        {"name": "--go2w_profile", "choices": ["step_recovery_v1", "event_step_v1", "transfer_v1", "transfer_v2"], "default": None, "help": "Opt-in training recipe; replay restores the saved profile automatically"},
+        {"name": "--go2w_profile", "choices": ["step_recovery_v1", "event_step_v1", "transfer_v1", "transfer_v2", "transfer_v3"], "default": None, "help": "Opt-in training recipe; replay restores the saved profile automatically"},
         {"name": "--sagittal_stance_weight", "type": float, "default": None, "help": "Explicit event_step_v1 stance weight; full-demand weight stays 0.12; select the saved value for evaluation/play"},
         {"name": "--event_quality_profile", "choices": ["sufficient_clearance"], "default": None, "help": "Opt-in event quality and payment; select the saved choice for evaluation/play"},
         {"name": "--zero_command_brake", "action": "store_true", "help": "Go2-W inference only: blend wheel targets to zero for a complete zero body command"},
@@ -565,7 +619,9 @@ def configure(env_cfg, cfg_train, args):
             raise ValueError("--go2w_profile is specific to go2w")
         if getattr(args, "zero_command_brake", False):
             raise ValueError("Go2-W step recovery requires zero-command braking disabled")
-        entropy = 0.003 if profile in ("event_step_v1", "transfer_v1", "transfer_v2") else 0.001
+        entropy = 0.003 if profile in ("event_step_v1", "transfer_v1", "transfer_v2", "transfer_v3") else 0.001
+        if profile == "transfer_v3" and getattr(args, "tracking_sigma_x", None) is not None:
+            raise ValueError("transfer_v3 uses configured Huber tracking scales; --tracking_sigma_x is a legacy Gaussian option")
         denominator = 0.09 if profile == "transfer_v2" else 0.25
         if getattr(args, "tracking_sigma_x", None) not in (None, denominator) or getattr(args, "entropy_coef", None) not in (None, entropy):
             raise ValueError(f"{profile} fixes tracking_sigma_x={denominator} and entropy_coef={entropy}")
@@ -610,7 +666,7 @@ def configure(env_cfg, cfg_train, args):
 
 def validate_fresh_transfer(args, train_cfg):
     """Training-only guard, before any simulator/runner or checkpoint construction."""
-    if getattr(train_cfg, "go2w_profile", None) not in ("transfer_v1", "transfer_v2"):
+    if getattr(train_cfg, "go2w_profile", None) not in ("transfer_v1", "transfer_v2", "transfer_v3"):
         return
     forbidden = ("resume", "load_run", "checkpoint", "reference_config", "go2w_finetune",
                  "sagittal_stance_weight", "event_quality_profile", "transfer_armature", "transfer_delay", "transfer_cases")

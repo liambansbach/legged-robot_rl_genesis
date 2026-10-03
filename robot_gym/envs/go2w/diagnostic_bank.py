@@ -769,6 +769,10 @@ def rollout_precision(env, policy, schedule):
                     values["wheel_center_lateral_speed"] = state["wheel_center_lateral_speed"]
                 if getattr(env, "event_step", False):
                     values.update({key: value for key, value in state.items() if key.startswith("event_")})
+                if getattr(env, "phase_guided", False):
+                    values.update(gait_phase=state["phase"], desired_clearance=state["desired_clearance"],
+                                  desired_swing=state["desired_swing"], wheel_thigh_dx=state["wheel_thigh_dx"],
+                                  wheel_center_body=state["wheel_center_body"])
                 finite = torch.stack([torch.isfinite(v).reshape(env.num_envs, -1).all(1) for v in values.values()]).all(0) & finite_policy
                 reset = state["reset_buf"].bool() | (state["episode_length_buf"] != episode + step + 1)
                 failed = ~finite | reset | state["fallen"].bool() | (state["nonfoot_contact_count"] > 0)
@@ -813,6 +817,8 @@ def precision_metrics(data, schedule, dt, metadata, initial):
         body_rpy = Rotation.from_quat(d["base_quat"][:, [1, 2, 3, 0]]).as_euler("xyz")
         inverse = torch.from_numpy(d["base_quat"]).clone(); inverse[:, 1:] *= -1
         feet = rotate_wxyz(inverse[:, None], torch.from_numpy(d["foot_pos"] - d["base_pos"][:, None])).numpy()
+        if "wheel_center_body" in d:
+            feet = d["wheel_center_body"]  # V3 geometry already includes the collision-cylinder offset.
         axles = wheel_axles_body(torch.from_numpy(d["base_quat"]), torch.from_numpy(d["wheel_link_quat"]),
                                 torch.tensor(metadata["wheel_joint_axes"], dtype=torch.float32, device="cpu")).numpy()
         result = {"condition_index": index, "recorded_steps": n, "duration_s": n*dt,
@@ -866,6 +872,17 @@ def precision_metrics(data, schedule, dt, metadata, initial):
             p["body_roll_pitch_mean_rad"] = body_rpy[tail, :2].mean(0).tolist()
             p["body_roll_pitch_rms_rad"] = np.sqrt((body_rpy[tail, :2]**2).mean(0)).tolist()
             p["body_roll_pitch_peak_to_peak_rad"] = np.ptp(body_rpy[sl, :2], axis=0).tolist()
+            if "wheel_thigh_dx" in d:
+                p["full_phase_posture"] = {
+                    "height_mean_m": float(d["base_pos"][sl, 2].mean()),
+                    "height_min_max_m": [float(d["base_pos"][sl, 2].min()), float(d["base_pos"][sl, 2].max())],
+                    "roll_pitch_mean_rad": body_rpy[sl, :2].mean(0).tolist(),
+                    "roll_pitch_rms_rad": np.sqrt(np.mean(body_rpy[sl, :2]**2, axis=0)).tolist(),
+                    "wheel_thigh_dx_mean_m": d["wheel_thigh_dx"][sl].mean(0).tolist(),
+                    "wheel_thigh_dx_max_abs_m": np.abs(d["wheel_thigh_dx"][sl]).max(0).tolist(),
+                    "wheel_contact_duty": (d["wheel_normal_force"][sl] > 8).mean(0).tolist(),
+                    "wheel_peak_clearance_m": d["wheel_clearance"][sl].max(0).tolist(),
+                }
             p["counter_command_peak_vx_vy_yaw"] = np.maximum(
                 0, -velocity[sl][:, [0, 1, 5]] * np.sign(command)).max(0).tolist()
             if "wheel_center_lateral_speed" in d:
@@ -908,7 +925,7 @@ def transfer_schedule(profile="transfer_v1"):
                           ("lateral_positive", (0, .1, 0)), ("lateral_negative", (0, -.1, 0)),
                           ("mixed", (.2, .1, .3))):
         result[name] = [(3, zero), (5, command), (6, zero)]
-    if profile == "transfer_v2":
+    if profile in ("transfer_v2", "transfer_v3"):
         from .go2w_config import TRANSFER_V2_REVIEW_COMMANDS
         result.update({name: [(3, zero), (5, command), (6, zero)]
                        for name, command in TRANSFER_V2_REVIEW_COMMANDS.items()})

@@ -205,7 +205,7 @@ class TrainingDiagnostics:
 
     def reward(self, raw, commands):
         # raw is the dt-scaled nonterminal reward sum, before only_positive_rewards.
-        if getattr(self.env, "transfer_v2", False):
+        if getattr(self.env, "transfer_v2", False) or getattr(self.env, "phase_guided", False):
             from genesis.utils.geom import quat_to_xyz
             angles = quat_to_xyz(self.env.base_quat, rpy=True)[:, :2]
             valid = ~self.env.reset_buf.bool() & (self.env.nonfoot_contact_count == 0)
@@ -214,11 +214,12 @@ class TrainingDiagnostics:
                 samples = torch.where(mask[:, None], angles, 0)
                 value = torch.cat((mask.sum().reshape(1), samples.sum(0), samples.square().sum(0)))
                 self.posture[name] = self.posture.get(name, torch.zeros_like(value)) + value
-            events = self.env.step_events
-            complete = events.valid
-            value = torch.stack((complete.sum(0), (complete & (events.peak_actual >= .01)).sum(0),
-                                 (complete * events.peak_actual).sum(0), (complete * events.peak_use).sum(0)))
-            self.swings = value if self.swings is None else self.swings + value
+            if self.env.event_step:
+                events = self.env.step_events
+                complete = events.valid
+                value = torch.stack((complete.sum(0), (complete & (events.peak_actual >= .01)).sum(0),
+                                     (complete * events.peak_actual).sum(0), (complete * events.peak_use).sum(0)))
+                self.swings = value if self.swings is None else self.swings + value
             from .step_events import step_demand
             gate = step_demand(commands)
             moving = valid & (gate > 0)
@@ -366,7 +367,7 @@ class TrainingDiagnostics:
             },
             "slew_definition": "Consecutive clipped/scaled targets on sampled rollout states, excluding reset boundaries; mean path is a counterfactual at those same states; no extra policy calls",
         }
-        if getattr(self.env, "transfer_v2", False):
+        if getattr(self.env, "transfer_v2", False) or getattr(self.env, "phase_guided", False):
             row["body_posture_by_family"] = {
                 name: {"samples": int(v[0]), "signed_mean_roll_pitch_rad": (v[1:3]/v[0]).tolist(),
                        "rms_roll_pitch_rad": (v[3:5]/v[0]).sqrt().tolist()}

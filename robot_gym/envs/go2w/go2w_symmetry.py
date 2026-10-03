@@ -1,4 +1,4 @@
-"""Sagittal Y -> -Y reflection for the Go2-W 56-observation / mixed P/V contract.
+"""Sagittal reflection for legacy 56 inputs and V3's 58-input phase contract.
 
 RSL-RL receives raw (pre-normalization) TensorDict observations. Both actor and
 critic use the same `policy` group. Reflection is only mini-batch augmentation;
@@ -62,8 +62,8 @@ def _maps(joint_names, leg_names, device):
 
 
 def _env_maps(env, device):
-    if env.num_obs != 56 or env.num_actions != 16:
-        raise ValueError("Go2-W symmetry requires 56 observations and 16 actions")
+    if env.num_obs not in (56, 58) or env.num_actions != 16:
+        raise ValueError("Go2-W symmetry requires 56/58 observations and 16 actions")
     names = tuple(env.joint_names)
     legs = tuple(names[i] for i in env.leg_action_indices)
     return _maps(names, legs, device)
@@ -76,11 +76,13 @@ def mirror_observations(env, obs):
             "Go2-W symmetry expects only the TensorDict 'policy' observation group"
         )
     policy = obs["policy"]
-    if policy.ndim != 2 or policy.shape[-1] != 56:
-        raise ValueError("Go2-W symmetry expects a [B, 56] policy tensor")
+    if policy.ndim != 2 or policy.shape[-1] != env.num_obs:
+        raise ValueError("Go2-W symmetry observation dimension differs from the environment")
     perm, sign, _, _ = _env_maps(env, policy.device)
     mirrored = obs.clone(recurse=False)
     mirrored["policy"] = policy.index_select(-1, perm) * sign
+    if env.num_obs == 58:
+        mirrored["policy"] = torch.cat((mirrored["policy"], -policy[:, 56:58]), dim=-1)
     return mirrored
 
 

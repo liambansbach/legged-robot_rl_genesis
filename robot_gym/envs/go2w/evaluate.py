@@ -357,8 +357,8 @@ def evaluate(args):
     from robot_gym.utils.replay import configure_nominal
     configure_nominal(cfg, args)
     if args.eval_mode in ("precision_screen", "precision_dr", "transfer_screen"):
-        if args.eval_mode == "transfer_screen" and getattr(cfg, "go2w_profile", None) not in ("transfer_v1", "transfer_v2"):
-            raise ValueError("transfer_screen requires a saved transfer_v1 or transfer_v2 recipe")
+        if args.eval_mode == "transfer_screen" and getattr(cfg, "go2w_profile", None) not in ("transfer_v1", "transfer_v2", "transfer_v3"):
+            raise ValueError("transfer_screen requires a saved transfer recipe")
         expected = 8 if args.eval_mode == "precision_dr" else 1
         if cfg.env.num_envs != expected or args.seed != 1 or args.zero_command_brake or not getattr(cfg, "go2w_profile", None):
             raise ValueError("Precision checks require the profile, explicit seed 1, matching batch and no brake")

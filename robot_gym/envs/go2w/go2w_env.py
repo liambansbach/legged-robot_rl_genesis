@@ -24,6 +24,12 @@ def lateral_wheel_center_velocity(link_quat, link_vel, link_ang, geometry):
 
 
 class Go2WEnv(Go2Env):
+    phase_guided = False  # Legacy fixtures/bundles have no phase state.
+
+    @staticmethod
+    def replay_observation_dim(saved, default):
+        return 58 if saved.get("go2w_profile") == "transfer_v3" else default
+
     @staticmethod
     def add_arguments(parser):
         from .go2w_config import add_arguments
@@ -45,6 +51,9 @@ class Go2WEnv(Go2Env):
         validate_training(args, env_cfg, train_cfg)
 
     def setup_runner(self, runner):
+        if self.phase_guided:
+            from .step_events import project_log_std
+            runner.std_projection_hook = project_log_std(runner.alg.optimizer, runner.alg.actor.distribution)
         if self.event_step:
             from .step_events import install_event_training
             install_event_training(runner, self)
@@ -73,14 +82,43 @@ class Go2WEnv(Go2Env):
                     "joint_velocity", "previous_clipped_action"]}
         if self.cfg.control.armature is not None:
             metadata.update(transfer_contract(self))
+        if self.phase_guided:
+            metadata["observation_order"] += ["phase_sin", "phase_cos"]
+            metadata.update(
+                height_reference_m=self.cfg.rewards.base_height_target,
+                reset_spawn_clearance_m=self.cfg.init_state.pos[2] - self.cfg.rewards.base_height_target,
+                phase={**self.cfg.phase_guidance,
+                       "inference_reset_phase": 0., "training_reset": "uniform [0,1)",
+                       "timing": "Action at boundary phase p; reward scores p after four held-target physics steps; then advance p by policy_dt/period modulo 1. Episode reset replaces phase; getters and command changes never advance/reset it. Initial environment reset includes one zero-action policy tick.",
+                       "observation": "slots 56:58 = sin(2*pi*p), cos(2*pi*p), unscaled and noiseless before embedded normalizer",
+                       "reflection": "sagittal: p -> p+.5, both sin/cos negate"},
+                wheel_thigh_dx_reference_m=self.cfg.rewards.phase_objective["wheel_thigh_dx_reference_m"],
+            )
         return metadata
 
     def update_task_state(self):
         if self.event_step:
             self._update_step_events()
+        if self.phase_guided:
+            from .phase import targets
+            c = self.cfg.phase_guidance
+            self.desired_swing, self.desired_clearance = targets(
+                self.phase, self.commands, self.phase_offsets, c["stance_fraction"], c["apex_m"])
+
+    def _post_physics_step_callback(self):
+        super()._post_physics_step_callback()
+        if self.phase_guided:
+            # Reward/capture used the phase observed by the action just integrated.
+            # Only now advance to the next boundary. Getters never advance phase.
+            self.phase.add_(self.dt / self.cfg.phase_guidance["period_s"]).remainder_(1.)
 
     def capture_task_state(self):
         state = {}
+        if self.phase_guided:
+            state.update(phase=self.phase.clone(), desired_clearance=self.desired_clearance.clone(),
+                         desired_swing=self.desired_swing.clone(), wheel_thigh_dx=self.wheel_thigh_dx.clone())
+            if self.cfg.env.capture_precision:
+                state["wheel_center_body"] = self.wheel_center_body.clone()
         if getattr(self.cfg.env, "capture_closed_loop", False):
             # Preserve the issued/delayed action and cached loads before reset clears them.
             state["applied_actions"] = self.applied_actions.clone()
@@ -97,7 +135,7 @@ class Go2WEnv(Go2Env):
         return state
 
     def enable_zero_command_brake(self):
-        if getattr(self.cfg, "go2w_profile", None) == "step_recovery_v1" or uses_event_steps(self.cfg):
+        if self.phase_guided or getattr(self.cfg, "go2w_profile", None) == "step_recovery_v1" or uses_event_steps(self.cfg):
             raise ValueError(
                 "Go2-W step recovery requires zero-command braking disabled"
             )
@@ -115,6 +153,9 @@ class Go2WEnv(Go2Env):
         if len(env_ids) == 0:
             return
         super().reset_idx(env_ids)
+        if self.phase_guided:
+            self.phase[env_ids] = (torch.rand(len(env_ids), device=self.device)
+                                  if self.cfg.phase_guidance["randomize_reset"] else 0.)
         # Installed Genesis 1.4.1 Scene.reset restores state, retaining DOF info
         # (including build-time armature samples) and link mass/COM/inertia.
         if getattr(self, "wheel_geometry_enabled", getattr(self, "step_recovery", False)):
@@ -144,7 +185,8 @@ class Go2WEnv(Go2Env):
         )
         self.event_step = uses_event_steps(self.cfg)
         self.transfer_v2 = getattr(self.cfg, "go2w_profile", None) == "transfer_v2"
-        self.wheel_geometry_enabled = self.step_recovery or self.event_step
+        self.phase_guided = getattr(self.cfg, "go2w_profile", None) == "transfer_v3"
+        self.wheel_geometry_enabled = self.step_recovery or self.event_step or self.phase_guided
         if self.event_step:
             self.completed_updates = getattr(self.cfg, "_event_completed_updates", 0)
             self.hip_indices = torch.tensor([i for i, n in enumerate(self.joint_names)
@@ -210,6 +252,19 @@ class Go2WEnv(Go2Env):
             self.loaded_wheels = torch.zeros_like(self.foot_contacts)
             self.wheel_reposition_velocity_body = torch.zeros_like(self.foot_pos)
             self.wheel_center_lateral_speed = torch.zeros_like(self.wheel_clearance)
+            if self.phase_guided:
+                self.phase = torch.zeros(self.num_envs, device=self.device)
+                self.phase_offsets = torch.tensor([self.cfg.phase_guidance["offsets"][n]
+                                                   for n in self.cfg.asset.foot_link_names], device=self.device)
+                self.thigh_link_indices_local = [self.robot.get_link(n.replace("_foot", "_thigh")).idx_local
+                                                for n in self.cfg.asset.foot_link_names]
+                self.wheel_thigh_dx = torch.zeros_like(self.wheel_clearance)
+                self.desired_swing = torch.zeros_like(self.wheel_clearance)
+                self.desired_clearance = torch.zeros_like(self.wheel_clearance)
+                self.dx_reference = torch.tensor(self.cfg.rewards.phase_objective["wheel_thigh_dx_reference_m"], device=self.device)
+                # Nominal model weight per four supports; independent of DR samples.
+                self.nominal_support_load = sum(float(m.get("value")) for m in
+                    self.urdf_reader.root.findall("link/inertial/mass")) * abs(self.cfg.sim.gravity[2]) / 4
             if self.event_step:
                 from .step_events import WheelStepEvents
                 self.step_events = WheelStepEvents(self.num_envs, self.device,
@@ -219,6 +274,18 @@ class Go2WEnv(Go2Env):
         from .go2w_config import check_target_intervals
         if getattr(self.cfg, "go2w_profile", None):
             check_target_intervals(self.cfg, self.urdf_reader)
+        if getattr(self.cfg, "go2w_profile", None) == "transfer_v3":
+            import math
+            p = self.cfg.phase_guidance
+            if (self.cfg.env.num_observations != 58 or self.cfg.env.num_actions != 16
+                    or not math.isfinite(p["period_s"]) or p["period_s"] <= self.cfg.sim.dt * self.cfg.control.decimation
+                    or not .5 < p["stance_fraction"] < 1 or not 0 < p["apex_m"] < float("inf")
+                    or set(p["offsets"]) != set(self.cfg.asset.foot_link_names)):
+                raise ValueError("V3 requires 58/16 dimensions, finite phase timing/height and all four named wheels")
+            offsets = p["offsets"]
+            if (offsets["FL_foot"] != offsets["RR_foot"] or offsets["FR_foot"] != offsets["RL_foot"]
+                    or (offsets["FR_foot"] - offsets["FL_foot"]) % 1 != .5):
+                raise ValueError("V3 sagittal symmetry requires half-cycle diagonal offsets")
         if self.cfg.control.armature is not None:
             radii = [float(self.urdf_reader.root.find(
                 f"link[@name='{name}']/collision/geometry/cylinder").get("radius"))
@@ -263,11 +330,18 @@ class Go2WEnv(Go2Env):
                 self.base_lin_vel,
                 self.base_ang_vel,
             )
-            if self.transfer_v2 or getattr(self.cfg.env, "capture_precision", False):
+            if self.transfer_v2 or self.phase_guided or getattr(self.cfg.env, "capture_precision", False):
                 self.wheel_center_lateral_speed[:] = lateral_wheel_center_velocity(
                     wheel_quat, self.foot_lin_vel, self.robot.get_links_ang(self.foot_link_indices_local),
                     self.wheel_geometry,
                 )
+            if self.phase_guided:
+                from robot_gym.utils.diagnostics import rotate_wxyz
+                center = self.foot_pos + rotate_wxyz(wheel_quat, self.wheel_geometry[0])
+                thigh = self.robot.get_links_pos(self.thigh_link_indices_local, relative=True)
+                self.wheel_thigh_dx[:] = rotate_wxyz(inv_quat(self.base_quat)[:, None], center - thigh)[..., 0]
+                if self.cfg.env.capture_precision:
+                    self.wheel_center_body = rotate_wxyz(inv_quat(self.base_quat)[:, None], center - self.base_pos[:, None])
 
     def _reset_command_timer(self, env_ids):
         n = len(env_ids)
@@ -327,6 +401,13 @@ class Go2WEnv(Go2Env):
         precision = families == 4
         cmd[precision, 0] *= 0.18
         cmd[precision, 2] *= 0.2
+        if self.phase_guided:
+            low, high = self.cfg.commands.pure_yaw_magnitude_range
+            u = torch.rand(n, device=self.device) * 2 - 1
+            cmd[:, 2] = torch.where(families == 3, (low + (high - low) * u.abs()) * torch.sign(u), cmd[:, 2])
+            mixed = families == 6
+            for axis, (low, high) in enumerate(self.cfg.commands.phase_mixed_ranges):
+                cmd[:, axis] = torch.where(mixed, low + (high - low) * torch.rand(n, device=self.device), cmd[:, axis])
         cmd[families == 0] = 0
         cmd[:, :2] *= (
             torch.linalg.vector_norm(cmd[:, :2], dim=1)
@@ -334,7 +415,7 @@ class Go2WEnv(Go2Env):
         ).unsqueeze(1)
         cmd[:, 2] *= cmd[:, 2].abs() > self.cfg.commands.yaw_deadzone
         self.commands[env_ids] = cmd
-        if self.step_recovery or self.event_step:
+        if self.step_recovery or self.event_step or self.phase_guided:
             stand_ids = env_ids[families == 0]
             long_ids = stand_ids[
                 torch.rand(len(stand_ids), device=self.device)
@@ -361,7 +442,7 @@ class Go2WEnv(Go2Env):
                 self.diagnostic_long_moving_commands[env_ids] = (
                     (families != 0) & (self.command_steps_left[env_ids] > round(3 / self.dt))
                 )
-        if self.transfer_v2:
+        if self.transfer_v2 or self.phase_guided:
             from .step_events import step_demand
             cfg = self.cfg.commands
             # These are segment probabilities. Preserve already drawn 8-15 s holds.
@@ -389,6 +470,9 @@ class Go2WEnv(Go2Env):
                                 actual_clearance=self.wheel_clearance)
 
     def _step_demand(self):
+        if self.phase_guided:
+            from .phase import demand
+            return demand(self.commands)
         from .step_events import step_demand
         return step_demand(self.commands)
 
@@ -453,6 +537,9 @@ class Go2WEnv(Go2Env):
             ),
             dim=-1,
         )
+        if self.phase_guided:
+            angle = 2 * torch.pi * self.phase
+            self.obs_buf = torch.cat((self.obs_buf, torch.stack((angle.sin(), angle.cos()), dim=-1)), dim=-1)
         if self.add_noise:
             self.obs_buf += (
                 2 * torch.rand_like(self.obs_buf) - 1
@@ -471,6 +558,45 @@ class Go2WEnv(Go2Env):
             n.wheel_vel * self.obs_scales.dof_vel
         )
         return scale * cfg.noise.noise_level
+
+    def _tracking_axis(self, axis):
+        from .phase import huber
+        actual = self.base_lin_vel[:, axis] if axis < 2 else self.base_ang_vel[:, 2]
+        scale = self.cfg.rewards.phase_objective["tracking_scales"][axis]
+        return 1 - huber((self.commands[:, axis] - actual) / scale)
+
+    def _reward_tracking_x(self):
+        return self._tracking_axis(0)
+
+    def _reward_tracking_y(self):
+        return self._tracking_axis(1)
+
+    def _reward_tracking_yaw(self):
+        return self._tracking_axis(2)
+
+    def _reward_phase_clearance(self):
+        from .phase import clearance_error
+        return clearance_error(self.wheel_clearance, self.desired_clearance,
+                               self.cfg.rewards.phase_objective["clearance_scale_m"])
+
+    def _reward_phase_support(self):
+        from .phase import support_error
+        return support_error(self.wheel_normal_force, self.desired_swing, self.nominal_support_load)
+
+    def _reward_wheel_corridor(self):
+        from .phase import corridor_error
+        c = self.cfg.rewards.phase_objective
+        return corridor_error(self.wheel_thigh_dx, self.dx_reference, self.desired_swing,
+                              c["corridor_stance_m"], c["corridor_swing_m"], c["corridor_scale_m"])
+
+    def _reward_reference_height(self):
+        from .phase import huber
+        c = self.cfg.rewards.phase_objective
+        error = torch.relu((self.base_pos[:, 2] - self.cfg.rewards.base_height_target).abs() - c["height_tolerance_m"])
+        return huber(error / c["height_scale_m"])
+
+    def _reward_rolling_pose(self):
+        return (1 - self._step_demand()) * (self.dof_pos - self.default_dof_pos)[:, self.leg_action_indices].square().mean(dim=1)
 
     def _compute_fallen_mask(self):
         return super()._compute_fallen_mask() | self.base_contact
