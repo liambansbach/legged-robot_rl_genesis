@@ -358,6 +358,7 @@ class LeggedRobotCfgPPO(BaseConfig):
         load_run = -1
         checkpoint = -1
         resume_path = None
+        checkpoint_load_cfg = None  # Native selective load; None preserves full resume.
 
         log_wandb = True
         wandb_project = "bipedal-locomotion"

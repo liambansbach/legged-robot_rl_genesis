@@ -2025,3 +2025,181 @@ python -m robot_gym.scripts.evaluate --task go2w --experiment_name go2w_transfer
 ```
 
 Use a new output directory: existing evidence is never overwritten.
+
+### Measured main-run findings and optional sensor_smooth refinement
+
+No optimizer updates were performed during this preparation. Local evidence is
+`evaluation/go2w_sensor_smooth_preparation/summary.json`, with
+`sustained_motion.png` and `late_lateral_cycles.png`. Raw traces remain in
+`evaluation/transfer_v3_main_ck1499_{nominal,sensor_motion,phase_quarter}/`.
+The first sustained process retained a valid 30 s stand trace in
+`transfer_v3_main_ck1499_sensor_sustained/stand.npz`, then failed during offline
+CPU/GPU tensor postprocessing. That helper was corrected and the stand was
+processed offline (`stand_recovered.json`), without repeating or replacing it.
+
+The main diagnostics contain 1414 rows, with 86 missing iteration labels and no
+malformed rows. Updates 700–1000 have 290/301 rows; 1400–1499 have all 100.
+Mean measured minibatch KL is .01320 / .01326 respectively; mean adaptive LR is
+3.835e-4 / 3.628e-4. Mean per-joint std ranges .1000–.1767 / .1000–.1544.
+Floor occupancy varies by joint: front thigh/wheel and rear wheel distributions
+remain above the minimum; the mean does not imply every joint reached the floor.
+The final checkpoint retains nine joints at approximately .1, with the others up
+to .1550. Last-window deterministic clipping reaches 11.85% at rear calves and
+8.44% at front wheels; sampled clipping reaches 12.45% and 8.37%. This is action
+clipping, not torque saturation. V3's signed objective has zero total-positive
+clipping. Raw and weighted terms are preserved in the JSON; final mean tracking
+contributes +.05454/tick, rolling pose -.0000244/tick, roll/pitch rate
+-.000173/tick, and body vertical velocity -.0000151/tick. Mean episode length is
+999.55 policy ticks (20 s limit); the logged termination contribution is nonzero,
+so training is not described as fall-free. No optimizer pathology is established.
+
+All 13 nominal cases and all eight sustained cases completed without falls,
+timeouts, nonfinite states or nonwheel contact. The extra reset-phase forward
+case also completed. The following are full **30 s command** means/RMSE; sensor
+RMS is the **20–30 s** window. Stand's mean/RMSE includes its initial settling.
+
+| Command [vx,vy,yaw] | Mean [vx,vy,yaw] | RMSE [vx,vy,yaw] | Late left-imager world-vz RMS (m/s) | Late >=2 cm cycles FL/FR/RL/RR |
+|---|---|---|---:|---|
+| [0,0,0] | [-.0016,-.0003,.0016] | [.0094,.0043,.0166] | .01462 | 0/0/0/0 |
+| [.2,0,0] | [.1830,-.0002,.0018] | [.0191,.0061,.0176] | .01508 | 0/0/0/0 |
+| [.5,0,0] | [.4638,-.0007,-.0017] | [.0396,.0062,.0103] | .02100 | 0/0/0/0 |
+| [0,.3,0] | [-.0028,.2952,.0036] | [.0183,.0215,.0456] | .05800 | 12/12/12/7 |
+| [0,-.3,0] | [-.0014,-.2948,-.0068] | [.0178,.0216,.0445] | .05673 | 12/12/8/12 |
+| [0,0,.8] | [.0073,.0009,.7984] | [.0118,.0076,.0339] | .07368 | 12/12/12/12 |
+| [0,0,-.8] | [.0067,-.0027,-.8026] | [.0114,.0079,.0337] | .07302 | 12/12/12/12 |
+| [.2,.1,.3] | [.1990,.0957,.2989] | [.0128,.0142,.0226] | .08122 | 12/12/12/12 |
+
+Cycles require observed unloading <=6 N, reloading >10 N and positive cylinder
+clearance; boundary intervals are censored. The 2 cm count adds a height threshold
+to the evaluator's 2 mm definition, not the retired training event gate. Limb
+horizontal displacement is measured separately. These are repeated late cycles,
+not startup clearance. Late lateral peak gaps span 2.47–4.39 cm with contact duties
+.486–.568. Lateral action clipping reaches 43.8% in one joint; observed effort-limit
+fractions are zero. Positive-lateral sampled load peaks reach 486 N at 200 Hz,
+versus 477 N at 50 Hz; these are sampled solver loads, not measured impact impulses.
+The recorder does not prove continuous-time torque/force margins.
+
+Fast-forward left-imager vertical RMS grows from .00591 (1–5 s) to .02121
+(10–20 s) and .02100 m/s (20–30 s). Late base-origin RMS is .01347 m/s:
+the camera lever arm adds meaningful motion. At 200 Hz these are .02158 and
+.01355 m/s, so the low-frequency result is not a 50 Hz alias alone. Late camera
+height std/peak-to-peak are 2.21/8.45 mm, with +5.14 mm endpoint drift; stand gives
+1.52/5.03 mm and +2.49 mm. Drift is not removed from these raw measures. The fitted
+1.25 Hz camera-height amplitudes are 2.77 mm forward and 2.04 mm stand (about
+80%/90% of detrended variance). A .25-cycle reset offset changes late forward
+camera RMS to .02033 m/s (about -3.2%), while full-command vx remains .46416 m/s.
+Negating only recorded phase sin/cos changes per-joint actions (RMS .027–.199).
+This supports learned phase dependence; it does not identify phase as the sole
+cause or justify freezing deployment phase.
+
+Late stand hip signed errors FL/FR/RL/RR are [.1252,-.1519,.0755,-.0035] rad,
+versus [.0418,-.0427,.0126,-.0044] in 1–5 s. Fast-forward late errors are
+[.1023,-.1173,.0625,.0042] rad. Mean base roll/pitch stays small (fast forward
+[-.20,-.56] degrees); level mean attitude alone does not establish quiet motion.
+Late maximum absolute wheel-under-thigh x separation stays <=3.36 cm in forward
+and <=7.20 cm in stepping cases. After stopping, final-two-second planar RMS is
+.0086–.0117 m/s; last-five-second drift is 1.04–5.09 cm. Stand ends at .0108 m/s
+and 2.65 cm. Full early/middle/late/stop, hip p95, thigh/calf, sensor/radar, loads,
+clipping and cross-axis metrics are in the JSON. One seed is evidence, not a
+population estimate. No RGB/depth-quality, hardware-vibration or Sim2Sim claim follows.
+
+The parent sampler really uses .5–1 s / 1.5–3 s timers, 2–4 s discovery holds
+(80% of eligible step-demand draws), and some 3–6 s stands. Its legacy 8–15 s
+moving branch is inactive for base V3. Last-100-update observed time exposure is
+stand/straight/arc/yaw/precision/lateral/mixed =
+14.84/12.18/4.37/26.07/6.10/26.00/10.44%. Duration exposure and weak rolling hip
+cost are supported refinement hypotheses, not isolated causal ablations.
+
+One optional `--go2w_finetune sensor_smooth` changes only the following settings.
+Let G be the existing command step demand, e_j the actual leg q minus q_ref,
+and v+ / v- the world-up velocities at the actual left-imager point and its
+**virtual mirrored fixed location**. The virtual point is not calibrated RGB or
+right-imager geometry. Both points use the asset-derived lever arm. Coefficients
+below are reward rates; continuous accumulation multiplies by .02 s exactly once.
+
+| Setting / raw quantity and units | Parent | sensor_smooth |
+|---|---|---|
+| Rolling pose: (1-G) * sum(w_j * e_j^2)/12, rad² | w_j=1; scale -.5 | Hip weights 3, other leg weights 1; scale -.5 |
+| Body-frame vz², (m/s)² | scale -.2 | disabled |
+| mean(v+²,v-²), (m/s)², world vertical | absent | scale -1.0 |
+| omega_body,x² + omega_body,y², (rad/s)² | scale -.05 | scale -.075 |
+| Stand/straight/arc additional timer draw | absent | 4%: 8–15 s; 1.5%: 20–30 s; otherwise existing draw |
+| Episode timeout | 20 s | 60 s |
+| PPO LR / schedule | initial 3e-4 / adaptive | 5e-5 / fixed |
+| Budget / save interval | parent completed 1500 | 300 additional / 50 |
+
+There is no added yaw/acceleration/jerk reward, sensor rendering, action filtering,
+phase modification or hard hip lock. Hip weighting vanishes at full step demand;
+actual joint angles are scored, not motor target offsets. The existing stance
+objective may discourage an uncommanded recovery step; no recovery state machine
+is introduced. Tracking, phase clearance/support, corridor, signed accumulation,
+discrete -5 fall cost, pose, plant, sensor/reset noise, delay/DR, 58/58 observations,
+16 actions, symmetry and .8 s phase remain as saved. Entropy stays .003, with the
+same std bounds, native PPO epochs/minibatches and 64 rollout ticks.
+
+On retained late traces the net added cost is 0.10–0.21% of the tracking reward
+rate. On lateral/yaw/mixed traces the added hip cost is exactly zero; sensor/rate
+costs remain small. This is a conservative shaping budget, not demonstrated
+improvement. Segment probabilities are unchanged (.15/.20/.07/.20/.10/.20/.08).
+In 10000 timer-only 60 s episodes, added 8–15/20–30 s holds occupy 7.72%/5.94%
+of time; lateral/yaw remain 22.96% each. This is **sampler-only** exposure with no
+physical falls, not observed refinement-training exposure. The existing scalar
+logger now records actual selected-hold time, including truncation. Dispatch
+explicitly excludes the legacy event/step-recovery mixed-yaw overrides.
+
+The new opt-in path restores the selected parent's saved YAML before applying
+these changes. It loads actor, critic, both normalizers/counts and learned
+distribution through installed RSL-RL 5.5.1's native `load_cfg`:
+`actor=true, critic=true, optimizer=false, iteration=false`. The changed objective
+starts an empty optimizer/local counter at fixed LR 5e-5; the critic remains
+trainable and must adapt to different returns. Parent iteration 1499 / 1500 prior
+updates are lineage metadata. The original transfer fresh-start guards remain.
+Do not pass `--resume`, and do not use this preparation's no-update export as a
+training parent.
+
+Validation: 24 focused CPU cases cover fixed geometry/transport/reflection,
+saved configuration, selective reset/sampling, reward dt/signs, old shared replay
+and V3 phase semantics. The four-environment native **no-update** check verified
+empty optimizer, local iteration 0, LR 5e-5, both normalizer counts 393216000 and
+all loaded model buffers/parameters. Deterministic parent/loaded/exported outputs
+matched on 25 observations, including four actual post-reset observations; five
+integration ticks had finite rewards. No `learn` call or optimizer step occurred.
+The parent and pretrained bundles remain untouched. The exported check artifact
+is parent-equivalent wiring evidence, not a refined policy.
+
+GUI replay, fixed forward for 2050 ticks = 41 s (omitted vy/yaw are zero):
+
+```powershell
+conda activate genesis-gpu
+python -m robot_gym.scripts.play --task go2w --experiment_name go2w_transfer_v3 --load_run transfer_v3_seed1_2026-10-03_16-18-34 --checkpoint 1499 --num_envs 1 --command_vx 0.5 --steps 2050 --episode_length_s 60 --rl_device cuda:0
+```
+
+This GUI command holds vx throughout; the evaluator commands above implement the
+3+30+8 s schedule. Replay ticks span physical resets; a longer episode timeout
+does not disable falls. Export remains opt-in under the selected run. Ordinary
+`--checkpoint -1` works, but 1499 pins this measured baseline.
+
+Prepared command below is **not executed**. It initializes from the explicit
+parent checkpoint and writes a timestamped new run below
+`logs/go2w_transfer_v3_sensor_smooth/`:
+
+```powershell
+conda activate genesis-gpu
+python -m robot_gym.scripts.train --task go2w --go2w_profile transfer_v3 --go2w_finetune sensor_smooth --load_run logs/go2w_transfer_v3/transfer_v3_seed1_2026-10-03_16-18-34 --checkpoint 1499 --experiment_name go2w_transfer_v3_sensor_smooth --run_name sensor_smooth_from1499_seed1 --num_envs 4096 --max_iterations 300 --seed 1 --logger tensorboard --training_diagnostics --rl_device cuda:0 --headless
+```
+
+Compare approximately +100 (`model_100.pt`, native zero-based label) and +300
+(`model_299.pt`) using the **same two evaluator commands**, changing only selected
+experiment/run/checkpoint and output directory. Keep both signs and late windows.
+Provisional development comparisons, informed by the ~3% alternate-phase forward
+variation: seek >=15% lower late camera vertical RMS and hip RMS in stand/straight,
+with no material increase in height drift or roll/pitch rate. Require no new falls,
+resets or nonwheel contacts; full-phase tracking RMSE should not worsen by more
+than max(10%, .005 m/s or .01 rad/s), stop drift by more than 1 cm, or per-wheel
+late >=2 cm cycle counts by more than 10% rounded up to one cycle. Check clearance,
+contact duty, body/foot posture and action saturation alongside those numbers;
+slower motion, fewer steps or an extended wheelbase is not a smoothness improvement.
+These are provisional comparison bands from limited variation, not hardware
+safety limits or an automatic acceptance rule. Preserve the parent if refinement
+fails. Its unchanged 58-input phase bundle can proceed to the separately authorized
+first IsaacLab transfer without waiting for perfect camera stabilization.

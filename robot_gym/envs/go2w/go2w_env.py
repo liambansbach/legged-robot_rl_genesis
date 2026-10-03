@@ -58,6 +58,7 @@ def rigid_sensor_state(base_position, base_quaternion, linear_body, angular_body
 
 class Go2WEnv(Go2Env):
     phase_guided = False  # Legacy fixtures/bundles have no phase state.
+    sensor_refinement = False
 
     @staticmethod
     def replay_observation_dim(saved, default):
@@ -106,6 +107,9 @@ class Go2WEnv(Go2Env):
         if self.cfg.control.armature is not None:
             result["deployment_contract"] = transfer_contract(self)
             result["runtime_armature_min_max_kg_m2"] = [float(self.armature_samples.min()), float(self.armature_samples.max())]
+        if self.sensor_refinement:
+            result.update(initialization="sensor_smooth fine-tune: parent actor/critic/normalizers/std; fresh optimizer and local iteration",
+                          parent=self.cfg.refinement_parent, refinement=self.cfg.sensor_smooth)
         return result
 
     def export_metadata(self):
@@ -219,6 +223,7 @@ class Go2WEnv(Go2Env):
         self.event_step = uses_event_steps(self.cfg)
         self.transfer_v2 = getattr(self.cfg, "go2w_profile", None) == "transfer_v2"
         self.phase_guided = getattr(self.cfg, "go2w_profile", None) == "transfer_v3"
+        self.sensor_refinement = getattr(self.cfg, "go2w_finetune", None) == "sensor_smooth"
         self.wheel_geometry_enabled = self.step_recovery or self.event_step or self.phase_guided
         if self.event_step:
             self.completed_updates = getattr(self.cfg, "_event_completed_updates", 0)
@@ -259,7 +264,7 @@ class Go2WEnv(Go2Env):
             self.diagnostic_command_families = torch.full(
                 (self.num_envs,), -1, dtype=torch.long, device=self.device
             )
-            if getattr(self.cfg, "go2w_finetune", None) or self.event_step:
+            if (self.step_recovery and getattr(self.cfg, "go2w_finetune", None)) or self.event_step:
                 self.diagnostic_long_moving_commands = torch.zeros(
                     self.num_envs, dtype=torch.bool, device=self.device
                 )
@@ -272,6 +277,14 @@ class Go2WEnv(Go2Env):
 
     def _init_buffers(self):
         super()._init_buffers()
+        if self.sensor_refinement:
+            offset = fixed_sensor_frames(self.urdf_reader.robot_file_path_absolute)["front_realsense"]["translation_m"]
+            self.sensor_offsets = torch.tensor([offset, [offset[0], -offset[1], offset[2]]], device=self.device)
+            self.rolling_pose_weights = torch.tensor([
+                self.cfg.sensor_smooth["hip_weight"] if self.joint_names[i].endswith("_hip_joint") else 1.
+                for i in self.leg_action_indices], device=self.device)
+            self.sensor_vz_squared = torch.zeros(self.num_envs, device=self.device)
+            self.sensor_hold_kind = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
         if self.wheel_geometry_enabled:
             from robot_gym.utils.diagnostics import wheel_cylinders
 
@@ -339,6 +352,10 @@ class Go2WEnv(Go2Env):
 
     def _update_robot_state(self):
         super()._update_robot_state()
+        if self.sensor_refinement:
+            _, velocity = rigid_sensor_state(self.base_pos, self.base_quat, self.base_lin_vel,
+                                             self.base_ang_vel, self.sensor_offsets)
+            self.sensor_vz_squared[:] = velocity[:, :, 2].square().mean(1)
         if self.wheel_geometry_enabled:
             from robot_gym.utils.diagnostics import (
                 cylinder_clearance,
@@ -457,7 +474,7 @@ class Go2WEnv(Go2Env):
             self.command_steps_left[long_ids] = self._sample_interval_steps(
                 self.cfg.commands.long_stand_duration_range, len(long_ids), self.dt
             )
-        if getattr(self.cfg, "go2w_finetune", None) or self.event_step:
+        if (self.step_recovery and getattr(self.cfg, "go2w_finetune", None)) or self.event_step:
             cfg = self.cfg.commands
             mixed_ids = env_ids[families == 6]
             zero_yaw = torch.rand(len(mixed_ids), device=self.device) < cfg.mixed_zero_yaw_probability
@@ -485,6 +502,19 @@ class Go2WEnv(Go2Env):
             selected = env_ids[eligible & (torch.rand(n, device=self.device) < cfg.discovery_segment_probability)]
             self.command_steps_left[selected] = self._sample_interval_steps(
                 cfg.discovery_segment_duration_range, len(selected), self.dt)
+        if self.sensor_refinement:
+            c = self.cfg.sensor_smooth
+            self.sensor_hold_kind[env_ids] = 0
+            eligible = families <= 2  # Stand, straight and arc only; stepping families keep their draws.
+            draw = torch.rand(n, device=self.device)
+            p = c["long_hold_probability"]
+            for kind, mask, duration in (
+                (1, eligible & (draw < p), c["long_hold_s"]),
+                (2, eligible & (draw >= p) & (draw < p+c["extended_hold_probability"]), c["extended_hold_s"]),
+            ):
+                selected = env_ids[mask]
+                self.command_steps_left[selected] = self._sample_interval_steps(duration, len(selected), self.dt)
+                self.sensor_hold_kind[selected] = kind
         if hasattr(self, "step_events"):
             self.step_events.command_changed(self.commands)
 
@@ -629,7 +659,14 @@ class Go2WEnv(Go2Env):
         return huber(error / c["height_scale_m"])
 
     def _reward_rolling_pose(self):
-        return (1 - self._step_demand()) * (self.dof_pos - self.default_dof_pos)[:, self.leg_action_indices].square().mean(dim=1)
+        error = (self.dof_pos - self.default_dof_pos)[:, self.leg_action_indices].square()
+        if self.sensor_refinement:
+            error = error * self.rolling_pose_weights
+        return (1 - self._step_demand()) * error.mean(dim=1)
+
+    def _reward_sensor_vertical_velocity(self):
+        # Actual left-imager location and its virtual sagittal mirror; raw world-up velocity.
+        return self.sensor_vz_squared
 
     def _compute_fallen_mask(self):
         return super()._compute_fallen_mask() | self.base_contact

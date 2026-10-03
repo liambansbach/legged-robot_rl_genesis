@@ -116,6 +116,67 @@ def apply_go2w_finetune(env_cfg, train_cfg, name):
                 setattr(target, key, value.copy() if isinstance(value, list) else value)
 
 
+def prepare_sensor_smooth(env_cfg, train_cfg, args):
+    """Saved V3 parent, selective model initialization, one modest changed objective."""
+    import copy
+    from pathlib import Path
+    import torch
+    from robot_gym.utils.task_registry import task_registry
+    from robot_gym.utils.helpers import class_to_dict, update_class_from_dict
+
+    if args.task != "go2w" or args.go2w_profile != "transfer_v3" or args.resume:
+        raise ValueError("sensor_smooth requires --task go2w --go2w_profile transfer_v3; omit --resume (fresh optimizer/counter)")
+    for flag in ("reference_config", "sagittal_stance_weight", "event_quality_profile", "transfer_armature",
+                 "transfer_delay", "entropy_coef", "tracking_sigma_x", "zero_command_brake"):
+        value = getattr(args, flag, None)
+        conflicting = bool(value) if flag == "zero_command_brake" else value is not None
+        if conflicting:
+            raise ValueError(f"sensor_smooth preserves the parent interface/plant; omit --{flag}")
+    if not hasattr(args, "sensor_parent"):
+        if args.load_run is None or not Path(args.load_run).is_dir() or args.checkpoint is None:
+            raise ValueError("sensor_smooth needs an explicit --load_run directory path and --checkpoint number (or -1)")
+        selection = copy.copy(args)
+        selection.go2w_profile = selection.go2w_finetune = None
+        selection.load_run = str(Path(args.load_run).resolve())
+        selection.experiment_name = selection.run_name = selection.num_envs = selection.max_iterations = None
+        selection.logger = selection.seed = None
+        parent_env, parent_train, checkpoint = task_registry.resolve_replay(selection)
+        if parent_env.go2w_profile != "transfer_v3" or getattr(parent_env, "go2w_finetune", None):
+            raise ValueError("sensor_smooth starts from an unrefined saved transfer_v3 parent")
+        saved = torch.load(checkpoint, map_location="cpu", weights_only=False)
+        args.sensor_parent = {"env_cfg": class_to_dict(parent_env), "train_cfg": class_to_dict(parent_train),
+                              "checkpoint": str(checkpoint), "iteration": int(saved["iter"])}
+        print(f"Fine-tune parent iteration {saved['iter']}; preserve both models/normalizers/std, fresh optimizer and local counter")
+    parent = args.sensor_parent
+    args.resolved_checkpoint = parent["checkpoint"]
+    parent_experiment = parent["train_cfg"]["runner"]["experiment_name"]
+    if args.experiment_name == parent_experiment:
+        raise ValueError("sensor_smooth requires a separate output experiment")
+    for cfg, key in ((env_cfg, "env_cfg"), (train_cfg, "train_cfg")):
+        if cfg is not None and getattr(cfg, "go2w_finetune", None) != "sensor_smooth":
+            update_class_from_dict(cfg, copy.deepcopy(parent[key]))
+            cfg.go2w_finetune = "sensor_smooth"
+    if env_cfg is not None:
+        env_cfg.sensor_smooth = {"hip_weight": 3., "long_hold_probability": .04,
+            "extended_hold_probability": .015, "long_hold_s": [8., 15.], "extended_hold_s": [20., 30.]}
+        env_cfg.env.episode_length_s = 60.
+        env_cfg.rewards.scales.lin_vel_z = 0.
+        env_cfg.rewards.scales.sensor_vertical_velocity = -1.
+        env_cfg.rewards.scales.ang_vel_xy = -.075
+        env_cfg.refinement_parent = {"checkpoint": parent["checkpoint"], "iteration": parent["iteration"],
+                                     "prior_updates": parent["iteration"] + 1}
+    if train_cfg is not None:
+        train_cfg.runner.resume = True  # Loading enabled; selective native options define initialization.
+        train_cfg.runner.resume_path = parent["checkpoint"]
+        train_cfg.runner.checkpoint_load_cfg = {"actor": True, "critic": True, "optimizer": False, "iteration": False}
+        train_cfg.runner.experiment_name = "go2w_transfer_v3_sensor_smooth"
+        train_cfg.runner.run_name = f"sensor_smooth_from{parent['iteration']}_seed1"
+        train_cfg.runner.max_iterations = 300
+        train_cfg.runner.save_interval = 50
+        train_cfg.algorithm.learning_rate = 5e-5
+        train_cfg.algorithm.schedule = "fixed"
+
+
 def apply_go2w_event_quality(env_cfg, name):
     """One smaller auxiliary objective; the unset profile keeps its original formula."""
     if name != "sufficient_clearance":
@@ -339,6 +400,7 @@ def check_target_intervals(cfg, reader=None):
 
 
 class GO2WCfg(GO2Cfg):
+    sensor_smooth = None  # Opt-in refinement only; saved V3 remains unchanged.
     class init_state(GO2Cfg.init_state):
         pos = (0.0, 0.0, 0.45)
         joint_position_noise = 0.03
@@ -583,7 +645,7 @@ class GO2WCfgPPO(GO2CfgPPO):
 
 def add_arguments(parser):
     parameters = [
-        {"name": "--go2w_finetune", "choices": ["coverage", "coverage_mobility", "precision_clearance"], "default": None, "help": "Explicit step_recovery_v1 continuation/evaluation design; unset preserves sampling and rewards"},
+        {"name": "--go2w_finetune", "choices": ["coverage", "coverage_mobility", "precision_clearance", "sensor_smooth"], "default": None, "help": "sensor_smooth: saved V3 models/normalizers/std with fresh optimizer/counter; legacy choices require step_recovery_v1 resume"},
         {"name": "--go2w_profile", "choices": ["step_recovery_v1", "event_step_v1", "transfer_v1", "transfer_v2", "transfer_v3"], "default": None, "help": "Opt-in training recipe; replay restores the saved profile automatically"},
         {"name": "--sagittal_stance_weight", "type": float, "default": None, "help": "Explicit event_step_v1 stance weight; full-demand weight stays 0.12; select the saved value for evaluation/play"},
         {"name": "--event_quality_profile", "choices": ["sufficient_clearance"], "default": None, "help": "Opt-in event quality and payment; select the saved choice for evaluation/play"},
@@ -614,6 +676,9 @@ def configure(env_cfg, cfg_train, args):
                     if explicit is not None and explicit != getattr(cfg, key, None):
                         raise ValueError(f"Explicit --{key}={explicit!r} conflicts with saved {getattr(cfg, key, None)!r}")
         return  # Saved rewards/commands remain authoritative for replay.
+    if getattr(args, "go2w_finetune", None) == "sensor_smooth":
+        prepare_sensor_smooth(env_cfg, cfg_train, args)
+        return
     profile = getattr(args, "go2w_profile", None)
     if profile is not None:
         if args.task != "go2w":
@@ -668,6 +733,12 @@ def configure(env_cfg, cfg_train, args):
 def validate_fresh_transfer(args, train_cfg):
     """Training-only guard, before any simulator/runner or checkpoint construction."""
     if getattr(train_cfg, "go2w_profile", None) not in ("transfer_v1", "transfer_v2", "transfer_v3"):
+        return
+    if getattr(train_cfg, "go2w_finetune", None) == "sensor_smooth":
+        expected = {"actor": True, "critic": True, "optimizer": False, "iteration": False}
+        if (train_cfg.go2w_profile != "transfer_v3" or args.resume or not train_cfg.runner.resume
+                or train_cfg.runner.checkpoint_load_cfg != expected or not getattr(args, "sensor_parent", None)):
+            raise ValueError("sensor_smooth requires explicit selective initialization from its resolved V3 parent")
         return
     forbidden = ("resume", "load_run", "checkpoint", "reference_config", "go2w_finetune",
                  "sagittal_stance_weight", "event_quality_profile", "transfer_armature", "transfer_delay", "transfer_cases")

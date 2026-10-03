@@ -318,7 +318,7 @@ class TaskRegistry:
         env.setup_runner(runner)
         if resume_path is not None: 
             print(f"Loading model from: {resume_path}")
-            runner.load(resume_path)
+            runner.load(resume_path, load_cfg=train_cfg.runner.checkpoint_load_cfg if save_config else None)
             # Task-state loading may change commands/curriculum; never issue the first
             # action from a TensorDict captured before loading.
             env.compute_observations()

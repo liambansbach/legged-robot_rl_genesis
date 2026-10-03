@@ -148,6 +148,7 @@ class TrainingDiagnostics:
         self.posture = {}
         self.swings = None
         self.scrubbing = None
+        self.sensor_holds = None
 
     def reward_term(self, name, raw, weighted):
         """Per-update scalar sums; no retained environment histories."""
@@ -205,6 +206,9 @@ class TrainingDiagnostics:
 
     def reward(self, raw, commands):
         # raw is the dt-scaled nonterminal reward sum, before only_positive_rewards.
+        if self.env.sensor_refinement:
+            value = torch.stack(((self.env.sensor_hold_kind == 1).sum(), (self.env.sensor_hold_kind == 2).sum()))
+            self.sensor_holds = value if self.sensor_holds is None else self.sensor_holds + value
         if getattr(self.env, "transfer_v2", False) or getattr(self.env, "phase_guided", False):
             from genesis.utils.geom import quat_to_xyz
             angles = quat_to_xyz(self.env.base_quat, rpy=True)[:, :2]
@@ -402,6 +406,12 @@ class TrainingDiagnostics:
                 "zero_yaw_fraction_of_mixed_time": mixed_zero_yaw / mixed if mixed else None,
                 "definition": "Observed environment steps, including truncated segments; not completed long holds or segment probabilities",
             }
+        if self.sensor_holds is not None:
+            row["sensor_hold_time_exposure"] = {
+                "range_s": [self.env.cfg.sensor_smooth["long_hold_s"], self.env.cfg.sensor_smooth["extended_hold_s"]],
+                "environment_seconds": self.sensor_holds * self.env.dt,
+                "fraction": self.sensor_holds / rewards["all"]["sample_count"],
+                "definition": "Actual rollout ticks in selected long/extended holds, including episode truncation"}
         with self.path.open("a") as stream:
             stream.write(json.dumps(json_safe(row), allow_nan=False) + "\n")
         self.iteration += 1
