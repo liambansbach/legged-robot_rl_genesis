@@ -31,6 +31,31 @@ WHEEL_JOINTS = [
 
 MEASURED_URDF = "go2w_measured_ed8dc93.urdf"
 MEASURED_SHA256 = "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c"
+V3_JOINT_REFERENCE = {"hip": 0.0, "thigh": 0.70, "calf": -1.40, "foot": 0.0}
+V3_SPAWN_CLEARANCE = 0.003  # Reset clearance, never added to the reward height.
+
+
+def v3_joint_reference():
+    return {f"{side}_{joint}_joint": angle for side in ("FL", "FR", "RL", "RR")
+            for joint, angle in V3_JOINT_REFERENCE.items()}
+
+
+def v3_reference_geometry():
+    """Design geometry from the measured URDF; no simulation or equilibrium claim."""
+    from robot_gym.utils.urdf_reader import URDFReader
+    from robot_gym.utils.diagnostics import urdf_link_poses, wheel_cylinders
+    path = URDFReader(MEASURED_URDF).robot_file_path_absolute
+    names = [f"{side}_foot" for side in ("FL", "FR", "RL", "RR")]
+    offset, axis, radius, width = [x.cpu().numpy() for x in wheel_cylinders(path, names)]
+    poses = urdf_link_poses(path, v3_joint_reference())
+    centers = np.array([poses[n][:3, 3] + poses[n][:3, :3] @ offset[i] for i, n in enumerate(names)])
+    axes = np.array([poses[n][:3, :3] @ axis[i] for i, n in enumerate(names)])
+    gaps = centers[:, 2] - radius * np.sqrt(np.maximum(0, 1 - axes[:, 2] ** 2)) - width * abs(axes[:, 2])
+    height = float(-gaps.min())
+    if np.ptp(gaps) > 1e-4:
+        raise ValueError("V3 reference has inconsistent wheel floor gaps")
+    dx = [float(centers[i, 0] - poses[n.replace('_foot', '_thigh')][0, 3]) for i, n in enumerate(names)]
+    return height, dx
 
 TRANSFER_V2_REVIEW_COMMANDS = {
     "forward_fast": (0.5, 0, 0),
