@@ -1,9 +1,10 @@
 # Go2-W diagnostics and reproducibility
 
-Current workflows: [saved-config replay](#shared-pipeline-cleanup-2026-10-02)
-and [fresh transfer_v2 preparation](#transfer_v2-support-aware-stepping-candidate-2026-10-02).
+Current status: [v3 preparation blocked by the fixed-target pose check](#transfer_v3-preparation-blocked-2026-10-03).
+Use [saved-config replay](#shared-pipeline-cleanup-2026-10-02) for existing runs.
 Older dated entries below preserve historical evidence and commands; their former
 selection/export rules are superseded by the current replay section and `--help`.
+The older v2 long-run command is historical, not the next training recommendation.
 
 ## Archived diagnostics — 25 September 2026
 
@@ -1535,3 +1536,194 @@ execution occurred here. Armature/ranges, passive zeros, mass/COM and tire/senso
 geometry remain development assumptions. Future velocity estimation remains the
 separate documented causal-history/shadow/closed-loop project; this run continues
 to use simulator velocity and contains no estimator code or checkpoint.
+
+## transfer_v3 preparation blocked — 2026-10-03
+
+**No v3 recipe, 58-input Actor, pilot or main training was released.** The requested
+common [.0, .70, -1.40] leg pose failed the prerequisite floating-base fixed-target
+stand. One follow-up reducing spawn clearance from 30 mm to 3 mm reproduced it.
+The coordinated unloading stage was never reached. Following the requested stop
+condition, no gain/armature search, third native trial or learning run followed.
+This is a blocker for this preparation, not proof that feedback cannot stabilize
+the pose or that the robot cannot step. No loaded reward height was selected.
+
+### Existing CK700 evidence
+
+Read the actual `config.yaml`, `diagnostics.jsonl` and TensorBoard events from
+`logs/go2w_transfer_v2/transfer_v2_seed1_2026-10-02_19-40-45`, and the existing
+`evaluation/transfer_v2_ck700_nominal`. No historical training or evaluation file
+was modified. These are Genesis results, not IsaacLab transfer results.
+
+CK700's 13 nominal cases record no falls or nonwheel ground contacts. Full-command
+mean vx is .1897/.4821 m/s for .2/.5 m/s commands. At vy=+.3, mean vy is .01573
+m/s; the last second falls to .000352 m/s with undesired vx=.08236 m/s. Negative
+lateral demand fails approximately symmetrically. Strong lateral demand ends
+with about .7377 m wheelbase and .3589 m base height, versus .3868 m thigh-origin
+fore/aft spacing. Eight completed >=2 mm geometric cycles occur across the panel,
+mostly at strong-lateral onset; only one event, in mixed motion, qualifies under
+the training criteria. Pure yaw +/-.8 has no completed geometric cycles. There is
+no sustained lateral stepping, but it would be incorrect to say no wheel lifts.
+
+Actual training rollouts (4096 environments x 64 ticks each):
+
+| Update | Reward sums clipped, all / lateral | Measured minibatch KL mean / max | LR after update | Per-joint std range | Largest deterministic mean-action clipping |
+|---|---:|---:|---:|---:|---:|
+| 0 | 69.755 / 61.434% | .08258 / .14860 | 1e-5 | .3997-.4004 | 0% |
+| 100 | 12.600 / 14.207% | .01523 / .02065 | .0029193 | .2324-.3262 | .0084% |
+| 300 | 2.964 / 3.129% | .01614 / .02088 | .0008650 | .1377-.2546 | .7088% |
+| 700 | 1.838 / 2.336% | .01378 / .02052 | .0003844 | .1112-.2124 | .7397% |
+
+Reward-sum clipping by sampler family, percent (not action clipping):
+
+| Update | Stand | Straight | Arc | Yaw | Precision | Lateral | Mixed |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 90.160 | 75.864 | 76.134 | 50.245 | 54.183 | 61.434 | 77.714 |
+| 100 | 27.697 | 6.802 | 9.427 | 6.060 | 3.852 | 14.207 | 19.863 |
+| 300 | 3.286 | 1.986 | 3.591 | 1.937 | 1.188 | 3.129 | 6.332 |
+| 700 | 1.891 | 1.281 | 2.269 | .888 | .589 | 2.336 | 4.182 |
+
+Selected raw reward means -> weighted means per tick (all sampled families):
+
+| Update | Linear tracking | Angular xy motion | Completed event | Dense swing |
+|---|---:|---:|---:|---:|
+| 0 | .43362 -> .008672 | 2.64010 -> -.013200 | 1.30e-5 -> 1.94e-6 | 7.69e-5 -> 6.15e-7 |
+| 100 | .77786 -> .015557 | .75610 -> -.003781 | 1.87e-7 -> 2.80e-8 | 1.43e-5 -> 1.15e-7 |
+| 300 | .81275 -> .016255 | .30431 -> -.001522 | 0 -> 0 | 1.48e-5 -> 1.18e-7 |
+| 700 | .82567 -> .016513 | .21548 -> -.001077 | 2.91e-6 -> 4.37e-7 | 2.94e-5 -> 2.35e-7 |
+
+All terms, per-joint clipping and family exposure are retained in
+`evaluation/transfer_v3_preparation/ck700_evidence.json`. Qualified stochastic
+training events by FL/FR/RL/RR at these updates are [12,19,3,5], [0,0,0,1],
+[0,0,0,0], [4,2,0,0]; the corresponding >=1 cm qualified counts are
+[10,16,2,3], [0,0,0,0], [0,0,0,0], [3,2,0,0]. These are not the deterministic
+panel's eight geometric cycles. An ungated geometric cycle count is not logged
+for training; it cannot be inferred from the event counter.
+
+At update 700, Gaussian std in hip/thigh/calf/wheel order is FL
+[.1149,.2124,.1306,.1707], FR [.1148,.2122,.1306,.1707], RL
+[.1112,.1153,.1418,.1655], RR [.1112,.1154,.1418,.1655]. No joint is at the .1
+floor in any of the four inspected updates. The largest mean-action clipping
+at 700 is RL wheel, .7397%; FL calf is .1457%, averaged over the training rollout.
+This does not exclude severe saturation in an individual deterministic command.
+At update 700, time exposure is 14.43% stand, 15.99% straight, 14.68% arc,
+20.32% yaw, 7.90% precision, 17.13% lateral and 9.56% mixed. These are measured
+tick fractions, not configured segment-draw probabilities.
+
+The early large KL and clipping subside; the logs do not establish a persistent
+optimizer failure or std-floor collapse. V2 swing shaping still requires an
+already-unloaded active attempt. Tiny mean shaping and failed deterministic
+lateral coordination support revisiting the objective; aggregate logs cannot
+attribute the result to one weight. Three separate quantities remain distinct:
+tracking denominators Dx=.09, Dy=.04 have units (m/s)^2; Gaussian std is in
+normalized action units; uniform observation noise magnitudes include .05 m/s
+linear velocity, .08 rad/s angular velocity, .01 rad position, .2/.5 rad/s
+leg/wheel velocity and .02 projected gravity, before the existing observation
+scales. Reset noise is separately recorded in the saved config.
+
+The inspected path holds delayed applied targets for four 5 ms substeps, updates
+state/events and scores the command that produced the transition, captures the
+terminal state, then resamples/resets and builds the next observation. Issued
+clipped action history remains distinct from applied delayed action. Continuous
+rewards receive .02 s once; the event receives .15 without dt. V2 clips the
+nonterminal sum at zero before adding termination. None of these semantics changed.
+
+### Pose calibration and stop
+
+FK uses the measured asset's oriented collision cylinders and link origins.
+At hip=0, thigh=.70, calf=-1.40, wheel=0 for all four chains, with a level authored
+base frame, the floor-compatible geometric height is **.427741656 m**. All four
+floor gaps are zero there; every cylinder center is **+.008632517 m** forward of
+its thigh origin. Fore/aft center and thigh spacing are .3868 m. This agrees with
+the analytic front-chain estimate, but is constrained geometry, not equilibrium.
+
+Two headless native launches used normal floating-base gravity/contact, fixed
+nominal leg position targets and zero wheel velocity targets, no learned policy,
+noise, pushes, randomization or external support. Two baseline replicas were
+intended for mirrored later target sequences; both failed before those sequences.
+Nominal q was applied through the existing reset/control path, with an identity
+root quaternion. Neither targets nor torque limits were changed during settling.
+
+| Spawn gap | Spawn base height | First terminal time after reset settling | Terminal height | Signed pitch |
+|---|---:|---:|---:|---:|
+| 30 mm | .457742 m | 1.80 s | .328143 m | -18.999 deg |
+| 3 mm follow-up | .430742 m | 1.80 s | .328651 m | -18.873 deg |
+
+Both cross the unchanged .33 m height threshold, not a timeout. Negative pitch
+is nose-up in the actual robot frame. The 3 mm follow-up removes most initial drop
+without correcting the collapse. Rear thigh/calf positions reach .3934/-1.7832
+rad while targets remain .70/-1.40. Last-second mean front/rear loads are about
+21.48/74.27 N per wheel; this is a falling interval, not settled load sharing.
+The immediate obstruction is compliant fixed-target posture collapse and rear
+loading. No torque saturation was observed: maximum control-force API readback
+over the substeps is 53.27% of its joint limit. That getter recomputes controller
+force; it is not a recorded solver impulse. No nonwheel ground contacts were
+recorded. Nonterminal self-contact queries were also empty; the terminal
+self-contact getter follows auto-reset and is unavailable for that state.
+
+Post-reset readback confirms .01 kg m^2 motor armature, leg Kp/Kd=40/1,
+wheel Kp/Kv=0/1 and zero passive stiffness/damping/friction. Timing stays .005 s,
+one internal substep, four held-target steps per policy tick, with
+`approximate_implicitfast`. Those remain development assumptions, not identified
+hardware properties. The lower spawn did not expose an import or effort-limit
+mismatch. A gravity-compensated target/support calculation needs resolution
+before another lift probe; increasing armature or relaxing termination would not
+establish the requested pose calibration.
+
+Raw files are in `evaluation/transfer_v3_preparation`: `pose_geometry.json`,
+`unloading_probe_drop30mm.*`, `unloading_probe.*`, and `pose_findings.json`.
+Use **pose_findings.json** for interpretation: the first report's early-failure
+`max_force_fraction` used a unit fallback and is not a valid fraction; its actual
+maximum was 15.51 Nm. The corrected summary leaves that fraction unavailable.
+Likewise, zero active-stage ticks in the raw report mean **not reached**, not a
+measured failed unloading maneuver. Pre-reset q/dq, pose, load, clearance,
+issued/applied actions and substep maximum control force remain in the NPZ files.
+
+`tests/go2w_pose_probe.py` retains just this bounded fixed-target calibration
+without the unexecuted IK sequence. It refuses an existing output directory and
+marks terminal self-contact unavailable. Its FK and syntax were checked; this
+cleaned reproduction entry was not launched as a third native trial.
+
+### Maintenance, validation and next execution
+
+Task CLI/fresh-run validation now live with Go2-W configuration; the small
+`cli.py`/`training.py` fragments were removed. Runtime metadata belongs to the
+environment; explicit legacy continuation checks remain in diagnostics, with
+the historical script imports retained. The unused hardcoded measured-asset hash
+gate was removed; geometry and interface checks remain. Environment, config,
+symmetry, deployment, evaluation and optional diagnostics remain separate because
+they have distinct responsibilities. No common robot physics/rewards changed.
+
+Seven focused common-path/fresh-initialization CPU checks passed, including
+Dodo/Go2 saved-config/latest selection and old Go2-W replay. The existing measured
+geometry regression also passed. Ruff, syntax and diff checks passed. No new
+learning, export-parity or phase/symmetry check is claimed: v3 was gated before
+implementation. Existing v1/v2 56-input bundles/configs/results remain intact.
+The requested v3 design would require 58/58 inputs, appended phase sin/cos with
+half-cycle reflection, its own pose and normalizers; no compatible v3 package or
+final objective/scales exists yet. No main-training command can truthfully be
+provided for an unavailable `transfer_v3` profile. A future main run must still
+start fresh, never from the pilot or an old checkpoint.
+
+Exact CK700 replay from the repository root (installed `genesis-gpu`):
+
+```powershell
+conda activate genesis-gpu
+python -m robot_gym.scripts.play --task go2w --experiment_name go2w_transfer_v2 --load_run transfer_v2_seed1_2026-10-02_19-40-45 --checkpoint 700 --num_envs 1 --command_vy 0.3 --steps 900 --episode_length_s 30 --rl_device cuda:0
+```
+
+The other two command axes become zero. For straight/yaw use `--command_vx 0.5`
+or `--command_yaw 0.8` instead. `--checkpoint -1` works within this selected run.
+900 policy ticks mean 18 simulated seconds, excluding reset settling; the 30 s
+episode timeout is separate and falls still reset. Export is opt-in with `--export`
+and uses the selected run. `--help` is the complete argument reference.
+
+TensorBoard reports 4.770 s rollout collection plus .914 s learning at update 700
+(about 84%/16%, 46,119 environment steps/s). Profile collection/state readback and
+logging synchronization first if iteration speed matters. No speed optimization
+was implemented or measured; reducing PPO epochs, changing dt or omitting physical
+checks cannot be advertised as preserving results without evidence.
+
+**Next action:** resolve the new nominal pose's loaded target/support equilibrium
+at the intended plant, then demonstrate a coordinated free-base lift before
+implementing and piloting v3. No IsaacLab, navigation, estimator or hardware work
+was performed.
