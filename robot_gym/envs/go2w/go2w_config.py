@@ -593,10 +593,11 @@ def add_arguments(parser):
         {"name": "--skip_zero_action_probe", "action": "store_true", "help": "Bank evaluation: retain all policy cases, omit the equilibrium zero-action probe"},
         {"name": "--diagnostic_trace", "action": "store_true", "help": "Read substep control forces, summed ground loads and cylinder geometry"},
         {"name": "--reference_config", "help": "Explicit audited saved config, if not next to the checkpoint"},
-        {"name": "--eval_mode", "choices": ["nominal", "bank", "equilibrium", "sustained", "closed_loop", "precision_screen", "precision_dr", "transfer_screen"], "default": "nominal"},
+        {"name": "--eval_mode", "choices": ["nominal", "bank", "equilibrium", "sustained", "closed_loop", "precision_screen", "precision_dr", "transfer_screen", "sensor_sustained"], "default": "nominal"},
+        {"name": "--eval_phase_offset", "type": float, "default": 0., "help": "sensor_sustained only: initial phase offset in cycles [0,1); phase still advances normally"},
         {"name": "--transfer_armature", "choices": ["nominal", "low", "high"], "default": None, "help": "Transfer inference-only explicit motor armature: .01/.005/.02 kg m^2"},
         {"name": "--transfer_delay", "type": int, "choices": [0, 1, 2], "default": None, "help": "Transfer inference-only held action delay in policy steps"},
-        {"name": "--transfer_cases", "nargs": "+", "choices": ["stand", "forward", "reverse", "yaw_positive", "yaw_negative", "lateral_positive", "lateral_negative", "mixed", *TRANSFER_V2_REVIEW_COMMANDS], "help": "transfer_screen subset; unset runs the small complete command panel"},
+        {"name": "--transfer_cases", "nargs": "+", "choices": ["stand", "forward", "reverse", "yaw_positive", "yaw_negative", "lateral_positive", "lateral_negative", "mixed", *TRANSFER_V2_REVIEW_COMMANDS], "help": "transfer_screen or sensor_sustained subset; unset runs its complete panel"},
         {"name": "--bank_seed", "type": int, "default": 240925, "help": "Local NumPy generator for a fixed 32-condition bank"},
     ]
     for parameter in parameters:

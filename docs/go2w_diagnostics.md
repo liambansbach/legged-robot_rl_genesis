@@ -1987,3 +1987,41 @@ to inspect the saved pilot's lateral/yaw replay and load/clearance traces before
 authorizing a separate main run. A later Isaac adapter must supply the 58-input
 phase timing, new q_ref/height and its own exported normalizer/dynamics, retaining
 simulator base-origin velocity. No Isaac, navigation or estimator changes were made.
+
+## V3 sustained sensor-motion baseline — 2026-10-03
+
+The completed main run is `go2w_transfer_v3/transfer_v3_seed1_2026-10-03_16-18-34`;
+latest resolved once to `model_1499.pt` (stored iteration 1499, 1500 updates).
+This is separate from the earlier 200-update pilot. Its saved recipe is authoritative.
+
+`--eval_mode sensor_sustained` reuses the existing transfer evaluator, transition
+capture and cycle counter. Stand is 30 s; moving cases are 3 s zero + 30 s command
++ 8 s zero, with a minimum 60 s episode timeout. The first failure/reset is retained
+and later samples are censored. `--transfer_cases` selects a subset. With
+`--diagnostic_trace`, only fast forward and positive strong lateral receive the
+existing 200 Hz recorder; all cases retain 50 Hz state/action traces. Optional
+`--eval_phase_offset .25` shifts only the initial episode phase; normal advancement
+and command behavior remain unchanged. Phase-only action comparisons retain all
+other recorded observation entries and are not a dynamical test.
+
+The asset's fixed chain gives base-to-`front_realsense` translation
+[.33881,.04750,.111] m and identity rotation, describing the left depth-imager
+reference. RGB extrinsics, intrinsics and exposure are unknown. `radar` is at
+[.28945,0,-.046825] m with fixed pitch 2.8782 rad; its physical LiDAR/TF association
+needs eventual verification. Neither frame is an actuated gimbal.
+
+Installed Genesis 1.4.1 `get_pos/get_quat/get_vel(relative=True)` use the authored
+base origin; velocity is expressed in world axes, not at COM. The environment
+rotates it into body axes. Sensor analysis rotates it back and applies exactly one
+transport: p_C=p_B+R*r, v_C=v_B+omega_world cross (R*r). All rigid sensors share
+base angular velocity. Metrics use world-up z, not sensor local/optical z. Height
+drift, trend, raw variation and detrended variation are reported separately. No
+numerical acceleration, filtering, pixel blur or hardware vibration is inferred.
+
+```powershell
+conda activate genesis-gpu
+python -m robot_gym.scripts.evaluate --task go2w --experiment_name go2w_transfer_v3 --load_run transfer_v3_seed1_2026-10-03_16-18-34 --checkpoint 1499 --eval_mode transfer_screen --num_envs 1 --seed 1 --rl_device cuda:0 --headless --output evaluation/v3_main_nominal_review
+python -m robot_gym.scripts.evaluate --task go2w --experiment_name go2w_transfer_v3 --load_run transfer_v3_seed1_2026-10-03_16-18-34 --checkpoint 1499 --eval_mode sensor_sustained --num_envs 1 --seed 1 --episode_length_s 60 --diagnostic_trace --rl_device cuda:0 --headless --output evaluation/v3_main_sustained_review
+```
+
+Use a new output directory: existing evidence is never overwritten.

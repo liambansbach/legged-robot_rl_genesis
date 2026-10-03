@@ -23,6 +23,39 @@ def lateral_wheel_center_velocity(link_quat, link_vel, link_ang, geometry):
     return (center_velocity * lateral).sum(dim=-1)
 
 
+def fixed_sensor_frames(path):
+    """Authored fixed transforms; frame names do not supply RGB calibration."""
+    import xml.etree.ElementTree as ET
+    import numpy as np
+    from robot_gym.utils.diagnostics import urdf_link_poses
+    tree = ET.parse(path).getroot()
+    parents = {j.find("child").get("link"): j for j in tree.findall("joint")}
+    poses = urdf_link_poses(path, {})
+    result = {}
+    for name in ("front_realsense", "radar"):
+        chain, link = [], name
+        while link != "base_link":
+            joint = parents[link]
+            if joint.get("type") != "fixed":
+                raise ValueError(f"Sensor {name} is not rigidly attached to base_link")
+            chain.append(joint.get("name"))
+            link = joint.find("parent").get("link")
+        transform = np.linalg.inv(poses["base_link"]) @ poses[name]
+        result[name] = {"translation_m": transform[:3, 3].tolist(),
+                        "rotation": transform[:3, :3].tolist(), "fixed_chain": chain[::-1]}
+    return result
+
+
+def rigid_sensor_state(base_position, base_quaternion, linear_body, angular_body, offsets):
+    """World positions/velocities from authored-base origin state, transported once."""
+    from robot_gym.utils.diagnostics import rotate_wxyz
+    offsets = offsets.to(device=base_position.device, dtype=base_position.dtype)
+    offset_world = rotate_wxyz(base_quaternion[:, None], offsets)
+    velocity_body = linear_body[:, None] + torch.cross(angular_body[:, None].expand_as(offset_world),
+                                                       offsets.expand_as(offset_world), dim=-1)
+    return base_position[:, None] + offset_world, rotate_wxyz(base_quaternion[:, None], velocity_body)
+
+
 class Go2WEnv(Go2Env):
     phase_guided = False  # Legacy fixtures/bundles have no phase state.
 

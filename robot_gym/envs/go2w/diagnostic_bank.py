@@ -743,7 +743,7 @@ def precision_conditions():
     return [dict(nominal, **dict(change, id=name)) for name, change in zip(names, changes)]
 
 
-def rollout_precision(env, policy, schedule):
+def rollout_precision(env, policy, schedule, sensor=False):
     """Policy-rate tensor capture; terminal rows retained, later rows explicitly invalid."""
     rows, layout = [], {}
     active = torch.ones(env.num_envs, dtype=torch.bool, device=env.device)
@@ -754,7 +754,9 @@ def rollout_precision(env, policy, schedule):
             for _ in range(round(seconds / env.dt)):
                 env.commands[:] = env.commands.new_tensor(command)
                 env.compute_observations()
-                raw = policy(env.get_observations())
+                observation = env.get_observations()
+                recorded_observation = observation["policy"].clone() if sensor else None
+                raw = policy(observation)
                 finite_policy = torch.isfinite(raw).all(dim=1)
                 # A nonfinite proposal is censored before it can enter the solver.
                 env.step(torch.where(finite_policy[:, None], raw, torch.zeros_like(raw)))
@@ -767,6 +769,8 @@ def rollout_precision(env, policy, schedule):
                     "reset_buf", "episode_length_buf", "nonfoot_contact_count")}
                 if "wheel_center_lateral_speed" in state:
                     values["wheel_center_lateral_speed"] = state["wheel_center_lateral_speed"]
+                if sensor:
+                    values["observations"] = recorded_observation
                 if getattr(env, "event_step", False):
                     values.update({key: value for key, value in state.items() if key.startswith("event_")})
                 if getattr(env, "phase_guided", False):
@@ -932,7 +936,104 @@ def transfer_schedule(profile="transfer_v1"):
     return result
 
 
-def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=None):
+def sensor_schedule():
+    """Long holds, exact stops; no changes to command-conditioned phase dynamics."""
+    names = ("forward", "forward_fast", "lateral_strong_positive", "lateral_strong_negative",
+             "yaw_strong_positive", "yaw_strong_negative", "mixed")
+    short = transfer_schedule("transfer_v3")
+    return {"stand": [(30, (0., 0., 0.))],
+            **{n: [(3, (0., 0., 0.)), (30, short[n][1][1]), (8, (0., 0., 0.))] for n in names}}
+
+
+def sensor_metrics(data, schedule, dt, metadata):
+    """Raw rigid-body motion: world-up is not the sensor optical axis. No derivatives."""
+    from .go2w_env import rigid_sensor_state
+    from .evaluate import swing_events
+    d = {k: v[:, 0] for k, v in data.items()}
+    names = ("base", "front_realsense", "radar")
+    offsets = torch.tensor([[0., 0., 0.]] + [metadata["sensor_frames"][n]["translation_m"] for n in names[1:]], device="cpu")
+    positions, velocities = rigid_sensor_state(*[torch.from_numpy(d[k]) for k in
+        ("base_pos", "base_quat", "base_lin_vel", "base_ang_vel")], offsets)
+    positions, velocities = positions.numpy(), velocities.numpy()
+    rpy = Rotation.from_quat(d["base_quat"][:, [1, 2, 3, 0]]).as_euler("xyz")
+    angular_world = rotate_wxyz(torch.from_numpy(d["base_quat"]), torch.from_numpy(d["base_ang_vel"])).numpy()
+    hip = [i for i, n in enumerate(metadata["joint_order"]) if "_hip_joint" in n]
+    qerror = d["dof_pos"] - np.array(metadata["nominal_position"])
+    windows = []
+    if len(schedule) == 1:
+        windows.append(("full_stand", 0, 30, (0., 0., 0.)))
+        onset, command = 0, (0., 0., 0.)
+    else:
+        onset, command = 3, schedule[1][1]
+        windows += [("full_command", 3, 33, command), ("stop", 33, 41, (0., 0., 0.))]
+    windows += [(name, onset+a, onset+b, command) for name, a, b in
+                (("early", 1, 5), ("middle", 10, 20), ("late", 20, 30))]
+    result = {}
+    for label, begin, end, command in windows:
+        ids = np.flatnonzero((np.arange(len(rpy))*dt >= begin) & (np.arange(len(rpy))*dt < end)
+                            & d["valid"].astype(bool))
+        if not len(ids):
+            result[label] = {"complete": False, "samples": 0}
+            continue
+        v = np.c_[d["base_lin_vel"][ids, :2], d["base_ang_vel"][ids, 2]]
+        error = v - command
+        q = qerror[ids]
+        count = max(1, round(1/dt))
+        loads = d["wheel_normal_force"][ids]
+        entry = {"complete": len(ids) == round((end-begin)/dt) and not d["failure"][ids].any(),
+                 "samples": len(ids), "window_s": [begin, end], "command": command,
+                 "velocity_mean": v.mean(0), "velocity_error_mean": error.mean(0),
+                 "velocity_rmse": np.sqrt(np.mean(error**2, axis=0)),
+                 "integrated_body_axis_tracking_error": error.sum(0)*dt,
+                 "world_displacement_m": d["base_pos"][ids[-1]]-d["base_pos"][ids[0]],
+                 "roll_pitch_mean_rad": rpy[ids, :2].mean(0),
+                 "roll_pitch_std_rad": rpy[ids, :2].std(0),
+                 "roll_pitch_rate_rms_rad_s": np.sqrt(np.mean(d["base_ang_vel"][ids, :2]**2, axis=0)),
+                 "rigid_sensor_angular_world_rms_rad_s": np.sqrt(np.mean(angular_world[ids]**2, axis=0)),
+                 "hip_signed_error_rad": q[:, hip].mean(0),
+                 "hip_error_rms_rad": np.sqrt(np.mean(q[:, hip]**2, axis=0)),
+                 "hip_error_abs_p95_rad": np.percentile(np.abs(q[:, hip]), 95, axis=0),
+                 "hip_error_drift_rad": q[-count:, hip].mean(0)-q[:count, hip].mean(0),
+                 "leg_error_rms_rad": np.sqrt(np.mean(q[:, metadata["leg_indices"]]**2, axis=0)),
+                 "wheel_thigh_dx_mean_m": d["wheel_thigh_dx"][ids].mean(0),
+                 "wheel_thigh_dx_abs_max_m": np.abs(d["wheel_thigh_dx"][ids]).max(0),
+                 "clearance_peak_m": d["wheel_clearance"][ids].max(0),
+                 "contact_duty": (loads > 8).mean(0), "load_peak_N": loads.max(0),
+                 "all_unloaded_fraction": ((loads > 8).sum(1) == 0).mean(),
+                 "nonwheel_contact_samples": int((d["nonfoot_contact_count"][ids] > 0).sum()),
+                 "raw_action_clip_fraction": (np.abs(d["raw_actions"][ids]) >= 1).mean(0),
+                 "effort_limit_fraction": (np.abs(d["torques"][ids]) >= .99*np.array(metadata["force_limits"])).mean(0),
+                 "sensors": {}, "cycles": {}}
+        for i, name in enumerate(names):
+            z, vz = positions[ids, i, 2], velocities[ids, i, 2]
+            time = np.arange(len(ids))*dt
+            trend = np.polyfit(time, z, 1) if len(ids)>1 else [0., z[0]]
+            residual = z - np.polyval(trend, time)
+            harmonics = {}
+            for h in (1, 2, 3, 4):
+                angle = 2*np.pi*(h/.8)*time
+                basis = np.c_[np.sin(angle), np.cos(angle), time, np.ones(len(time))]
+                fit = np.linalg.lstsq(basis, z, rcond=None)[0]
+                oscillation = basis[:, :2] @ fit[:2]
+                harmonics[str(h)] = {"frequency_hz": h/.8, "amplitude_m": float(np.linalg.norm(fit[:2])),
+                    "detrended_variance_fraction": float(np.var(oscillation)/max(np.var(residual), 1e-18))}
+            entry["sensors"][name] = {"z_mean_m": z.mean(), "z_drift_m": z[-1]-z[0],
+                "z_trend_m_s": trend[0], "z_std_m": z.std(), "z_peak_to_peak_m": np.ptp(z),
+                "z_detrended_rms_m": np.sqrt(np.mean(residual**2)), "world_vz_mean_m_s": vz.mean(),
+                "world_vz_rms_m_s": np.sqrt(np.mean(vz**2)), "world_vz_peak_m_s": np.abs(vz).max(),
+                "phase_harmonics": harmonics}
+        for i, name in enumerate(metadata["wheel_order"]):
+            events = swing_events(loads[:, i], d["wheel_clearance"][ids, i],
+                                  d["wheel_center_body"][ids, i], dt)
+            complete = [e for e in events if e["completed"] and e["geometric_lift"]]
+            entry["cycles"][name] = {"completed_2mm": len(complete),
+                "completed_2cm": sum(e["peak_clearance_m"] >= .02 for e in complete)}
+        result[label] = entry
+    return result
+
+
+def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=None,
+                       sensor=False, high_rate=False, phase_offset=0.):
     import xml.etree.ElementTree as ET
 
     tree = ET.parse(env.urdf_reader.robot_file_path_absolute).getroot()
@@ -947,13 +1048,16 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
                                     for pair in env.dof_pos_limits.cpu().tolist()],
                 "position_limits_semantics": "null denotes an unbounded continuous joint",
                 "wheel_target_limit": env.cfg.control.wheel_velocity_target_limit}
-    schedules = transfer_schedule(env.cfg.go2w_profile) if transfer else precision_schedule(dr, getattr(env, "event_step", False))
+    schedules = sensor_schedule() if sensor else transfer_schedule(env.cfg.go2w_profile) if transfer else precision_schedule(dr, getattr(env, "event_step", False))
+    if sensor:
+        from .go2w_env import fixed_sensor_frames
+        metadata["sensor_frames"] = fixed_sensor_frames(env.urdf_reader.robot_file_path_absolute)
     if case_names:
         if not transfer:
             raise ValueError("--transfer_cases requires transfer_screen")
         schedules = {name: schedules[name] for name in case_names}
-    report = {"mode": "transfer_screen" if transfer else "precision_dr" if dr else "precision_screen", "dt": env.dt, **metadata,
-              "schedule": schedules, "tests": {}, "heavy_recorder": bool(transfer and getattr(env, "physics_diagnostics", None) is not None),
+    report = {"mode": "sensor_sustained" if sensor else "transfer_screen" if transfer else "precision_dr" if dr else "precision_screen", "dt": env.dt, **metadata,
+              "schedule": schedules, "tests": {}, "heavy_recorder": bool(high_rate if sensor else transfer and getattr(env, "physics_diagnostics", None) is not None),
               "trace_semantics": "Post-step pre-reset. valid includes first terminal row only; later rows invalid. Policy-rate forces, no substep maxima. Targets = delayed action * saved scale (+ nominal for legs), wheel targets limited as recorded. Stop displacement/path includes braking.",
               "swing_semantics": "6/10 N hysteresis, >=2 mm geometric peak, no dwell filter; completed and boundary-censored events separate",
               "wall_clock_s": {"rollout": 0., "postprocessing": 0.}}
@@ -972,7 +1076,15 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
         report["completed_training_updates"] = env.completed_updates
     for name, schedule in schedules.items():
         started = perf_counter()
+        if sensor:
+            env.physics_diagnostics = None
         env.reset()
+        if sensor:
+            env.phase.add_(phase_offset).remainder_(1.)  # Explicit episode-initial phase comparison only.
+            report["reset_phase_offset_cycles"] = phase_offset
+            if high_rate and name in ("forward_fast", "lateral_strong_positive"):
+                from .native_reference import ReferenceCapture
+                env.physics_diagnostics = ReferenceCapture(env)
         if transfer:
             torch.testing.assert_close(env.robot.get_dofs_armature(env.joint_dof_idx), env.armature_samples)
         physics_recorder = getattr(env, "physics_diagnostics", None) if transfer else None
@@ -995,7 +1107,7 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
             assert env.action_history.shape[1] >= 3 and not bool(env.action_history.any())
             assert env.action_delay_steps.tolist() == [c["delay"] for c in conditions]
         initial = {key: getattr(env, key).cpu().numpy().copy() for key in ("base_pos", "base_quat")}
-        data = rollout_precision(env, policy, schedule)
+        data = rollout_precision(env, policy, schedule, sensor=sensor)
         report["wall_clock_s"]["rollout"] += perf_counter()-started
         started = perf_counter()
         physics = ({key: torch.stack([row[key] for row in physics_recorder.rows]).cpu().numpy()
@@ -1003,6 +1115,38 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
         np.savez_compressed(out / f"{name}.npz", **data, **{f"initial_{key}": value for key,value in initial.items()},
                             **{"physics_" + key: value for key,value in physics.items()}, dt=env.dt, physics_dt=env.cfg.sim.dt)
         report["tests"][name] = precision_metrics(data, schedule, env.dt, metadata, initial)
+        if sensor:
+            report["tests"][name][0]["sensor_windows"] = sensor_metrics(data, schedule, env.dt, metadata)
+            report["tests"][name][0]["recording_hz"] = {"policy": 1/env.dt, "physics": 1/env.cfg.sim.dt if physics else None}
+            if physics:
+                from .go2w_env import rigid_sensor_state
+                offsets = torch.tensor([[0., 0., 0.]] + [metadata["sensor_frames"][n]["translation_m"]
+                                       for n in ("front_realsense", "radar")], device="cpu")
+                _, velocity = rigid_sensor_state(*[torch.from_numpy(physics[k]) for k in
+                    ("base_pos", "base_quat", "linear_body", "angular_body")], offsets)
+                for window in report["tests"][name][0]["sensor_windows"].values():
+                    if not window["samples"]:
+                        continue
+                    a, b = (round(t/env.cfg.sim.dt) for t in window["window_s"])
+                    vz = velocity[a:b, :, 2].numpy()
+                    window["physics_200hz"] = {
+                        "sensor_order": ["base", "front_realsense", "radar"],
+                        "world_vz_rms_m_s": np.sqrt(np.mean(vz**2, axis=0)),
+                        "world_vz_abs_peak_m_s": np.abs(vz).max(0),
+                        "wheel_load_peak_N": physics["wheel_normal_force"][a:b].max(0),
+                        "control_force_abs_peak_Nm": np.abs(physics["control_force"][a:b]).max(0)}
+            if name == "forward_fast":
+                from tensordict import TensorDict
+                observations = torch.from_numpy(data["observations"][200:1650:25, 0]).to(env.device)
+                with torch.no_grad():
+                    original = policy(TensorDict({"policy": observations}, batch_size=[len(observations)]))
+                    reflected = observations.clone()
+                    reflected[:, -2:] *= -1
+                    other = policy(TensorDict({"policy": reflected}, batch_size=[len(observations)]))
+                report["phase_only_action_counterfactual"] = {
+                    "definition": "Same recorded states, commands and issued history; only sin/cos negated (half cycle); not a dynamical trial",
+                    "raw_action_rms_difference": ((other-original).square().mean(0).sqrt()).cpu().tolist(),
+                    "clipped_action_rms_difference": ((other.clamp(-1,1)-original.clamp(-1,1)).square().mean(0).sqrt()).cpu().tolist()}
         if transfer:
             from robot_gym.envs.go2w.native_reference import spectrum
             for index, result in enumerate(report["tests"][name]):

@@ -326,6 +326,8 @@ def diagnostic_metrics(
 
 
 def use_physics_diagnostics(args):
+    if args.eval_mode == "sensor_sustained":
+        return False  # Attach the existing recorder only to informative cases.
     if args.eval_mode == "transfer_screen":
         return args.diagnostic_trace
     if args.eval_mode in ("precision_screen", "precision_dr"):
@@ -341,6 +343,9 @@ def evaluate(args):
         raise ValueError("--steps must be at least 2")
     if args.task != "go2w":
         raise ValueError("This command suite is specific to go2w")
+    phase_offset = getattr(args, "eval_phase_offset", 0.)
+    if not np.isfinite(phase_offset) or not 0 <= phase_offset < 1 or (phase_offset and args.eval_mode != "sensor_sustained"):
+        raise ValueError("Phase offset must be in [0,1) and is only supported by sensor_sustained")
     cfg, train_cfg, checkpoint = task_registry.resolve_replay(args)
     out = Path(args.output)
     if out.exists() and any(out.iterdir()):
@@ -348,7 +353,7 @@ def evaluate(args):
     original_cfg = class_to_dict(cfg)
     reference = {"saved_config": str(checkpoint.with_name("config.yaml"))}
     cfg.env.num_envs = (
-        args.num_envs or {"nominal": 1, "sustained": 1, "closed_loop": 1, "precision_screen": 1, "precision_dr": 8, "transfer_screen": 1, "bank": 32, "equilibrium": 3}[args.eval_mode]
+        args.num_envs or {"nominal": 1, "sustained": 1, "sensor_sustained": 1, "closed_loop": 1, "precision_screen": 1, "precision_dr": 8, "transfer_screen": 1, "bank": 32, "equilibrium": 3}[args.eval_mode]
     )
     cfg.env.episode_length_s = max(
         20.0, 4 * args.steps * cfg.sim.dt * cfg.control.decimation
@@ -356,13 +361,17 @@ def evaluate(args):
     cfg.env.capture_transitions = True
     from robot_gym.utils.replay import configure_nominal
     configure_nominal(cfg, args)
-    if args.eval_mode in ("precision_screen", "precision_dr", "transfer_screen"):
+    if args.eval_mode in ("precision_screen", "precision_dr", "transfer_screen", "sensor_sustained"):
         if args.eval_mode == "transfer_screen" and getattr(cfg, "go2w_profile", None) not in ("transfer_v1", "transfer_v2", "transfer_v3"):
             raise ValueError("transfer_screen requires a saved transfer recipe")
         expected = 8 if args.eval_mode == "precision_dr" else 1
         if cfg.env.num_envs != expected or args.seed != 1 or args.zero_command_brake or not getattr(cfg, "go2w_profile", None):
             raise ValueError("Precision checks require the profile, explicit seed 1, matching batch and no brake")
         cfg.env.episode_length_s = 30.0
+        if args.eval_mode == "sensor_sustained":
+            if cfg.go2w_profile != "transfer_v3":
+                raise ValueError("sensor_sustained requires a saved V3 parent/interface")
+            cfg.env.episode_length_s = max(60., args.episode_length_s or 60.)
         cfg.env.capture_closed_loop = cfg.env.capture_precision = True
         if args.eval_mode == "precision_dr":
             cfg.domain_rand.action_delay_steps_range = [0, 2]
@@ -370,7 +379,8 @@ def evaluate(args):
         from robot_gym.envs.go2w.diagnostic_bank import precision_schedule
         from robot_gym.envs.go2w.go2w_config import uses_event_steps
         from robot_gym.envs.go2w.diagnostic_bank import transfer_schedule
-        schedule = (transfer_schedule(cfg.go2w_profile) if args.eval_mode == "transfer_screen"
+        from robot_gym.envs.go2w.diagnostic_bank import sensor_schedule
+        schedule = (sensor_schedule() if args.eval_mode == "sensor_sustained" else transfer_schedule(cfg.go2w_profile) if args.eval_mode == "transfer_screen"
                     else precision_schedule(args.eval_mode == "precision_dr", uses_event_steps(cfg)))
         print("Direct schedule: " + json.dumps(schedule), flush=True)
     elif args.eval_mode == "closed_loop":
@@ -423,14 +433,16 @@ def evaluate(args):
         ),
     )
     write_json(out / "loaded_properties.json", loaded_properties(env))
-    if args.eval_mode in ("closed_loop", "precision_screen", "precision_dr", "transfer_screen"):
+    if args.eval_mode in ("closed_loop", "precision_screen", "precision_dr", "transfer_screen", "sensor_sustained"):
         from robot_gym.envs.go2w.diagnostic_bank import evaluate_closed_loop, evaluate_precision
 
         startup = perf_counter() - PROCESS_STARTED
         report = (evaluate_closed_loop(env, policy, out) if args.eval_mode == "closed_loop"
                   else evaluate_precision(env, policy, out, args.eval_mode == "precision_dr",
-                                          transfer=args.eval_mode == "transfer_screen",
-                                          case_names=getattr(args, "transfer_cases", None)))
+                                          transfer=args.eval_mode in ("transfer_screen", "sensor_sustained"),
+                                          case_names=getattr(args, "transfer_cases", None),
+                                          sensor=args.eval_mode == "sensor_sustained",
+                                          high_rate=args.diagnostic_trace, phase_offset=phase_offset))
         shutdown = perf_counter()
         gs.destroy()
         report["wall_clock_s"].update(startup=startup, shutdown=perf_counter() - shutdown,
