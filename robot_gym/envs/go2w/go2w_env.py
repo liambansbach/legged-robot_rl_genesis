@@ -32,7 +32,7 @@ def fixed_sensor_frames(path):
     parents = {j.find("child").get("link"): j for j in tree.findall("joint")}
     poses = urdf_link_poses(path, {})
     result = {}
-    for name in ("front_realsense", "radar"):
+    for name in ("front_realsense", "radar", "front_realsense_body"):
         chain, link = [], name
         while link != "base_link":
             joint = parents[link]
@@ -107,7 +107,7 @@ class Go2WEnv(Go2Env):
         if self.cfg.control.armature is not None:
             result["deployment_contract"] = transfer_contract(self)
             result["runtime_armature_min_max_kg_m2"] = [float(self.armature_samples.min()), float(self.armature_samples.max())]
-        if getattr(self.cfg, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned"):
+        if getattr(self.cfg, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral"):
             result.update(initialization=f"{self.cfg.go2w_finetune} fine-tune: parent actor/critic/normalizers/std; fresh optimizer and local iteration",
                           parent=self.cfg.refinement_parent, refinement=self.cfg.sensor_smooth,
                           phase_observation_mode=getattr(self.cfg, "phase_observation_mode", "unconditional"))

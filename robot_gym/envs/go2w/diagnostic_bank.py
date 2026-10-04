@@ -781,6 +781,8 @@ def rollout_precision(env, policy, schedule, sensor=False, rolling_phase_zero=Fa
                     values["wheel_center_lateral_speed"] = state["wheel_center_lateral_speed"]
                 if sensor:
                     values["observations"] = recorded_observation
+                if hasattr(env, "active_push_force") and env.cfg.domain_rand.push_robots:
+                    values["active_push_force_world_N"] = env.active_push_force.clone()
                 if getattr(env, "event_step", False):
                     values.update({key: value for key, value in state.items() if key.startswith("event_")})
                 if getattr(env, "phase_guided", False):
@@ -960,7 +962,7 @@ def sensor_metrics(data, schedule, dt, metadata):
     from .go2w_env import rigid_sensor_state
     from .evaluate import swing_events
     d = {k: v[:, 0] for k, v in data.items()}
-    names = ("base", "front_realsense", "radar")
+    names = ("base", "front_realsense", "radar", "front_realsense_body")
     offsets = torch.tensor([[0., 0., 0.]] + [metadata["sensor_frames"][n]["translation_m"] for n in names[1:]], device="cpu")
     positions, velocities = rigid_sensor_state(*[torch.from_numpy(d[k]) for k in
         ("base_pos", "base_quat", "base_lin_vel", "base_ang_vel")], offsets)
@@ -1043,7 +1045,8 @@ def sensor_metrics(data, schedule, dt, metadata):
 
 
 def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=None,
-                       sensor=False, high_rate=False, phase_offset=0., rolling_phase_zero=False):
+                       sensor=False, high_rate=False, phase_offset=0., rolling_phase_zero=False,
+                       phase_transition=False):
     import xml.etree.ElementTree as ET
 
     tree = ET.parse(env.urdf_reader.robot_file_path_absolute).getroot()
@@ -1064,6 +1067,12 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
         schedules["phase_transition"] = [(3, (0., 0., 0.)), (6, (.5, 0., 0.)),
             (5, (0., .3, 0.)), (6, (.5, 0., 0.)), (4, (0., 0., 0.))]
         print("Diagnostic schedule: " + json.dumps(schedules), flush=True)
+    if phase_transition:
+        schedules = {"phase_transition": [(3, (0., 0., 0.)), (5, (.5, 0., 0.)),
+            (3, (0., .03, 0.)), (4, (0., .1, 0.)), (4, (.5, 0., 0.)),
+            (3, (0., 0., .175)), (4, (0., 0., -.175)), (3, (0., -.03, 0.)),
+            (4, (.2, 0., 0.)), (8, (0., 0., 0.))]}
+        print("Phase transition schedule: " + json.dumps(schedules), flush=True)
     if sensor:
         from .go2w_env import fixed_sensor_frames
         metadata["sensor_frames"] = fixed_sensor_frames(env.urdf_reader.robot_file_path_absolute)
@@ -1138,7 +1147,7 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
             if physics:
                 from .go2w_env import rigid_sensor_state
                 offsets = torch.tensor([[0., 0., 0.]] + [metadata["sensor_frames"][n]["translation_m"]
-                                       for n in ("front_realsense", "radar")], device="cpu")
+                                       for n in ("front_realsense", "radar", "front_realsense_body")], device="cpu")
                 _, velocity = rigid_sensor_state(*[torch.from_numpy(physics[k]) for k in
                     ("base_pos", "base_quat", "linear_body", "angular_body")], offsets)
                 for window in report["tests"][name][0]["sensor_windows"].values():
@@ -1147,7 +1156,7 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
                     a, b = (round(t/env.cfg.sim.dt) for t in window["window_s"])
                     vz = velocity[a:b, :, 2].numpy()
                     window["physics_200hz"] = {
-                        "sensor_order": ["base", "front_realsense", "radar"],
+                        "sensor_order": ["base", "front_realsense", "radar", "front_realsense_body"],
                         "world_vz_rms_m_s": np.sqrt(np.mean(vz**2, axis=0)),
                         "world_vz_abs_peak_m_s": np.abs(vz).max(0),
                         "wheel_load_peak_N": physics["wheel_normal_force"][a:b].max(0),

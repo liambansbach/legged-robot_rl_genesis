@@ -126,6 +126,8 @@ def prepare_sensor_smooth(env_cfg, train_cfg, args):
 
     name = args.go2w_finetune
     phase_route = name == "sensor_phase_conditioned"
+    exposure_route = name == "navigation_partial_lateral"
+    restore_route = phase_route or exposure_route
     if args.task != "go2w" or args.go2w_profile != "transfer_v3" or args.resume:
         raise ValueError(f"{name} requires --task go2w --go2w_profile transfer_v3; omit --resume (fresh optimizer/counter)")
     for flag in ("reference_config", "sagittal_stance_weight", "event_quality_profile", "transfer_armature",
@@ -145,7 +147,7 @@ def prepare_sensor_smooth(env_cfg, train_cfg, args):
         parent_env, parent_train, checkpoint = task_registry.resolve_replay(selection)
         if parent_env.go2w_profile != "transfer_v3":
             raise ValueError("Sensor refinement requires a saved transfer_v3 parent")
-        if not phase_route and getattr(parent_env, "go2w_finetune", None):
+        if not restore_route and getattr(parent_env, "go2w_finetune", None):
             raise ValueError("sensor_smooth starts from an unrefined saved transfer_v3 parent")
         if phase_route and getattr(parent_env, "phase_observation_mode", "unconditional") != "unconditional":
             raise ValueError("Phase refinement changes the unconditional observation contract once")
@@ -162,7 +164,7 @@ def prepare_sensor_smooth(env_cfg, train_cfg, args):
         if cfg is not None and getattr(cfg, "go2w_finetune", None) != name:
             update_class_from_dict(cfg, copy.deepcopy(parent[key]))
             cfg.go2w_finetune = name
-    if env_cfg is not None and not phase_route:
+    if env_cfg is not None and not restore_route:
         env_cfg.sensor_smooth = {"hip_weight": 3., "long_hold_probability": .04,
             "extended_hold_probability": .015, "long_hold_s": [8., 15.], "extended_hold_s": [20., 30.]}
         env_cfg.env.episode_length_s = 60.
@@ -171,8 +173,11 @@ def prepare_sensor_smooth(env_cfg, train_cfg, args):
         env_cfg.rewards.scales.ang_vel_xy = -.075
         env_cfg.refinement_parent = {"checkpoint": parent["checkpoint"], "iteration": parent["iteration"],
                                      "prior_updates": parent["iteration"] + 1}
-    if env_cfg is not None and phase_route:
-        env_cfg.phase_observation_mode = "command_demand"
+    if env_cfg is not None and restore_route:
+        if phase_route:
+            env_cfg.phase_observation_mode = "command_demand"
+        if exposure_route:
+            env_cfg.commands.pure_lateral_magnitude_range = [.02, .3]
         previous = copy.deepcopy(parent["env_cfg"].get("refinement_parent"))
         env_cfg.refinement_parent = {"checkpoint": parent["checkpoint"], "iteration": parent["iteration"],
             "parent_local_updates": parent["iteration"] + 1,
@@ -184,9 +189,9 @@ def prepare_sensor_smooth(env_cfg, train_cfg, args):
         train_cfg.runner.checkpoint_load_cfg = {"actor": True, "critic": True, "optimizer": False, "iteration": False}
         train_cfg.runner.experiment_name = f"go2w_transfer_v3_{name}"
         train_cfg.runner.run_name = f"{name}_from{parent['iteration']}_seed1"
-        train_cfg.runner.max_iterations = 200 if phase_route else 300
+        train_cfg.runner.max_iterations = 150 if exposure_route else 200 if phase_route else 300
         train_cfg.runner.save_interval = 50
-        if not phase_route:
+        if not restore_route:
             train_cfg.algorithm.learning_rate = 5e-5
             train_cfg.algorithm.schedule = "fixed"
 
@@ -660,7 +665,7 @@ class GO2WCfgPPO(GO2CfgPPO):
 
 def add_arguments(parser):
     parameters = [
-        {"name": "--go2w_finetune", "choices": ["coverage", "coverage_mobility", "precision_clearance", "sensor_smooth", "sensor_phase_conditioned"], "default": None, "help": "Sensor refinements selectively load explicit saved V3 models/normalizers/std with fresh optimizer/counter; legacy choices require step_recovery_v1 resume"},
+        {"name": "--go2w_finetune", "choices": ["coverage", "coverage_mobility", "precision_clearance", "sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral"], "default": None, "help": "V3 refinements selectively load explicit saved models/normalizers/std with fresh optimizer/counter; legacy choices require step_recovery_v1 resume"},
         {"name": "--go2w_profile", "choices": ["step_recovery_v1", "event_step_v1", "transfer_v1", "transfer_v2", "transfer_v3"], "default": None, "help": "Opt-in training recipe; replay restores the saved profile automatically"},
         {"name": "--sagittal_stance_weight", "type": float, "default": None, "help": "Explicit event_step_v1 stance weight; full-demand weight stays 0.12; select the saved value for evaluation/play"},
         {"name": "--event_quality_profile", "choices": ["sufficient_clearance"], "default": None, "help": "Opt-in event quality and payment; select the saved choice for evaluation/play"},
@@ -673,6 +678,8 @@ def add_arguments(parser):
         {"name": "--eval_mode", "choices": ["nominal", "bank", "equilibrium", "sustained", "closed_loop", "precision_screen", "precision_dr", "transfer_screen", "sensor_sustained"], "default": "nominal"},
         {"name": "--eval_phase_offset", "type": float, "default": 0., "help": "sensor_sustained only: initial phase offset in cycles [0,1); phase still advances normally"},
         {"name": "--eval_rolling_phase_zero", "action": "store_true", "help": "Isolated sensor_sustained diagnostic: zero raw phase only at zero step demand; stand/forward plus roll-lateral-roll transition; latent clock and rewards unchanged"},
+        {"name": "--eval_phase_transition", "action": "store_true", "help": "sensor_sustained only: one bounded roll/partial-step/roll/stop case, using the saved phase encoding"},
+        {"name": "--eval_noise_pushes", "action": "store_true", "help": "precision_dr only: add the saved observation noise and push settings to the existing eight-condition check"},
         {"name": "--transfer_armature", "choices": ["nominal", "low", "high"], "default": None, "help": "Transfer inference-only explicit motor armature: .01/.005/.02 kg m^2"},
         {"name": "--transfer_delay", "type": int, "choices": [0, 1, 2], "default": None, "help": "Transfer inference-only held action delay in policy steps"},
         {"name": "--transfer_cases", "nargs": "+", "choices": ["stand", "forward", "reverse", "yaw_positive", "yaw_negative", "lateral_positive", "lateral_negative", "mixed", *TRANSFER_V2_REVIEW_COMMANDS], "help": "transfer_screen or sensor_sustained subset; unset runs its complete panel"},
@@ -692,7 +699,7 @@ def configure(env_cfg, cfg_train, args):
                     if explicit is not None and explicit != getattr(cfg, key, None):
                         raise ValueError(f"Explicit --{key}={explicit!r} conflicts with saved {getattr(cfg, key, None)!r}")
         return  # Saved rewards/commands remain authoritative for replay.
-    if getattr(args, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned"):
+    if getattr(args, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral"):
         prepare_sensor_smooth(env_cfg, cfg_train, args)
         return
     profile = getattr(args, "go2w_profile", None)
@@ -750,7 +757,7 @@ def validate_fresh_transfer(args, train_cfg):
     """Training-only guard, before any simulator/runner or checkpoint construction."""
     if getattr(train_cfg, "go2w_profile", None) not in ("transfer_v1", "transfer_v2", "transfer_v3"):
         return
-    if getattr(train_cfg, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned"):
+    if getattr(train_cfg, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral"):
         expected = {"actor": True, "critic": True, "optimizer": False, "iteration": False}
         if (train_cfg.go2w_profile != "transfer_v3" or args.resume or not train_cfg.runner.resume
                 or train_cfg.runner.checkpoint_load_cfg != expected or not getattr(args, "sensor_parent", None)):
@@ -768,8 +775,8 @@ def validate_fresh_transfer(args, train_cfg):
 
 def validate_training(args, env_cfg, train_cfg):
     validate_fresh_transfer(args, train_cfg)
-    if getattr(args, "eval_rolling_phase_zero", False):
-        raise ValueError("Rolling phase observation override is inference diagnostics only")
+    if any(getattr(args, flag, False) for flag in ("eval_rolling_phase_zero", "eval_phase_transition", "eval_noise_pushes")):
+        raise ValueError("Evaluation diagnostics are inference only")
     if getattr(args, "zero_command_brake", False):
         raise ValueError("Zero-command braking is inference-only")
     for key in ("go2w_finetune", "sagittal_stance_weight", "event_quality_profile"):

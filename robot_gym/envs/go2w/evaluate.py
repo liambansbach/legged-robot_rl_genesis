@@ -349,6 +349,12 @@ def evaluate(args):
     rolling_phase_zero = getattr(args, "eval_rolling_phase_zero", False)
     if rolling_phase_zero and (args.eval_mode != "sensor_sustained" or phase_offset or args.transfer_cases):
         raise ValueError("Rolling phase diagnostic requires sensor_sustained, default phase, and its bounded case set")
+    phase_transition = getattr(args, "eval_phase_transition", False)
+    if phase_transition and (args.eval_mode != "sensor_sustained" or rolling_phase_zero or args.transfer_cases):
+        raise ValueError("Phase transition requires sensor_sustained and its bounded case set")
+    noise_pushes = getattr(args, "eval_noise_pushes", False)
+    if noise_pushes and args.eval_mode != "precision_dr":
+        raise ValueError("Saved noise/push stress settings require precision_dr")
     cfg, train_cfg, checkpoint = task_registry.resolve_replay(args)
     out = Path(args.output)
     if out.exists() and any(out.iterdir()):
@@ -364,6 +370,9 @@ def evaluate(args):
     cfg.env.capture_transitions = True
     from robot_gym.utils.replay import configure_nominal
     configure_nominal(cfg, args)
+    if noise_pushes:
+        cfg.noise.add_noise = original_cfg["noise"]["add_noise"]
+        cfg.domain_rand.push_robots = original_cfg["domain_rand"]["push_robots"]
     if args.eval_mode in ("precision_screen", "precision_dr", "transfer_screen", "sensor_sustained"):
         if args.eval_mode == "transfer_screen" and getattr(cfg, "go2w_profile", None) not in ("transfer_v1", "transfer_v2", "transfer_v3"):
             raise ValueError("transfer_screen requires a saved transfer recipe")
@@ -386,7 +395,8 @@ def evaluate(args):
         schedule = (sensor_schedule() if args.eval_mode == "sensor_sustained" else transfer_schedule(cfg.go2w_profile) if args.eval_mode == "transfer_screen"
                     else precision_schedule(args.eval_mode == "precision_dr", uses_event_steps(cfg)))
         print("Isolated rolling phase diagnostic; bounded schedule will be recorded in metrics.json"
-              if rolling_phase_zero else "Direct schedule: " + json.dumps(schedule), flush=True)
+              if rolling_phase_zero else "Saved-encoding phase transition; bounded schedule will be recorded in metrics.json"
+              if phase_transition else "Direct schedule: " + json.dumps(schedule), flush=True)
     elif args.eval_mode == "closed_loop":
         if cfg.env.num_envs != 1 or args.seed != 1 or args.zero_command_brake:
             raise ValueError("Closed-loop evaluation requires one environment, explicit seed 1 and no brake")
@@ -447,7 +457,7 @@ def evaluate(args):
                                           case_names=getattr(args, "transfer_cases", None),
                                           sensor=args.eval_mode == "sensor_sustained",
                                           high_rate=args.diagnostic_trace, phase_offset=phase_offset,
-                                          rolling_phase_zero=rolling_phase_zero))
+                                          rolling_phase_zero=rolling_phase_zero, phase_transition=phase_transition))
         shutdown = perf_counter()
         gs.destroy()
         report["wall_clock_s"].update(startup=startup, shutdown=perf_counter() - shutdown,

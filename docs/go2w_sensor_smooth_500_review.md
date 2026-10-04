@@ -1,4 +1,8 @@
-# Sensor smoothing: verified 500-update review
+# Go2-W sensor refinement reviews
+
+Current decision (2026-10-04): **keep phase-conditioned model_199.pt as an intermediate** and prepare one partial-lateral exposure change. See [the current 200-update review](#phase-conditioned-policy-actual-200-update-review-2026-10-04); the 500-update selection/commands below are historical.
+
+## Sensor smoothing: verified 500-update review
 
 Retain **model_499.pt as the sensor-motion development parent** and prepare one 200-update phase-observation refinement. The final model materially improves rigid-body sensor motion while preserving both directions of lateral/yaw stepping. It does not improve all physical qualities: front splay and hip RMS increased, fast-forward stopping worsened, and some yaw errors/contact peaks increased. Do not qualify this result for deployment or IsaacLab transfer yet. Midpoint 250 offers narrower hips and better moderate-forward tracking/stopping, but final 499 has the strongest sensor improvement and retained clearance cycles.
 
@@ -64,7 +68,7 @@ Actual left-imager/radar **world-z velocity RMS**, m/s, not optical-axis or acce
 | mixed | 0.08108/0.07735 | 0.05270/0.05201 | 0.04285/0.04384 | 0.0929/0.0637/0.0678 |
 
 
-Final fast-forward imager RMS improves ~63% (.02159 to .00796), with faster travel (.464 to .478 for .5 command); stand improves ~32%, forward .2 ~41%, yaw +/- ~57%/~54%, mixed ~47%. Strong positive lateral is nearly flat at 200 Hz (.06234 to .06195), rather than a convincing smoothness gain. The previous 15% target is descriptive. Hip RMS and stopping targets are missed. Fast-stop endpoint displacement .0316/.0890/.1150 m and final 2 s planar RMS .00864/.00896/.01054 m/s worsen. Strong-yaw+ RMSE .0339/.0390/.0455 increases despite mean yaw being close to .8. Nominal yaw+/-.4 and lateral+/-.1 stepping remain, as do reverse and mixed locomotion; all 14 nominal cases completed.
+Final fast-forward imager RMS improves ~63% (.02159 to .00796), with faster travel (.464 to .478 for .5 command); stand improves ~32%, forward .2 ~41%, yaw +/- ~57%/~54%, mixed ~47%. Strong positive lateral is nearly flat at 200 Hz (.06234 to .06195), rather than a convincing smoothness gain. The previous 15% target is descriptive. Hip RMS and stopping targets are missed. Fast-stop endpoint displacement .0316/.0890/.1150 m and final 2 s planar RMS .00864/.00896/.01054 m/s worsen. Strong-yaw+ RMSE .0339/.0390/.0455 increases despite mean yaw being close to .8. Nominal yaw+/-.4 and lateral+/-.1 stepping remain, as do reverse and mixed locomotion; all 13 nominal cases completed.
 
 | Command | Parent >=2 cm FL/FR/RL/RR | +251 | +500 |
 |---|---|---|---|
@@ -136,3 +140,196 @@ For a later separately authorized receiving simulator, match 16 joint order and 
 Maintenance commit `f2498a8` moves 30 reward methods into one final `# Reward functions` block, active V3 first and legacy compactly labeled. Lifecycle, observations, resets, commands, termination, helpers and `compute_reward` stay above it. A one-off AST comparison found 66 method bodies/decorators unchanged, no duplicates or reward decorator dependencies. No permanent hash gate or old simulation campaign was added.
 
 The separate diagnostics/recipe change adds fixed-schedule KL observation, the bounded inference override and opt-in saved phase encoding/selective refined-parent loading. Forty-six focused tests pass (sensor smoothing, V3, symmetry, contract and event refactor); no optimizer-running tests or new learning smoke were used. Native no-update loading/parity/shape/finite-observation checks pass. The broader `SagittalContinuationCPU.test_only_declared_continuation_difference` and `SufficientClearanceCPU.test_selector_and_contract` assertions encountered saved-config omissions (armature/inertia/capture fields); they are outside these changes and were not replaced by invented successful results. All trained artifacts and original evaluations were preserved. Work stays on `testing`; no packages upgraded, training started, optimizer updates executed or changes pushed.
+
+## Phase-conditioned policy: actual 200-update review (2026-10-04)
+
+**Keep checkpoint 199 as an intermediate navigation candidate.** It is the strongest new screen result and substantially quiets late rolling, but small lateral transitions lose physical lifts and fast stopping still trails original V3. Prepare one exposure change: pure lateral magnitude [.10,.30] -> [.02,.30] m/s, both signs. Defer freezing for diagnostic Sim2Sim until this deficit is reviewed. Keep original V3/1499 as the tracking/stopping fallback and retain sensor/250 and sensor/499.
+
+The exact run is `logs/go2w_transfer_v3_sensor_phase_conditioned/sensor_phase_conditioned_from499_seed1_2026-10-04_16-11-11`. Its saved files are `model_0.pt`, `model_50.pt`, `model_100.pt`, `model_150.pt`, **`model_199.pt`**. Checkpoint labels 0-199 mean **200 completed local updates**, not 500; no model_200 exists. Adam steps reach 8,000; actor/critic normalizer counts reach 576,716,800. The saved preparation and TensorBoard tail agree. All 200 diagnostic rows exist; TensorBoard scalar rows 72 and 158 are missing, with diagnostics present at both. Checkpoint `infos=None` is unavailable metadata, not a missing update.
+
+The explicit parent is `logs/go2w_transfer_v3_sensor_smooth/sensor_smooth_from1499_seed1_2026-10-04_10-42-42/model_499.pt`; its parent is `logs/go2w_transfer_v3/transfer_v3_seed1_2026-10-03_16-18-34/model_1499.pt`. Cumulative lineage is 2,200 updates. Native initialization retained actor, critic, normalizers and learned std; optimizer/local counter reset. The sole recipe change from sensor/499 was unconditional -> command_demand clock observations. Rewards, command sampling, 60 s episodes, gains, armature/delay/physics, action contract, randomization, networks and fixed LR 5e-5 match the saved sensor parent. No unexpected differences were found. Each reference was replayed with its own unconditional semantics.
+
+Evidence: `evaluation/sensor_phase_200_review/comparison.json`, `training.json`, `matching.json`, `sensor_frames.json`, individual `*_analysis.json`, native manifests/metrics and retained NPZ traces. The JSON indexes reused reference directories and all newly created outputs; no old output was overwritten. Analysis scripts in this ignored evaluation directory are one-off postprocessing, not a new evaluator.
+
+### Learning interpretation
+
+The real logger starts return/length and reward accumulators without a preceding full episode while `init_at_random_ep_len=True` randomizes initial episode lengths. Terms divide by full 60 s duration. Thus 60/.02/64 = **46.875 updates** explains a strongly consistent startup ramp: update 0 return/length 1.648/31.10 ticks, 46 159.351/2,970.55, 47 160.961/2,999.79; first-to-47 timestamps span about 214 s. Optimization also occurs then, so accounting is not the exclusive explanation. Mean reward is episode return; 160/60 s cannot be compared directly with 54/20 s.
+
+Yaw remains `.8 * (1 - Huber(yaw_error/.35))`, with .8 ceiling, quadratic inner and linear outer error cost. It is not the legacy Gaussian. Tracking scales (.25/.15/.35), learned policy std and uniform observation noise are different quantities. The ~.765 yaw contribution does not justify tightening the yaw scale.
+
+| Steady window | Rows | Mean return | Measured KL mean/p95 | PPO ratio clip | Value loss | Transitions/s |
+|---|---:|---:|---:|---:|---:|---:|
+| 60-99 | 40 | 160.941 | 0.00372/0.00507 | 0.0977 | 0.0006813 | 57237 |
+| 100-149 | 50 | 160.895 | 0.00369/0.00500 | 0.0967 | 0.0006909 | 57166 |
+| 150-199 | 50 | 160.926 | 0.00375/0.00508 | 0.0988 | 0.0006989 | 59562 |
+
+These are observed diagnostic KL values from old/current tensors in the existing minibatch pass, using the original sample prefix before symmetry augmentation. There is no extra stochastic actor call, optimizer/scheduler change or PPO fork. Installed RSL-RL 5.5.1 calls native scheduler KL only when schedule is adaptive; scheduler arrays here are empty, not zero. Historical sensor/499 KL remains unavailable. desired_kl=.01 is not a hard trust-region bound.
+
+Final-window sampled clipping FL/FR/RL/RR (hip/thigh/calf/wheel) is [.0049,.0478,.0323,.0864] / [.0048,.0476,.0318,.0861] / [.0098,.0039,.1613,.00009] / [.0097,.0039,.1617,.00009]. Many hip/calf/rear-thigh std parameters occupy the .1 floor 76-100% of updates; front thighs/wheels do not. Final checkpoint std is approximately [.1,.115,.1,.138] front and [.1,.1,.1,.125] rear. Full per-joint clipping, deterministic saturation, scaled-target slew, floor occupancy and signed raw/weighted rates are saved in training.json; floor occupancy does not establish optimizer failure.
+
+| Signed weighted rate | 60-99 | 100-149 | 150-199 |
+|---|---:|---:|---:|
+| sensor_vertical_velocity | -0.00485 | -0.00476 | -0.00481 |
+| ang_vel_xy | -0.01140 | -0.01130 | -0.01136 |
+| rolling_pose | -0.00326 | -0.00321 | -0.00335 |
+| phase_clearance | -0.00749 | -0.00755 | -0.00730 |
+| phase_support | -0.00588 | -0.00591 | -0.00586 |
+| tracking_yaw | 0.76428 | 0.76454 | 0.76441 |
+
+Final actual time exposure: stand 0.173, straight 0.166, arc 0.057, yaw 0.230, precision 0.053, lateral 0.229, mixed 0.093; selected long/extended holds 0.083/0.056. These are time fractions, not draw probabilities. Historical transition counts and conditioned partial-demand exposure were not logged and remain unavailable.
+
+### Bounded physical comparison
+
+New checkpoints 50 (51 updates), 150 (151) and 199 (200) each completed the existing 13-case transfer_screen. Only strongest 199 received the eight-case sustained panel. Both references reused raw nominal/sustained results after matching resolved physical/noise/DR settings, seed, actual commands, latent phases and sampling. The intentional actor phase-mode difference is preserved. Nominal stand is 10 s; moving schedule is 3 s zero +5 s command +6 s stop. Sustained stand is 30 s; moving schedule is 3+30+8 s. One additional 41 s transition case was run for both references and 199, with no observation override. No new seed campaign.
+
+| New checkpoint | Fast stop endpoint/path (6 s), m | +.4 yaw stop endpoint, m | -.4 yaw stop endpoint, m |
+|---|---:|---:|---:|
+| ck50 | 0.0279/0.0852 | 0.0959 | 0.1389 |
+| ck150 | 0.0672/0.1208 | 0.0466 | 0.0402 |
+| ck199 | 0.0106/0.0645 | 0.0257 | 0.0145 |
+
+Endpoint cancellation can hide motion; path length is retained. One 5-versus-6 >=2 cm wheel count on the short strong-yaw- screen is a threshold/boundary observation, not deleted gait: the full sustained test retains 37 >=2 cm cycles per limb.
+
+Full-command results below use body vx/vy and body yaw rate; all-axis means/RMSE expose cross-axis motion. Original/sensor means and RMSE remain in the preceding historical tables and current JSON. New full-window values:
+
+| Command | 199 mean vx/vy/yaw | 199 RMSE vx/vy/yaw |
+|---|---:|---:|
+| stand | -0.0068/0.0000/0.0001 | 0.0090/0.0000/0.0003 |
+| forward | 0.1858/0.0000/0.0000 | 0.0158/0.0000/0.0002 |
+| forward_fast | 0.4786/0.0000/0.0000 | 0.0266/0.0001/0.0004 |
+| lateral_strong_positive | 0.0073/0.2969/0.0069 | 0.0165/0.0173/0.0459 |
+| lateral_strong_negative | 0.0088/-0.2967/-0.0083 | 0.0170/0.0173/0.0470 |
+| yaw_strong_positive | 0.0049/0.0018/0.7916 | 0.0111/0.0088/0.0418 |
+| yaw_strong_negative | 0.0070/-0.0008/-0.7884 | 0.0121/0.0086/0.0414 |
+| mixed | 0.2025/0.0961/0.2953 | 0.0109/0.0089/0.0385 |
+
+| Command | Imager vz RMS original/sensor/199, m/s | Stop endpoint original/sensor/199, m | 199 stop path, m | 199 settling, s |
+|---|---:|---:|---:|---:|
+| stand | 0.01663/0.01126/0.00963 | n/a | n/a | n/a |
+| forward | 0.01147/0.00675/0.00228 | 0.0515/0.0686/0.0150 | 0.0150 | 0.18 |
+| forward_fast | 0.02159/0.00796/0.00765 | 0.0316/0.1150/0.0759 | 0.0760 | 0.22 |
+| lateral_strong_positive | 0.06119/0.05908/0.05016 | 0.0433/0.0260/0.0777 | 0.0954 | 0.96 |
+| lateral_strong_negative | 0.05584/0.04937/0.04419 | 0.0712/0.0501/0.0395 | 0.0503 | 1.76 |
+| yaw_strong_positive | 0.07322/0.03126/0.02465 | 0.0628/0.0654/0.0100 | 0.0166 | 0.22 |
+| yaw_strong_negative | 0.07368/0.03365/0.02470 | 0.0796/0.0501/0.0209 | 0.0633 | 0.44 |
+| mixed | 0.08108/0.04285/0.03394 | 0.0929/0.0678/0.0233 | 0.0427 | 0.8 |
+
+Settling is the first stop time after which planar speed stays <=.02 m/s and |yaw rate| <=.03 rad/s for the entire remainder, with at least 1 s remaining. It can coexist with displacement; it is not a certified stopping threshold. Immediate 0-.2 s response, first-second camera motion, early 1-5 s, middle 10-20 s, late 20-30 s and final 2 s RMS/displacement are separate in the JSON. Fast-stop final XY/yaw RMS for 199 is .00384 m/s/.00231 rad/s. Historical original fast endpoint .0316 and sensor .1150 m are protocol comparisons, not universal stopping distances.
+
+199 improves most stops against sensor/499, but positive-lateral endpoint worsens .0260 -> .0777 m, fast stop still exceeds original .0316 -> .0759 m, and mixed yaw RMSE worsens .0312 -> .0385 rad/s (original .0226). Stand startup drift worsens: 30 s endpoint .0479/.0960/.2042 m for original/sensor/199; its late motion settles, so this is not steady rolling oscillation. An existing original fast-stop quarter-cycle trace gives .0337 m versus .0316 at default phase; no extra phase bank was needed for the clear partial-lateral deficit. Fast mean vx .4786 versus sensor .4781 and original .4638 shows that smoothness was not bought by slower fast travel. No falls, resets, nonfinite states or non-wheel contacts occurred in these nominal panels; no terminal failure state exists to report. Native recording retains terminal rows if failures occur and never splices restarted holds.
+
+Full-demand lateral +/- .3 and yaw +/- .8 retain 37 >=2 cm cycles per wheel over 30 s, with additional shallow unload/reload events kept separate. The unchanged event definition uses 6/10 N hysteresis, 2 mm geometric lift, separate >=2 cm counts and censored boundaries. Positive-lateral physical peak cylinder clearances are .0339/.0362/.0367/.0288 m; completed-cycle medians include shallow unloads (.0315/.0358/.0334/.0231 m). Per-wheel duty, p95/peak loads, body-frame repositioning and clearance distributions remain in JSON. At 200 Hz, fast movement peak wheel load is 109.8 N versus sensor 122.6 N; Positive-lateral 200 Hz peak is 528.7 N (original 499.7, sensor 542.1), rather than the aliased 50 Hz peak 358.4 N. Deterministic action clipping reaches ~48% on a stepping joint; issued targets are bounded and readback effort-limit occupancy is zero at policy rate. This is not a hardware actuator assessment.
+
+Front splay remains systematic: fast full front/rear widths .445/.392 original, .497/.387 sensor, .491/.380 m new; late new width .515/.380, front hips +.201/-.201 rad. Late front widening is 7.70 mm between the first/last one-second means within 20-30 s. Pair midpoints are only .051/.066 mm from center, with .030/-.005 mm late drift: this is symmetric front splay, not major left/right displacement. New mean base height .40848 m and roll/pitch -.00021/-.01709 rad stay bounded in this test. Width improvement is slight, not a solved posture problem, and small stable width changes alone are not a safety failure.
+
+### Partial-demand transitions determine the next action
+
+The sole added schedule is 3 s zero, 5 s vx .5, 3 s vy +.03, 4 s vy +.1, 4 s vx .5, 3 s yaw +.175, 4 s yaw -.175, 3 s vy -.03, 4 s vx .2, 8 s zero. Clock and saved encoding remain native. Selected partial lateral demand is .5.
+
+| Transition | Original mean active axis; 2 mm cycles FL/FR/RL/RR | Sensor parent | 199 |
+|---|---:|---:|---:|
+| vy +.03 | 0.0254; 1/3/3/1 | 0.0256; 1/2/1/1 | 0.0181; 0/0/0/0 |
+| vy -.03 | -0.0310; 2/2/1/2 | -0.0319; 2/2/2/2 | -0.0127; 0/0/0/0 |
+| yaw +.175 | 0.1807; 3/3/4/2 | 0.1716; 3/4/4/3 | 0.1668; 2/0/0/3 |
+| yaw -.175 | -0.1830; 4/5/4/4 | -0.1684; 5/5/5/5 | -0.1680; 0/4/4/0 |
+
+199 partial-lateral cylinder peaks are only .18-1.54 mm across the two signs, below the 2 mm event lift criterion; this is not merely a 2 cm threshold loss. Full-demand +.1 still averages .0950 m/s and yields 4/5/5/4 >=2 cm cycles. Partial yaw tracks .1668/-.1680 versus +/-.175 requested, but lifts are distributed unevenly and all are below 2 cm. Roll-after-step cross motion and each transition camera window are retained in the JSON. These checks support a partial-demand deficiency associated with the changed clock contract and sparse matching exposure; they do not prove encoding is its sole cause.
+
+Saved pure-lateral sampling is [.10,.30], so pure lateral [.02,.05] is missing even though mixed/precision contexts can contain partial demand. One targeted exposure change retains both signs, full-demand commands and existing mixture/duration/long-hold logic. The interval [.02,.05] will occupy about 10.7% of uniformly drawn pure-lateral magnitudes, not 10.7% of all training time. No hidden brake, action override, step-objective removal or hip lock is introduced. Legacy stand_still is inactive (coefficient zero); V3 already tracks zero vx/vy/yaw with its active Huber terms. Zero-command time exposure is ~17.3%, but actual command-to-zero transition counts were not recorded. Stopping and splay remain review metrics, not additional simultaneous training changes.
+
+### Camera reference, sampling and robustness
+
+The measured URDF fixed transforms from authored base_link use meters and x forward/y left/z up. front_realsense (left depth-origin proxy) is [.33881,.0475,.111], front_realsense_body (rear-face center) [.31736,0,.111], both identity rotation. Radar is [.28945,0,-.046825], rotation rows [-.96551223,0,.26035769], [0,1,0], [-.26035769,0,-.96551223]. Exact fixed-joint chains/matrices are saved in sensor_frames.json. Point world position is p_base+R_base*r and velocity R_base*(v_body+omega_body cross r), transporting the authored-origin velocity once. Vertical means world-up z, not sensor optical axis. Angular velocity is common to rigid frames; JSON records both body-frame axes and R_base*omega_body in common world axes. Base quaternion uses wxyz; reported roll/pitch use extrinsic xyz.
+
+The active sensor reward still measures the left imager and its virtual sagittal mirror. Adding rear-face diagnostics does not alter it, fixed-link merging, masses, geometry, constraints or actor observations. Roll/pitch-rate -.075 and gravity-orientation -4 already price angular motion. A quiet rear-face point cannot establish rotation stability. Fast rear-face full RMS is .00750 m/s; late .0000679 (200 Hz .0000647); corresponding late imager .0000703 (200 Hz .0000671), versus sensor-parent imager ~.00401 at 200 Hz. Late rear-face mean height .52480 m, endpoint change -.539 mm, trend -.05395 mm/s and detrended height RMS .0163 mm describe overlapping properties separately and are not added. Late world angular RMS [.0000073,.000122,.0000848] rad/s confirms quiet axes in this particular roll window. Full-command transient motion remains. Rigid-body motion is not measured image quality, vibration or Sim2Sim performance.
+
+Existing substep capture supplies 200 Hz (.005 s) on fast forward and positive lateral; other traces are 50 Hz (.02 s). The eight-condition existing precision_dr check ran 26 s per condition with saved uniform noise and 20-50 N, .1-.2 s pushes every 3-6 s, no torque. Conditions: nominal; friction .6/+90-degree heading; friction 1.2/-90; added base mass 1.5 kg/COM x+.015 m; gains .85; gains 1.15; delays1/2 policy ticks. All eight completed without falls/resets/non-wheel contacts/nonfinite state. Actual push peaks 33.8-48.0 N and active exposure .56-.92 s per condition were recorded. Policy-rate contact maximum reached 668.5 N in delay2, so no blanket robustness claim. The mass corner holds inertia nominal; training instead scales base inertia with mass. Armature stays .01 here. This fixed bank is not an IID test or a sweep of combined extremes. Increasing pushes is deferred: no measured failure currently supports combining that change with the partial-command repair.
+
+### Transfer-relevant contract
+
+Actor/critic 58, actions 16. Joint/action order is FL,FR,RL,RR, each hip/thigh/calf/foot_joint. Observation order: body linear velocity 3, body angular 3, projected gravity 3, command 3, leg q-qref 12, all joint dq 16, previous issued clipped action 16, clock 2. Physical observation scales are 1 and raw clipping 100; the saved empirical normalizer is inside the actor and must be carried once. Previous issued action precedes delay, so it differs from applied action during delayed steps. Simulator linear velocity is authored base-link-origin velocity rotated to body coordinates, not COM velocity; a later estimator must supply that origin/frame/timing. No estimator or camera input was added.
+
+Per-limb reference is hip 0/thigh .7/calf -1.4/wheel 0. P legs Kp 40/Kd 1, V wheels Kp 0/Kd 1, action scales .3/.35/.4/18, clip +/-1, wheel target cap20 rad/s. Policy .02/physics .005 s, decimation 4, one substep, implicitfast; nominal armature .01 kg m2 and passive stiffness/damping/frictionloss zero. Clock period .8 s, stance.65, apex.04 m, offsets FL0/FR.5/RL.5/RR0. Latent p always advances after action/physics/reward at the old p. Training reset p uniform; deterministic replay reset 0 then one zero tick yields initial p=.025. A getter or command assignment does not advance p.
+
+Selected mode is command_demand: clock=d*[sin(2*pi*p),cos(2*pi*p)], d=smoothstep(max(clamp((|vy|-.01)/.04),clamp((|yaw|-.10)/.15))). Multiplication occurs before the saved normalizer; zero raw clock becomes approximately [+4.18e-6,-5.11e-6] normalized. Reflection p->p+.5 negates clock, demand is sign invariant. Original1499/sensor499 retain unconditional mode. A receiver must check **58 versus legacy56**, saved mode, exact input order/scales, embedded normalization, frame/origin, issued-action history, phase reset/boundary timing, command signs, joint order, reference/limits and P-leg/V-wheel gains/armature before a separately authorized diagnostic transfer. This is not hardware-ready.
+
+Active saved training DR: base added mass -.5..1.5 kg with proportional base inertia scaling; COM each axis +/-.015 m; wheel friction ratios .6..1.2 with effective max-rule contact combination (ground .1/wheel1 geometry); gains .85..1.15; symmetric leg/wheel armature groups .005..02 sampled at construction, held across resets; delay 0..2 ticks; pushes/noise as above. Uniform noise amplitudes: body linear .05, body angular .08, leg q .01, leg dq .2/wheel dq .5, gravity .02; commands/history/clock noiseless. Training preparation armature readback spans .005001..019994. Nominal and stress JSON readbacks include mass/inertia, COM, friction, gains, armature/passive terms and actual push force.
+
+The actual nominal URDF totals 19.68371 kg, merged base 7.08371 kg, COM [.0280210,-.000002483,-.0027885] m. Base 6.921 plus two .001 head links and camera base .01103/two flanges .00821/mount .01254/body .12072 are included; radar and IMU mass 0. No guessed payload mass was added. Runtime base mass 7.083710 matches; principal solver inertia diagonal [.121757,.114581,.026547] requires its frame transform before comparison with URDF tensors. Real payload/mount stiffness and unmodeled hardware remain assumptions.
+
+### One prepared exposure refinement and validation
+
+`navigation_partial_lateral` restores the explicitly selected full 199 training checkpoint and applies only commands.pure_lateral_magnitude_range [.10,.30] -> [.02,.30]. Keep phase encoding, all rewards, fixed LR 5e-5, learned std/normalizers, physics/gains/reference, resets, gamma/GAE, networks and pushes unchanged. It is selective initialization with a fresh optimizer/local counter, not true resume. Previous-generation lineage is retained. The new output is go2w_transfer_v3_navigation_partial_lateral, bounded initial budget 150, save every 50, review 50/100 and final 149. `evaluation/sensor_phase_200_review/next_partial_lateral_refinement/config.yaml` and preparation.json prove exact native retention, empty optimizer/counter 0 and unchanged observation contract. The earlier unrun stopping-cost draft is marked superseded and retained locally as design provenance; it is not a second proposal.
+
+The authorized execution smoke used 64 environments for **two local updates (80 Adam minibatch steps, 8,192 transitions)** in `logs/go2w_transfer_v3_navigation_partial_lateral_smoke/navigation_partial_lateral_from199_seed1_smoke_2026-10-04_19-14-13`, final model_1. All model tensors are finite; normalizer count 576,724,992 and LR 5e-5 confirm retained state then native updates. Value losses .000247/.000431; measured KL mean .0171/p95 .0241/max .0279 and PPO clipping .298 are higher in this small batch than the 4096-env training run, not silently reported as small or safe. No production run started and no efficacy claim follows from this smoke.
+
+Fifty focused tests passed: 49 sensor/V3/symmetry/contract/event-refactor/terminal-alignment checks and one shared replay check covering Dodo, Go2, Go2W. The broader exploratory event suite still encounters the two previously documented old continuation-fixture omissions (armature/inertia/capture and default phase fields); they were not rewritten or called successful. One new optional push-readback fixture compatibility error was fixed and its terminal-alignment test passes. Changes stay in Go2W; the owner play.py modification remains untouched. Prior behavior-preserving reward-organization commit f2498a8 remains separate. No packages upgraded, IsaacLab edits, artifact deletion or push occurred.
+
+PowerShell setup and executable commands reproducing the recorded inference runs (original CLI arguments are retained in each manifest; reruns require fresh output directories because existing outputs are protected):
+
+```powershell
+$env:NUMBA_CACHE_DIR = Join-Path (Get-Location) '.cache/numba'
+$env:GS_CACHE_FILE_PATH = Join-Path (Get-Location) '.cache/genesis'
+$env:QD_OFFLINE_CACHE_FILE_PATH = Join-Path (Get-Location) '.cache/quadrants'
+$env:PYTHONIOENCODING = 'utf-8'
+$py = 'C:/Users/Liamb/anaconda3/envs/genesis-gpu/python.exe'
+$phaseRun = 'logs/go2w_transfer_v3_sensor_phase_conditioned/sensor_phase_conditioned_from499_seed1_2026-10-04_16-11-11'
+$sensorRun = 'logs/go2w_transfer_v3_sensor_smooth/sensor_smooth_from1499_seed1_2026-10-04_10-42-42'
+$originalRun = 'logs/go2w_transfer_v3/transfer_v3_seed1_2026-10-03_16-18-34'
+foreach ($ck in @(50,150,199)) {
+    & $py -m robot_gym.scripts.evaluate --task go2w --load_run $phaseRun --checkpoint $ck --eval_mode transfer_screen --output "evaluation/sensor_phase_200_review/ck${ck}_nominal" --num_envs 1 --seed 1 --headless --rl_device cuda:0
+}
+& $py -m robot_gym.scripts.evaluate --task go2w --load_run $phaseRun --checkpoint 199 --eval_mode sensor_sustained --diagnostic_trace --output evaluation/sensor_phase_200_review/ck199_sustained --num_envs 1 --seed 1 --headless --rl_device cuda:0
+foreach ($item in @(@($originalRun,1499,"original_transition"),@($sensorRun,499,"sensor_transition"),@($phaseRun,199,"ck199_transition"))) {
+    & $py -m robot_gym.scripts.evaluate --task go2w --load_run $item[0] --checkpoint $item[1] --eval_mode sensor_sustained --eval_phase_transition --output "evaluation/sensor_phase_200_review/$($item[2])" --num_envs 1 --seed 1 --headless --rl_device cuda:0
+}
+& $py -m robot_gym.scripts.evaluate --task go2w --load_run $phaseRun --checkpoint 199 --eval_mode precision_dr --eval_noise_pushes --output evaluation/sensor_phase_200_review/ck199_robustness --num_envs 8 --seed 1 --headless --rl_device cuda:0
+```
+
+The following production command is **prepared, not run**. It needs separate learning authorization; the two-update smoke used this same command with experiment suffix _smoke, run suffix _smoke, num_envs64 and max_iterations2.
+
+```powershell
+& $py -m robot_gym.scripts.train --task go2w --go2w_profile transfer_v3 --go2w_finetune navigation_partial_lateral --load_run $phaseRun --checkpoint 199 --experiment_name go2w_transfer_v3_navigation_partial_lateral --run_name navigation_partial_lateral_from199_seed1 --num_envs 4096 --max_iterations 150 --seed 1 --logger tensorboard --training_diagnostics --rl_device cuda:0 --headless
+```
+
+After an authorized run, select its actual printed directory. This selector refuses ambiguity instead of choosing an unrelated latest run. Review checkpoint50 and final 149 with the same panels, especially partial lifts, stopping/path, full-demand steps and splay; model100 is also saved.
+
+```powershell
+$refinedRuns = @(Get-ChildItem -LiteralPath logs/go2w_transfer_v3_navigation_partial_lateral -Directory | Where-Object Name -Like 'navigation_partial_lateral_from199_seed1_*')
+if ($refinedRuns.Count -ne 1) { throw 'Select the exact directory printed by training.' }
+$refinedRun = $refinedRuns[0].FullName
+foreach ($ck in @(50,149)) {
+    & $py -m robot_gym.scripts.evaluate --task go2w --load_run $refinedRun --checkpoint $ck --eval_mode transfer_screen --output "evaluation/navigation_partial_lateral_ck${ck}_screen" --num_envs 1 --seed 1 --headless --rl_device cuda:0
+    & $py -m robot_gym.scripts.evaluate --task go2w --load_run $refinedRun --checkpoint $ck --eval_mode sensor_sustained --eval_phase_transition --output "evaluation/navigation_partial_lateral_ck${ck}_transition" --num_envs 1 --seed 1 --headless --rl_device cuda:0
+}
+& $py -m robot_gym.scripts.evaluate --task go2w --load_run $refinedRun --checkpoint 149 --eval_mode sensor_sustained --diagnostic_trace --output evaluation/navigation_partial_lateral_ck149_sustained --num_envs 1 --seed 1 --headless --rl_device cuda:0
+# Replay/export the retained, unmodified intermediate:
+& $py -m robot_gym.scripts.play --task go2w --load_run $phaseRun --checkpoint 199 --num_envs 1 --command_vx .5 --steps 2000 --episode_length_s 60 --rl_device cuda:0 --export
+```
+
+### Local storage cleanup dry-run
+
+`evaluation/sensor_phase_200_review/storage_manifest.json` contains exact keep/archive/delete-candidate paths and companion provenance paths for archive copies. Enumeration measured local file sizes without following descendant links, traversing external directories or hydrating Synology placeholders; 605 entries were skipped and excluded from savings. GetCompressedFileSizeW provides a local compressed-size estimate, alongside logical bytes; it is not a promise of NTFS free-space gain. Installed environment caches outside this repository were not measured.
+
+| Local artifact class | Files | MiB |
+|---|---:|---:|
+| small_provenance_results | 390 | 11.06 |
+| large_results_and_other | 174 | 70.15 |
+| generated_export | 52 | 13.98 |
+| events_and_diagnostics | 82 | 146.15 |
+| checkpoint | 251 | 1124.15 |
+| research_archive | 9 | 155.09 |
+| trace | 1121 | 494.24 |
+| cache | 962 | 124.61 |
+
+Measured scopes (MiB): logs/ 1278.79, evaluation/ 725.19, .cache/ 122.49, .ruff_cache 0.10, ressources 10.96; additional Python caches are listed individually. Generated exports are a separate protected artifact class in the manifest.
+
+| Exact manifest set | Files | Estimated local MiB | Action now |
+|---|---:|---:|---|
+| keep | 1980 | 1566.98 | Retain; dry-run only |
+| archive_candidates | 100 | 447.88 | Retain; dry-run only |
+| delete_candidates | 961 | 124.59 | Retain; dry-run only |
+
+Keep original 1499, sensor 250/499, all five phase-run checkpoints, every current comparison/fallback and smoke artifact, published bundles, documented historical labels, every run-final checkpoint, configurations/preparation/lineage, TensorBoard/diagnostics, reported results/raw traces and generated exports. The 100 explicit archive candidates are undocumented intermediates: copy with their listed provenance companions and verify externally before any separately reviewed local removal. Potential local reduction is447.88 MiB after such an archive; it is not a research-artifact deletion recommendation. Only 961 explicit compiler/Python-cache paths are delete candidates (~124.59 MiB), after all jobs stop and separate review. No generic age rule, git clean -fdx, directory-wide deletion or deletion command was used.
+
+No obsolete source-code deletion is supported. transfer_v3 still uses transfer_v1/event_step_v1 profile builders, legacy replay methods and their tests; names alone do not make them obsolete. A later cleanup must use a reviewed explicit file manifest, recheck attributes and repository containment, and preserve cloud placeholders. This task deleted nothing.

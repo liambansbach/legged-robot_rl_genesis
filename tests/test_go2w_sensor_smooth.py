@@ -37,6 +37,50 @@ def sampler(cfg, n=4096):
 
 
 class SensorMotion(unittest.TestCase):
+    def test_partial_lateral_recipe_retains_phase_parent_and_only_changes_exposure(self):
+        parent, training = task_registry.get_cfgs('go2w')
+        apply_go2w_profile(parent, training, 'transfer_v3')
+        parent.go2w_finetune = training.go2w_finetune = 'sensor_phase_conditioned'
+        parent.phase_observation_mode = 'command_demand'
+        parent.sensor_smooth = {'hip_weight':3.,'long_hold_probability':.04,'extended_hold_probability':.015,
+                               'long_hold_s':[8.,15.],'extended_hold_s':[20.,30.]}
+        parent.refinement_parent = {'checkpoint':'sensor.pt','iteration':499,'prior_updates':2000}
+        training.algorithm.learning_rate, training.algorithm.schedule = 5e-5, 'fixed'
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)
+            (path/'config.yaml').write_text(yaml.safe_dump({'task':'go2w','env_cfg':class_to_dict(parent),'train_cfg':class_to_dict(training)}))
+            torch.save({'iter':199},path/'model_199.pt')
+            with patch.object(sys,'argv',['train','--task','go2w','--go2w_profile','transfer_v3',
+                    '--go2w_finetune','navigation_partial_lateral','--load_run',str(path),'--checkpoint','199']): args=get_args()
+            cfg,train=task_registry.get_cfgs('go2w')
+            update_cfg_from_args(cfg,train,args)
+            before=class_to_dict(cfg)
+            update_cfg_from_args(cfg,train,args)
+            self.assertEqual(before,class_to_dict(cfg))
+            validate_training(args,cfg,train)
+            self.assertEqual(cfg.phase_observation_mode,'command_demand')
+            self.assertEqual(cfg.refinement_parent['prior_updates'],2200)
+            self.assertEqual(cfg.commands.pure_lateral_magnitude_range,[.02,.3])
+            for key in ('rewards','control','domain_rand','sim','init_state','noise','sensor_smooth','phase_guidance'):
+                self.assertEqual(json.loads(json.dumps(class_to_dict(getattr(cfg,key)))),json.loads(json.dumps(class_to_dict(getattr(parent,key)))))
+            for key,value in class_to_dict(parent.commands).items():
+                if key!='pure_lateral_magnitude_range': self.assertEqual(json.loads(json.dumps(class_to_dict(getattr(cfg.commands,key)))),json.loads(json.dumps(value)))
+            self.assertEqual(class_to_dict(train.algorithm),class_to_dict(training.algorithm))
+            self.assertEqual(train.runner.max_iterations,150)
+
+    def test_partial_lateral_sampling_keeps_both_signs_and_full_demand(self):
+        cfg,train=task_registry.get_cfgs('go2w')
+        apply_go2w_profile(cfg,train,'transfer_v3')
+        cfg.commands.pure_lateral_magnitude_range=[.02,.3]
+        env=sampler(cfg)
+        torch.manual_seed(7)
+        env._resample_commands(torch.arange(env.num_envs))
+        y=env.commands[env.diagnostic_command_families==5,1]
+        self.assertTrue(bool(((y.abs()>.01)&(y.abs()<.05)).any()))
+        self.assertTrue(bool((y<-.05).any()) and bool((y>.05).any()))
+        self.assertGreaterEqual(float(y.abs().min()),.02)
+        self.assertLessEqual(float(y.abs().max()),.3)
+
     def test_conditioned_clock_and_reflection_preserve_stepping(self):
         from robot_gym.envs.go2w.phase import clock_observation, demand
         phases = torch.tensor([.2,.3,.4,.5,.6])
@@ -137,6 +181,8 @@ class SensorMotion(unittest.TestCase):
     def test_authored_fixed_geometry(self):
         frames = fixed_sensor_frames(URDFReader(MEASURED_URDF).robot_file_path_absolute)
         np.testing.assert_allclose(frames["front_realsense"]["translation_m"], [.33881, .0475, .111], atol=1e-6)
+        np.testing.assert_allclose(frames["front_realsense_body"]["translation_m"], [.31736, 0., .111], atol=1e-6)
+        np.testing.assert_allclose(frames["front_realsense_body"]["rotation"], np.eye(3), atol=1e-6)
         np.testing.assert_allclose(frames["front_realsense"]["rotation"], np.eye(3), atol=1e-7)
         np.testing.assert_allclose(frames["radar"]["translation_m"], [.28945, 0, -.046825], atol=1e-6)
         self.assertFalse(np.allclose(frames["radar"]["rotation"], np.eye(3)))
