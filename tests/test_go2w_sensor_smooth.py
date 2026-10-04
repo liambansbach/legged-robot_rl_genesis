@@ -6,6 +6,7 @@ import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
+from types import SimpleNamespace
 
 import numpy as np
 import torch
@@ -36,6 +37,103 @@ def sampler(cfg, n=4096):
 
 
 class SensorMotion(unittest.TestCase):
+    def test_conditioned_clock_and_reflection_preserve_stepping(self):
+        from robot_gym.envs.go2w.phase import clock_observation, demand
+        phases = torch.tensor([.2,.3,.4,.5,.6])
+        commands = torch.tensor([[0.,0.,0.],[.5,0.,0.],[0.,.03,0.],[0.,.3,0.],[0.,0.,-.8]])
+        legacy = clock_observation(phases, commands)
+        conditioned = clock_observation(phases, commands, 'command_demand')
+        torch.testing.assert_close(conditioned[:2], torch.zeros(2,2))
+        torch.testing.assert_close(conditioned[2], legacy[2]*.5)
+        torch.testing.assert_close(conditioned[3:], legacy[3:])
+        mirrored = commands*torch.tensor([1.,-1.,-1.])
+        torch.testing.assert_close(demand(mirrored), demand(commands))
+        torch.testing.assert_close(clock_observation((phases+.5)%1,mirrored,'command_demand'), -conditioned, atol=1e-6, rtol=1e-5)
+
+    def test_phase_recipe_restores_sensor_parent_without_reweighting(self):
+        parent, training = task_registry.get_cfgs('go2w')
+        apply_go2w_profile(parent, training, 'transfer_v3')
+        parent.go2w_finetune = training.go2w_finetune = 'sensor_smooth'
+        parent.sensor_smooth = {'hip_weight':2.7,'long_hold_probability':.04,'extended_hold_probability':.015,
+                                'long_hold_s':[8.,15.],'extended_hold_s':[20.,30.]}
+        parent.rewards.scales.sensor_vertical_velocity = -1.
+        parent.rewards.scales.lin_vel_z = 0.
+        parent.env.episode_length_s = 60.
+        parent.refinement_parent = {'checkpoint':'original.pt','iteration':1499,'prior_updates':1500}
+        training.algorithm.learning_rate, training.algorithm.schedule = 5e-5, 'fixed'
+        training.runner.experiment_name = 'previous_sensor_output'
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)
+            (path/'config.yaml').write_text(yaml.safe_dump({'task':'go2w','env_cfg':class_to_dict(parent),'train_cfg':class_to_dict(training)}))
+            torch.save({'iter':499},path/'model_499.pt')
+            with patch.object(sys,'argv',['train','--task','go2w','--go2w_profile','transfer_v3',
+                    '--go2w_finetune','sensor_phase_conditioned','--load_run',str(path),'--checkpoint','499']):
+                args = get_args()
+            cfg, train = task_registry.get_cfgs('go2w')
+            update_cfg_from_args(cfg, train, args)
+            first = class_to_dict(cfg)
+            update_cfg_from_args(cfg, train, args)
+            self.assertEqual(first, class_to_dict(cfg))
+            validate_training(args, cfg, train)
+            for key in ('rewards','commands','control','domain_rand','sim','init_state','sensor_smooth','phase_guidance'):
+                self.assertEqual(json.loads(json.dumps(class_to_dict(getattr(cfg,key)))),
+                                 json.loads(json.dumps(class_to_dict(getattr(parent,key)))))
+            self.assertEqual((cfg.phase_observation_mode,cfg.env.num_observations,cfg.env.num_actions),('command_demand',58,16))
+            self.assertEqual((train.algorithm.learning_rate,train.algorithm.schedule,train.runner.max_iterations,train.runner.save_interval),(5e-5,'fixed',200,50))
+            self.assertEqual(train.runner.checkpoint_load_cfg,{'actor':True,'critic':True,'optimizer':False,'iteration':False})
+            self.assertEqual(cfg.refinement_parent['prior_updates'],2000)
+            self.assertEqual(cfg.refinement_parent['previous_generation'],parent.refinement_parent)
+            self.assertEqual(cfg.sensor_smooth['hip_weight'],2.7)
+
+    def test_rolling_phase_diagnostic_changes_only_clock_inputs(self):
+        from tensordict import TensorDict
+        from robot_gym.envs.go2w.diagnostic_bank import rolling_phase_observation
+        obs = TensorDict({'policy': torch.randn(4, 58)}, batch_size=[4])
+        commands = torch.tensor([[0.,0.,0.],[.5,0.,0.],[0.,.3,0.],[0.,0.,-.8]])
+        before = obs.clone()
+        changed = rolling_phase_observation(obs, commands)
+        torch.testing.assert_close(obs['policy'], before['policy'])
+        torch.testing.assert_close(changed['policy'][:, :56], obs['policy'][:, :56])
+        torch.testing.assert_close(changed['policy'][:2, 56:], torch.zeros(2,2))
+        torch.testing.assert_close(changed['policy'][2:, 56:], obs['policy'][2:, 56:])
+
+    def test_fixed_lr_kl_uses_original_distribution_without_forward(self):
+        from tensordict import TensorDict
+        from robot_gym.envs.go2w.training_diagnostics import TrainingDiagnostics
+
+        old_mean = torch.zeros(2, 16)
+        old_std = torch.ones(2, 16)
+        mean = torch.cat((torch.full((2, 16), .1), torch.full((2, 16), 10.)))
+        batch = SimpleNamespace(observations=TensorDict({'policy': torch.zeros(2, 58)}, batch_size=[2]),
+                                old_distribution_params=(old_mean, old_std), old_actions_log_prob=torch.zeros(2, 1))
+        def divergence(old, current):
+            m0, s0 = old
+            m1, s1 = current
+            return (torch.log(s1/s0)+(s0.square()+(m0-m1).square())/(2*s1.square())-.5).sum(-1)
+        log_prob_result = torch.zeros(4, requires_grad=True)
+        actor = SimpleNamespace(get_output_log_prob=lambda actions: log_prob_result,
+                                get_kl_divergence=divergence, output_distribution_params=(mean, torch.ones_like(mean)))
+        alg = SimpleNamespace(actor=actor, act=lambda obs: None, process_env_step=lambda *args: None,
+                              update=lambda: None, clip_param=.2,
+                              storage=SimpleNamespace(mini_batch_generator=lambda: iter([batch])))
+        diagnostic = TrainingDiagnostics.__new__(TrainingDiagnostics)
+        diagnostic.measured_kl, diagnostic.kl, diagnostic.ppo_clip = [], [], []
+        diagnostic.current_batch = None
+        diagnostic.install(alg)
+        rng = torch.get_rng_state().clone()
+        generator = alg.storage.mini_batch_generator()
+        next(generator)
+        # Native symmetry duplicates log-probs but retains original distribution parameters.
+        batch.observations = torch.cat((batch.observations, batch.observations), dim=0)
+        batch.old_actions_log_prob = batch.old_actions_log_prob.repeat(2, 1)
+        self.assertIs(actor.get_output_log_prob(torch.zeros(4,16)), log_prob_result)
+        self.assertAlmostEqual(float(diagnostic.measured_kl[0]), .08, places=6)
+        self.assertEqual(diagnostic.kl, [])
+        self.assertFalse(diagnostic.measured_kl[0].requires_grad)
+        self.assertTrue(torch.equal(rng, torch.get_rng_state()))
+        with self.assertRaises(StopIteration): next(generator)
+        self.assertIsNone(diagnostic.current_batch)
+
     def test_authored_fixed_geometry(self):
         frames = fixed_sensor_frames(URDFReader(MEASURED_URDF).robot_file_path_absolute)
         np.testing.assert_allclose(frames["front_realsense"]["translation_m"], [.33881, .0475, .111], atol=1e-6)

@@ -15,6 +15,17 @@ def demand(commands):
     return value.square() * (3 - 2 * value)
 
 
+def clock_observation(phase, commands, mode="unconditional"):
+    """Raw clock entries before empirical normalization; the latent clock is unchanged."""
+    angle = 2 * torch.pi * phase
+    clock = torch.stack((angle.sin(), angle.cos()), dim=-1)
+    if mode == "command_demand":
+        return demand(commands)[:, None] * clock
+    if mode != "unconditional":
+        raise ValueError(f"Unknown phase observation mode: {mode}")
+    return clock
+
+
 def targets(phase, commands, offsets, stance_fraction, apex):
     """Smooth swing envelope; all four stance during the diagonal overlap."""
     local = (phase[:, None] + offsets) % 1

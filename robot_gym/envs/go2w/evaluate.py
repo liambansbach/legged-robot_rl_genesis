@@ -346,6 +346,9 @@ def evaluate(args):
     phase_offset = getattr(args, "eval_phase_offset", 0.)
     if not np.isfinite(phase_offset) or not 0 <= phase_offset < 1 or (phase_offset and args.eval_mode != "sensor_sustained"):
         raise ValueError("Phase offset must be in [0,1) and is only supported by sensor_sustained")
+    rolling_phase_zero = getattr(args, "eval_rolling_phase_zero", False)
+    if rolling_phase_zero and (args.eval_mode != "sensor_sustained" or phase_offset or args.transfer_cases):
+        raise ValueError("Rolling phase diagnostic requires sensor_sustained, default phase, and its bounded case set")
     cfg, train_cfg, checkpoint = task_registry.resolve_replay(args)
     out = Path(args.output)
     if out.exists() and any(out.iterdir()):
@@ -382,7 +385,8 @@ def evaluate(args):
         from robot_gym.envs.go2w.diagnostic_bank import sensor_schedule
         schedule = (sensor_schedule() if args.eval_mode == "sensor_sustained" else transfer_schedule(cfg.go2w_profile) if args.eval_mode == "transfer_screen"
                     else precision_schedule(args.eval_mode == "precision_dr", uses_event_steps(cfg)))
-        print("Direct schedule: " + json.dumps(schedule), flush=True)
+        print("Isolated rolling phase diagnostic; bounded schedule will be recorded in metrics.json"
+              if rolling_phase_zero else "Direct schedule: " + json.dumps(schedule), flush=True)
     elif args.eval_mode == "closed_loop":
         if cfg.env.num_envs != 1 or args.seed != 1 or args.zero_command_brake:
             raise ValueError("Closed-loop evaluation requires one environment, explicit seed 1 and no brake")
@@ -442,7 +446,8 @@ def evaluate(args):
                                           transfer=args.eval_mode in ("transfer_screen", "sensor_sustained"),
                                           case_names=getattr(args, "transfer_cases", None),
                                           sensor=args.eval_mode == "sensor_sustained",
-                                          high_rate=args.diagnostic_trace, phase_offset=phase_offset))
+                                          high_rate=args.diagnostic_trace, phase_offset=phase_offset,
+                                          rolling_phase_zero=rolling_phase_zero))
         shutdown = perf_counter()
         gs.destroy()
         report["wall_clock_s"].update(startup=startup, shutdown=perf_counter() - shutdown,

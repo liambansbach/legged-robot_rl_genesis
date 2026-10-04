@@ -743,7 +743,15 @@ def precision_conditions():
     return [dict(nominal, **dict(change, id=name)) for name, change in zip(names, changes)]
 
 
-def rollout_precision(env, policy, schedule, sensor=False):
+def rolling_phase_observation(observation, commands):
+    """Inference diagnostic only: constant raw clock at zero demand, physical slots intact."""
+    from .phase import demand
+    observation = observation.clone()
+    observation["policy"][:, 56:58] *= (demand(commands) > 0)[:, None]
+    return observation
+
+
+def rollout_precision(env, policy, schedule, sensor=False, rolling_phase_zero=False):
     """Policy-rate tensor capture; terminal rows retained, later rows explicitly invalid."""
     rows, layout = [], {}
     active = torch.ones(env.num_envs, dtype=torch.bool, device=env.device)
@@ -755,6 +763,8 @@ def rollout_precision(env, policy, schedule, sensor=False):
                 env.commands[:] = env.commands.new_tensor(command)
                 env.compute_observations()
                 observation = env.get_observations()
+                if rolling_phase_zero:
+                    observation = rolling_phase_observation(observation, env.commands)
                 recorded_observation = observation["policy"].clone() if sensor else None
                 raw = policy(observation)
                 finite_policy = torch.isfinite(raw).all(dim=1)
@@ -1033,7 +1043,7 @@ def sensor_metrics(data, schedule, dt, metadata):
 
 
 def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=None,
-                       sensor=False, high_rate=False, phase_offset=0.):
+                       sensor=False, high_rate=False, phase_offset=0., rolling_phase_zero=False):
     import xml.etree.ElementTree as ET
 
     tree = ET.parse(env.urdf_reader.robot_file_path_absolute).getroot()
@@ -1049,6 +1059,11 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
                 "position_limits_semantics": "null denotes an unbounded continuous joint",
                 "wheel_target_limit": env.cfg.control.wheel_velocity_target_limit}
     schedules = sensor_schedule() if sensor else transfer_schedule(env.cfg.go2w_profile) if transfer else precision_schedule(dr, getattr(env, "event_step", False))
+    if rolling_phase_zero:
+        schedules = {name: schedules[name] for name in ("stand", "forward_fast")}
+        schedules["phase_transition"] = [(3, (0., 0., 0.)), (6, (.5, 0., 0.)),
+            (5, (0., .3, 0.)), (6, (.5, 0., 0.)), (4, (0., 0., 0.))]
+        print("Diagnostic schedule: " + json.dumps(schedules), flush=True)
     if sensor:
         from .go2w_env import fixed_sensor_frames
         metadata["sensor_frames"] = fixed_sensor_frames(env.urdf_reader.robot_file_path_absolute)
@@ -1061,6 +1076,8 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
               "trace_semantics": "Post-step pre-reset. valid includes first terminal row only; later rows invalid. Policy-rate forces, no substep maxima. Targets = delayed action * saved scale (+ nominal for legs), wheel targets limited as recorded. Stop displacement/path includes braking.",
               "swing_semantics": "6/10 N hysteresis, >=2 mm geometric peak, no dwell filter; completed and boundary-censored events separate",
               "wall_clock_s": {"rollout": 0., "postprocessing": 0.}}
+    if rolling_phase_zero:
+        report["diagnostic_phase_observation"] = "Raw slots 56:58 zero at zero demand; unconditional clock restored at positive demand. Legacy checkpoint; no learned refinement. Latent clock/reward targets unchanged."
     nominal = loaded_properties(env) if dr else None
     if transfer:
         from robot_gym.utils.export import transfer_contract
@@ -1107,7 +1124,7 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
             assert env.action_history.shape[1] >= 3 and not bool(env.action_history.any())
             assert env.action_delay_steps.tolist() == [c["delay"] for c in conditions]
         initial = {key: getattr(env, key).cpu().numpy().copy() for key in ("base_pos", "base_quat")}
-        data = rollout_precision(env, policy, schedule, sensor=sensor)
+        data = rollout_precision(env, policy, schedule, sensor=sensor, rolling_phase_zero=rolling_phase_zero)
         report["wall_clock_s"]["rollout"] += perf_counter()-started
         started = perf_counter()
         physics = ({key: torch.stack([row[key] for row in physics_recorder.rows]).cpu().numpy()
@@ -1115,7 +1132,7 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
         np.savez_compressed(out / f"{name}.npz", **data, **{f"initial_{key}": value for key,value in initial.items()},
                             **{"physics_" + key: value for key,value in physics.items()}, dt=env.dt, physics_dt=env.cfg.sim.dt)
         report["tests"][name] = precision_metrics(data, schedule, env.dt, metadata, initial)
-        if sensor:
+        if sensor and name != "phase_transition":
             report["tests"][name][0]["sensor_windows"] = sensor_metrics(data, schedule, env.dt, metadata)
             report["tests"][name][0]["recording_hz"] = {"policy": 1/env.dt, "physics": 1/env.cfg.sim.dt if physics else None}
             if physics:

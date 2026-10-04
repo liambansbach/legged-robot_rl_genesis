@@ -107,9 +107,10 @@ class Go2WEnv(Go2Env):
         if self.cfg.control.armature is not None:
             result["deployment_contract"] = transfer_contract(self)
             result["runtime_armature_min_max_kg_m2"] = [float(self.armature_samples.min()), float(self.armature_samples.max())]
-        if self.sensor_refinement:
-            result.update(initialization="sensor_smooth fine-tune: parent actor/critic/normalizers/std; fresh optimizer and local iteration",
-                          parent=self.cfg.refinement_parent, refinement=self.cfg.sensor_smooth)
+        if getattr(self.cfg, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned"):
+            result.update(initialization=f"{self.cfg.go2w_finetune} fine-tune: parent actor/critic/normalizers/std; fresh optimizer and local iteration",
+                          parent=self.cfg.refinement_parent, refinement=self.cfg.sensor_smooth,
+                          phase_observation_mode=getattr(self.cfg, "phase_observation_mode", "unconditional"))
         return result
 
     def export_metadata(self):
@@ -131,6 +132,12 @@ class Go2WEnv(Go2Env):
                        "reflection": "sagittal: p -> p+.5, both sin/cos negate"},
                 wheel_thigh_dx_reference_m=self.cfg.rewards.phase_objective["wheel_thigh_dx_reference_m"],
             )
+            mode = getattr(self.cfg, "phase_observation_mode", "unconditional")
+            metadata["phase"]["observation_mode"] = mode
+            if mode == "command_demand":
+                metadata["phase"]["observation"] = "slots 56:58 = demand(command) * [sin(2*pi*p), cos(2*pi*p)] before embedded normalizer; zero raw clock at zero demand, not necessarily normalized zero"
+                metadata["phase"]["demand"] = {"lateral_start_full_m_s": [.01, .05], "yaw_start_full_rad_s": [.10, .25],
+                    "combination": "max of clipped linear ramps, then smoothstep d*d*(3-2*d); invariant under sagittal reflection"}
         return metadata
 
     def update_task_state(self):
@@ -223,7 +230,7 @@ class Go2WEnv(Go2Env):
         self.event_step = uses_event_steps(self.cfg)
         self.transfer_v2 = getattr(self.cfg, "go2w_profile", None) == "transfer_v2"
         self.phase_guided = getattr(self.cfg, "go2w_profile", None) == "transfer_v3"
-        self.sensor_refinement = getattr(self.cfg, "go2w_finetune", None) == "sensor_smooth"
+        self.sensor_refinement = getattr(self.cfg, "sensor_smooth", None) is not None
         self.wheel_geometry_enabled = self.step_recovery or self.event_step or self.phase_guided
         if self.event_step:
             self.completed_updates = getattr(self.cfg, "_event_completed_updates", 0)
@@ -569,8 +576,9 @@ class Go2WEnv(Go2Env):
             dim=-1,
         )
         if self.phase_guided:
-            angle = 2 * torch.pi * self.phase
-            self.obs_buf = torch.cat((self.obs_buf, torch.stack((angle.sin(), angle.cos()), dim=-1)), dim=-1)
+            from .phase import clock_observation
+            clock = clock_observation(self.phase, self.commands, getattr(self.cfg, "phase_observation_mode", "unconditional"))
+            self.obs_buf = torch.cat((self.obs_buf, clock), dim=-1)
         if self.add_noise:
             self.obs_buf += (
                 2 * torch.rand_like(self.obs_buf) - 1

@@ -127,6 +127,7 @@ class TrainingDiagnostics:
             env.num_envs, dtype=torch.bool, device=env.device
         )
         self.current_batch = None
+        self.original_batch_size = None
         self.iteration = runner.current_learning_iteration
         self.reset_aggregates()
         self.source = {
@@ -142,6 +143,7 @@ class TrainingDiagnostics:
         self.rollout = {}
         self.rewards = {}
         self.kl = []
+        self.measured_kl = []
         self.ppo_clip = []
         self.coverage = None
         self.term_totals = {}
@@ -287,13 +289,21 @@ class TrainingDiagnostics:
         def batches(*args, **kwargs):
             for batch in original_batches(*args, **kwargs):
                 self.current_batch = batch
+                self.original_batch_size = batch.observations.batch_size[0]
                 yield batch
             self.current_batch = None
+            self.original_batch_size = None
 
         def log_prob(actions):
             result = original_prob(actions)
             if self.current_batch is not None:
                 with torch.no_grad():
+                    # Native symmetry retains old parameters for original samples only.
+                    # Reuse this pass's distributions even when fixed LR skips scheduler KL.
+                    n = self.original_batch_size
+                    current = tuple(p[:n].detach() for p in alg.actor.output_distribution_params)
+                    old = tuple(p.detach() for p in self.current_batch.old_distribution_params)
+                    self.measured_kl.append(original_kl(old, current).mean().detach())
                     ratio = (
                         result - self.current_batch.old_actions_log_prob.squeeze()
                     ).exp()
@@ -356,6 +366,8 @@ class TrainingDiagnostics:
             "std_parameters_after_update": std,
             "groups": groups,
             "scheduler_kl_per_minibatch": self.kl,
+            "measured_kl_per_minibatch": self.measured_kl,
+            "measured_kl_scope": "Old rollout distribution versus current distribution in the existing PPO pass; original samples before symmetry augmentation; diagnostics only, no scheduler decision",
             "ppo_clip_fraction_per_minibatch": self.ppo_clip,
             "learning_rate_after_update": alg.learning_rate,
             "nonterminal_reward": rewards,
