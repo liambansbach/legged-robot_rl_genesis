@@ -1,6 +1,6 @@
 # Go2-W sensor refinement reviews
 
-Current decision (2026-10-04): **keep phase-conditioned model_199.pt as an intermediate** and prepare one partial-lateral exposure change. See [the current 200-update review](#phase-conditioned-policy-actual-200-update-review-2026-10-04); the 500-update selection/commands below are historical.
+Current decision (2026-10-05): **keep navigation-partial-lateral model_199.pt as an intermediate** and prepare one zero-command objective activation. See [the current navigation review](#navigation-partial-lateral-200-update-review-2026-10-05). Earlier selections and cleanup results below are historical.
 
 ## Sensor smoothing: verified 500-update review
 
@@ -333,3 +333,94 @@ Measured scopes (MiB): logs/ 1278.79, evaluation/ 725.19, .cache/ 122.49, .ruff_
 Keep original 1499, sensor 250/499, all five phase-run checkpoints, every current comparison/fallback and smoke artifact, published bundles, documented historical labels, every run-final checkpoint, configurations/preparation/lineage, TensorBoard/diagnostics, reported results/raw traces and generated exports. The 100 explicit archive candidates are undocumented intermediates: copy with their listed provenance companions and verify externally before any separately reviewed local removal. Potential local reduction is447.88 MiB after such an archive; it is not a research-artifact deletion recommendation. Only 961 explicit compiler/Python-cache paths are delete candidates (~124.59 MiB), after all jobs stop and separate review. No generic age rule, git clean -fdx, directory-wide deletion or deletion command was used.
 
 No obsolete source-code deletion is supported. transfer_v3 still uses transfer_v1/event_step_v1 profile builders, legacy replay methods and their tests; names alone do not make them obsolete. A later cleanup must use a reviewed explicit file manifest, recheck attributes and repository containment, and preserve cloud placeholders. This task deleted nothing.
+
+## Navigation partial lateral: 200-update review (2026-10-05)
+
+**Keep the final checkpoint as an intermediate and the parent as a fallback. Prepare one zero-command holding objective before qualifying navigation transfer.** Small lateral commands now produce physical lifts and better negative-direction response, and strong stepping is retained. Late stand/stop creep and cross-axis motion remain functional deficiencies. A width-only objective is deferred because it would not directly address these errors. No checkpoint comparison demonstrates ongoing same-recipe physical progress. No midpoint was needed for this intermediate/new-objective decision; an untested midpoint may offer a different trade-off.
+
+Selected checkpoint: `logs/go2w_transfer_v3_navigation_partial_lateral/navigation_partial_lateral_from199_seed1_2026-10-04_23-48-18/model_199.pt`.
+
+Parent/fallback: `logs/go2w_transfer_v3_sensor_phase_conditioned/sensor_phase_conditioned_from499_seed1_2026-10-04_16-11-11/model_199.pt`. Original reference remains `logs/go2w_transfer_v3/transfer_v3_seed1_2026-10-03_16-18-34/model_1499.pt`.
+
+Local machine-readable decision: [summary.json](../evaluation/navigation_partial_200_review/summary.json). Training/provenance, native metrics/manifests/NPZ, comparison analysis, load proofs and proposed settings remain in `evaluation/navigation_partial_200_review/`. Large artifacts are ignored by Git.
+
+### Verified recipe and learning evidence
+
+There is one non-smoke run in the named experiment. Saved files are `model_0.pt`, `model_50.pt`, `model_100.pt`, `model_150.pt`, `model_199.pt`. Preparation reports completion of 200 updates; final iteration is 199 and Adam step is 8,000 (40 minibatches/update). Both empirical normalizer counts are 629,145,600. Shape is 58 actor inputs / 58 critic inputs / 16 actions. Checkpoint `infos` is absent (`None`). Source is the explicit phase-parent 199 above; cumulative lineage is 2,400 updates.
+
+The sole behavioral delta is `commands.pure_lateral_magnitude_range: [.10,.30] -> [.02,.30]`. Rewards, `command_demand` phase encoding, references, control, simulation, observation noise, DR, networks and PPO settings equal the saved phase recipe. LR is fixed 5e-5, entropy .003, learned log-std floor .1. DR still includes 20–50 N pushes, delay 0–2 ticks, nominal armature .01 with randomized .005–.02, mass/COM/friction/gain randomization. No larger push range was introduced. Each candidate was replayed with its own saved semantics; original V3 remains unconditional.
+
+TensorBoard contains all 200 steps 0–199; JSONL contains 199 rows, with **diagnostic row 103 missing**, not a missing update. Random initial episode lengths and empty reward accumulators explain the approximately 47-update accounting ramp: 60/.02/64 = 46.875. Return/length rise from 1.65/31 ticks at 0 to 159.60/2,971 at 46 and 161.12/3,000 at 47, across about 222 seconds. Learning also occurs during this period; startup accounting is not the sole possible cause of every early change. Compare later windows, and distinguish episode return from reward rate and from differently sized episodes.
+
+| Local window | Diagnostic rows | Measured minibatch KL mean / p95 | PPO ratio clipping | Value loss | Episode return | FPS |
+|---|---:|---:|---:|---:|---:|---:|
+|60–99|40|.003779 / .005120|10.26%|.000632|161.144|58,067|
+|100–149|49; 103 missing|.003785 / .005146|10.20%|.000634|161.121|57,700|
+|150–199|50|.003793 / .005151|10.15%|.000622|161.118|57,810|
+
+KL is the existing diagnostics measurement of old/current distributions on original minibatch samples before symmetry augmentation. Native scheduler KL arrays are empty: installed RSL-RL 5.5.1 takes that branch only for adaptive scheduling. Empty is not zero; `desired_kl` is not a hard bound. Surrogate loss is approximately -.00069 to -.00078. Final std by FL/FR/RL/RR, each hip/thigh/calf/wheel: `[.1,.11269,.1,.13623] / [.1,.11267,.1,.13623] / [.1,.1,.1,.12330] / [.1,.1,.1,.12333]`. Floor occupancy in the final window is 84–100% for the ten floor-bound leg parameters, zero for the other six. These are nonzero std values, independent of plotted axis offsets, tracking kernels and observation noise. Final sampled clipping reaches ~16.9% for rear calves and 8.6% for front wheels; no LR/exploration reset is justified by these observations alone.
+
+V3 yaw remains `.8 * (1 - Huber(yaw_error/.35))`, with ceiling .8; it is not Gaussian. The ~.765 weighted contribution does not justify a tighter yaw scale. Aggregate averages also reflect the changed command distribution. Final recorded time exposure is 17.18% stand and 23.13% pure lateral. Partial-magnitude time exposure was **not logged**. An offline call to the actual sampler (32,768 draws, seed 7) found 6,620 pure-lateral draws, magnitudes .02004–.29997, 10.45% in [.02,.05), including 378 positive / 314 negative draws. The .01 linear deadzone preserves these commands. This estimates draws, not the actual training history or time weighting.
+
+### Bounded matched physical comparison
+
+Only final 199 was evaluated: the existing 41 s transition sequence once, sustained stand/forward_fast once, and transfer_screen once. No midpoint, robustness bank, extra seed, phase bank or full sustained panel was run. References were reused from `sensor_phase_200_review/ck199_transition`, `ck199_sustained`, `ck199_nominal`, `original_transition`, and their original directories `v3_main_sustained_review` / `transfer_v3_main_ck1499_nominal`. Relevant control/asset/init/sim settings, applied physical readbacks, seed 1, actual command arrays, latent phase arrays and sampling match. Nominal noise/DR/pushes are off; actor inference is deterministic. Stand is 30 s; fast movement is 3 s zero + 30 s .5 m/s + 8 s stop. Screen holds are shorter (3+5+6 s; stand 10 s).
+
+Means/RMSE use the full command segment. “Late” partial response is its last 1 s; steady rolling/stand is 20–30 s after onset. Camera means actual left-imager world-z velocity RMS. Units are m, m/s, and rad/s.
+
+| Measurement | Original V3/1499 | Phase parent/199 | Navigation final/199 |
+|---|---:|---:|---:|
+|+.03 lateral: mean / late vy|.0254 / .0292|.0181 / .0220|.0227 / .0225|
+|-.03 lateral: mean / late vy|-.0310 / -.0214|-.0127 / -.0051|-.0200 / -.0178|
+|Partial vy RMSE: positive / negative|.0126 / .0123|.0143 / .0203|.0128 / .0131|
+|Uncommanded vx in partials: positive / negative|.0099 / .0071|.0142 / .0073|.0232 / .0152|
+|Stand: 0–5 s endpoint / late XY RMS|.0699 / .01056|.0900 / .00178|.0160 / .01682|
+|Stand: total 30 s endpoint|.0479|.2042|.3039|
+|Fast forward: mean vx / RMSE|.4638 / .0396|.4786 / .0266|.4746 / .0287|
+|Fast stop: 8 s endpoint / path|.03156 / .07945|.07593 / .07595|.05995 / .12580|
+|Fast stop: final 2 s XY RMS|.00864|.00384|.01501|
+|Forward front / rear center width|.4455 / .3924|.4909 / .3800|.5052 / .3772|
+|Front widening: last minus first second|.0461|.0894|.1157|
+|Forward camera: full / late, 200 Hz|.02195 / .02158|.00755 / .000067|.00602 / .000124|
+
+The navigation policy's late stand endpoint changes .168 m in the final 10 s; startup improved but creeping persisted. Its transition-sequence final 8 s endpoint/path are .1073/.1262 m versus parent's .0240/.0480. Fast-stop immediate first-.2-s vx is .1261 (parent .1262; original .0936). Settling is .24 s (parent .22; original unavailable) using the last excursion above XY speed .02 or |yaw rate| .03, followed by at least 1 s below both. This definition admits the observed .015 m/s creep; it does not certify a stationary hold or a stopping distance. Endpoint cancellation conceals path length and reversal.
+
+Partial-command completed >=2 mm lift counts FL/FR/RL/RR are `[3,2,1,3]` and `[1,3,3,1]`, versus parent's all zeros. Completed peak clearances span roughly .5–5.6 mm, with 0 cycles >=2 cm; limb repositioning means are about 9–24 mm. Event definition remains unload <=6 N / reload >10 N; boundary intervals are censored. Loaded cylinder-center lateral velocity RMS is .004–.015 m/s, comparable in scale to references, but is a scrub surrogate rather than material tire slip. Late partial vx is still .0162/.0202 m/s: improved lifts and vy do not establish clean lateral navigation.
+
+The 5 s strong screen retained mean lateral +.2906/-.2933 (RMSE .0238/.0235) and yaw +.7934/-.7915 (RMSE .0453/.0423). All wheels completed about six >=2 cm cycles; negative yaw's RR has five, also present in the parent. All new cases had no falls, resets, nonfinite states or non-wheel contacts. Maximum deterministic action saturation is 50.8% on strong negative lateral, versus parent 49.2%; this is a target bound, not a force reading. Stand has none, fast movement max .2%, stop max 1.25%; no stand/fast effort readback reaches 99% of its force limit. Matched 200 Hz forward load maxima are ~105 N new / 110 N parent / 101 N original. Stand and transitions use 50 Hz; fast camera/contact comparisons use all four .005 s physics samples per .02 s policy tick.
+
+Full stand camera RMS is .01033 (parent .00963), despite very quiet late values .000028/.000015. Partial-transition camera RMS increased with the new lifts: positive/negative full .0292/.0222 versus .0175/.0091; first-second .0406/.0173 versus .0287/.0110. These rigid-point measurements do not measure image quality or hardware vibration.
+
+### Geometry and one next objective
+
+The existing frozen viewer's `inspect_pose()` imposes joint positions without stepping. Saved reference/FK output in `transfer_v3_preparation/pose_geometry.json` and `transfer_v3_pilot_preparation/pose_reference.json`, together with current `v3_reference_geometry()` / cylinder helpers, gives authored-base collision-center y = +/- .19010 m for both pairs: **front/rear reference width .38020/.38020 m**. This is imposed reference geometry, not loaded equilibrium or a requirement to balance at zero action. No frozen-viewer launch or policy-rollout setter was needed.
+
+New forward mean widths .5052/.3772 m are systematic front splay. Late front width reaches .5379 m, while pair midpoint means stay within .5 mm and midpoint changes within .5 mm; rear separation changes -.0024 m. Mean base height is .40797 m (parent .40848; reference .42774); there is no fall. Late front actual hip angles are +.2313/-.2326 rad, but issued/applied targets are +.0342/-.0344, with target-error RMS .1973/.1983. The target is outward, yet much of the observed splay is loaded actuator tracking error; it cannot be described as an equally large learned outward target. Gains/reference/spawn/URDF were preserved.
+
+The selected next objective activates **the existing `stand_still` coefficient from 0 to -5**, under new opt-in `navigation_zero_hold`. Its unchanged raw cost is `vx² + vy² + yaw_rate² + .02*mean(wheel_joint_rate²)` in body coordinates, gated by `norm(command) < 1e-6`. It is inactive for both partial lateral signs, partial yaw, and moving commands. Existing zero-command tracking alone loses only .00226 rate in late stand; stand exposure is already substantial. On the unmodified traces the added signed rate would be -.00491 in late stand (current rolling pose -.01126), -.02743 over the full fast stop (current x tracking error cost .00666 and rolling pose -.01567), and -.00395 in its final 2 s. This is meaningful objective strength, not predicted learning success. It does not directly price moving partial cross-axis drift or guarantee narrower hips.
+
+No width corridor, extra sensor/angular cost, changed tracking scale, controller override, phase change, observation, sampler change, PPO change or plant change accompanies this proposal. The saved parent recipe is restored first; only that coefficient is activated once. Both models/normalizers/std are retained exactly; a deliberately new objective uses the existing selective path with **fresh Adam/local counter**, preserving the full previous lineage. Proposed settings/proof are in `next_zero_hold_refinement/`. One coherent **500-update** experiment saves every 50, with midpoint `model_250.pt` (251 local updates) and final `model_499.pt`. Production command, prepared but not run:
+
+```powershell
+$env:NUMBA_CACHE_DIR = Join-Path (Get-Location) '.cache/numba'
+$env:GS_CACHE_FILE_PATH = Join-Path (Get-Location) '.cache/genesis'
+$env:QD_OFFLINE_CACHE_FILE_PATH = Join-Path (Get-Location) '.cache/quadrants'
+& "$env:USERPROFILE/anaconda3/envs/genesis-gpu/python.exe" -m robot_gym.scripts.train `
+  --task go2w --go2w_profile transfer_v3 --go2w_finetune navigation_zero_hold `
+  --load_run logs/go2w_transfer_v3_navigation_partial_lateral/navigation_partial_lateral_from199_seed1_2026-10-04_23-48-18 `
+  --checkpoint 199 --experiment_name go2w_transfer_v3_navigation_zero_hold `
+  --run_name navigation_zero_hold_from199_seed1 --num_envs 4096 --max_iterations 500 `
+  --seed 1 --logger tensorboard --training_diagnostics --headless --rl_device cuda:0
+```
+
+### Genuine continuation and checks
+
+The new small same-recipe path uses `--task go2w --go2w_profile transfer_v3 --resume --load_run <explicit saved run directory> --checkpoint <label> --max_iterations <additional updates>`, omitting `--go2w_finetune`. Saved settings are authoritative; it explicitly replaces inherited selective load flags with actor/critic/optimizer/iteration all true. It retains Adam, LR, models, normalizers/std, seed, environment count and lineage, validates recipe compatibility, and writes a fresh separate output (default experiment suffix `_resume`). It neither reapplies a delta nor walks back to a grandparent. The selected source was checked **before any update**: exact actor/critic/normalizer/std/Adam parity, Adam step 8,000, LR 5e-5 and runner iteration 199. Simulator/RNG state is not restored bit-for-bit.
+
+Installed runner starts its next loop at the loaded label. From 199, N additional updates execute labels 199 through 199+N-1; e.g. two updates finish at 200, not 201. Saved labels therefore overlap the source even though Adam and actual update counts advance. This upstream convention was preserved, with explicit lineage metadata accounting for it. Separate output prevents source overwrite. Historical replay keeps its saved phase contract and does not require a training output directory.
+
+Edits are confined to Go2-W config/metadata/resume handling and focused tests; the existing reward body is unchanged. Eight focused tests passed for saved-recipe restoration, true-load flags/counter lineage, incompatible overrides, inference replay, historical selective recipes, actual sampling and zero-only gating. No-update native load checks passed. Exactly one 64-environment **two-update** native objective smoke completed at `logs/go2w_transfer_v3_navigation_zero_hold_smoke/zero_hold_execution_smoke_2026-10-05_01-07-29/`, with finite active reward/diagnostic rows and labels 0/1; it validates execution, not physical improvement. No other optimizer updates ran in this review.
+
+The actual three inference commands used the same `--task go2w --experiment_name go2w_transfer_v3_navigation_partial_lateral --load_run navigation_partial_lateral_from199_seed1_2026-10-04_23-48-18 --checkpoint 199 --num_envs 1 --seed 1 --headless --rl_device cuda:0` selection. Their additional flags were respectively `--eval_mode sensor_sustained --eval_phase_transition --output evaluation/navigation_partial_200_review/final_transition`; `--eval_mode sensor_sustained --transfer_cases stand forward_fast --diagnostic_trace --output evaluation/navigation_partial_200_review/final_rolling`; and `--eval_mode transfer_screen --output evaluation/navigation_partial_200_review/final_screen`, run through `python -m robot_gym.scripts.evaluate` in genesis-gpu. Outputs were fresh and historical baselines unchanged.
+
+No production training, push, package upgrade, deletion, receiving-repository edit or new storage task occurred. `play.py`, Go2 and Dodo remain untouched. This is one nominal seed and a bounded screen, with no new robustness/transfer qualification. The selected model retains its 58/16 command-demand contract, including the two raw clock entries and previous-issued-action semantics; a later receiving simulator must preserve its saved normalizer, joint/action mapping and clock timing rather than use a 56-input or unconditional-phase receiver.

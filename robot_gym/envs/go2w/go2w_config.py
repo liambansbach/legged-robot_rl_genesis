@@ -116,6 +116,67 @@ def apply_go2w_finetune(env_cfg, train_cfg, name):
                 setattr(target, key, value.copy() if isinstance(value, list) else value)
 
 
+def v3_completed_updates(saved_env, iteration):
+    """Native resume repeats the loaded label; preserve the actual update lineage."""
+    resume = saved_env.get("training_resume")
+    if resume:
+        return resume["source_total_updates"] + iteration - resume["source_iteration"] + 1
+    return (saved_env.get("refinement_parent") or {}).get("prior_updates", 0) + iteration + 1
+
+
+def prepare_v3_resume(env_cfg, train_cfg, args):
+    """Restore one saved refinement recipe and all native learning state."""
+    import copy
+    from pathlib import Path
+    import torch
+    from robot_gym.utils.task_registry import task_registry
+    from robot_gym.utils.helpers import class_to_dict, update_class_from_dict
+
+    if args.load_run is None or not Path(args.load_run).is_dir() or args.checkpoint is None:
+        raise ValueError("V3 resume requires an explicit run directory and checkpoint")
+    if args.max_iterations is None or args.max_iterations <= 0:
+        raise ValueError("V3 resume requires --max_iterations as a positive number of additional updates")
+    for flag in ("go2w_finetune", "reference_config", "sagittal_stance_weight", "event_quality_profile",
+                 "transfer_armature", "transfer_delay", "transfer_cases", "episode_length_s",
+                 "entropy_coef", "tracking_sigma_x", "zero_command_brake"):
+        value = getattr(args, flag, None)
+        conflicting = bool(value) if flag == "zero_command_brake" else value is not None
+        if conflicting:
+            raise ValueError(f"Same-recipe resume preserves saved settings; omit --{flag}")
+    if not hasattr(args, "v3_resume_recipe"):
+        selection = copy.copy(args)
+        selection.resume = False
+        selection.go2w_profile = selection.go2w_finetune = None
+        selection.load_run = str(Path(args.load_run).resolve())
+        selection.experiment_name = selection.run_name = selection.num_envs = selection.max_iterations = None
+        selection.logger = selection.seed = None
+        source_env, source_train, checkpoint = task_registry.resolve_replay(selection)
+        if source_env.go2w_profile != "transfer_v3" or not getattr(source_env, "go2w_finetune", None):
+            raise ValueError("This resume path requires a saved V3 refinement")
+        saved = torch.load(checkpoint, map_location="cpu", weights_only=False)
+        args.v3_resume_recipe = {"env_cfg": class_to_dict(source_env), "train_cfg": class_to_dict(source_train),
+            "checkpoint": str(checkpoint), "source_iteration": int(saved["iter"]),
+            "source_total_updates": v3_completed_updates(class_to_dict(source_env), int(saved["iter"]))}
+    source = args.v3_resume_recipe
+    if args.seed not in (None, source["train_cfg"]["seed"]):
+        raise ValueError("Same-recipe resume retains the saved seed")
+    if args.num_envs not in (None, source["env_cfg"]["env"]["num_envs"]) and not (args.num_envs == 64 and args.max_iterations <= 2):
+        raise ValueError("Retain the saved environment count; 64 environments are allowed only for a <=2-update smoke")
+    args.resolved_checkpoint = source["checkpoint"]
+    for cfg, key in ((env_cfg, "env_cfg"), (train_cfg, "train_cfg")):
+        if cfg is not None:
+            update_class_from_dict(cfg, copy.deepcopy(source[key]))
+    if env_cfg is not None:
+        env_cfg.training_resume = {k: source[k] for k in ("checkpoint", "source_iteration", "source_total_updates")}
+        env_cfg.training_resume["additional_updates"] = args.max_iterations
+    if train_cfg is not None:
+        train_cfg.runner.resume = True
+        train_cfg.runner.resume_path = source["checkpoint"]
+        train_cfg.runner.checkpoint_load_cfg = {"actor": True, "critic": True, "optimizer": True, "iteration": True}
+        train_cfg.runner.experiment_name = source["train_cfg"]["runner"]["experiment_name"] + "_resume"
+        train_cfg.runner.run_name = f"resume_from{source['source_iteration']}_seed{source['train_cfg']['seed']}"
+
+
 def prepare_sensor_smooth(env_cfg, train_cfg, args):
     """Restore an explicit V3 parent, then apply the selected refinement delta once."""
     import copy
@@ -127,7 +188,8 @@ def prepare_sensor_smooth(env_cfg, train_cfg, args):
     name = args.go2w_finetune
     phase_route = name == "sensor_phase_conditioned"
     exposure_route = name == "navigation_partial_lateral"
-    restore_route = phase_route or exposure_route
+    zero_hold_route = name == "navigation_zero_hold"
+    restore_route = phase_route or exposure_route or zero_hold_route
     if args.task != "go2w" or args.go2w_profile != "transfer_v3" or args.resume:
         raise ValueError(f"{name} requires --task go2w --go2w_profile transfer_v3; omit --resume (fresh optimizer/counter)")
     for flag in ("reference_config", "sagittal_stance_weight", "event_quality_profile", "transfer_armature",
@@ -153,7 +215,8 @@ def prepare_sensor_smooth(env_cfg, train_cfg, args):
             raise ValueError("Phase refinement changes the unconditional observation contract once")
         saved = torch.load(checkpoint, map_location="cpu", weights_only=False)
         args.sensor_parent = {"env_cfg": class_to_dict(parent_env), "train_cfg": class_to_dict(parent_train),
-                              "checkpoint": str(checkpoint), "iteration": int(saved["iter"])}
+                              "checkpoint": str(checkpoint), "iteration": int(saved["iter"]),
+                              "total_updates": v3_completed_updates(class_to_dict(parent_env), int(saved["iter"]))}
         print(f"Fine-tune parent iteration {saved['iter']}; preserve both models/normalizers/std, fresh optimizer and local counter")
     parent = args.sensor_parent
     args.resolved_checkpoint = parent["checkpoint"]
@@ -174,14 +237,18 @@ def prepare_sensor_smooth(env_cfg, train_cfg, args):
         env_cfg.refinement_parent = {"checkpoint": parent["checkpoint"], "iteration": parent["iteration"],
                                      "prior_updates": parent["iteration"] + 1}
     if env_cfg is not None and restore_route:
+        env_cfg.training_resume = None  # This is deliberately a new recipe, with fresh optimizer/counter.
         if phase_route:
             env_cfg.phase_observation_mode = "command_demand"
         if exposure_route:
             env_cfg.commands.pure_lateral_magnitude_range = [.02, .3]
+        if zero_hold_route:
+            # Complete-zero motion cost; excludes moving commands, including partial lateral/yaw.
+            env_cfg.rewards.scales.stand_still = -5.
         previous = copy.deepcopy(parent["env_cfg"].get("refinement_parent"))
         env_cfg.refinement_parent = {"checkpoint": parent["checkpoint"], "iteration": parent["iteration"],
-            "parent_local_updates": parent["iteration"] + 1,
-            "prior_updates": parent["iteration"] + 1 + (previous or {}).get("prior_updates", 0),
+            "parent_local_updates": parent["total_updates"] - (previous or {}).get("prior_updates", 0),
+            "prior_updates": parent["total_updates"],
             "previous_generation": previous}
     if train_cfg is not None:
         train_cfg.runner.resume = True  # Loading enabled; selective native options define initialization.
@@ -189,7 +256,7 @@ def prepare_sensor_smooth(env_cfg, train_cfg, args):
         train_cfg.runner.checkpoint_load_cfg = {"actor": True, "critic": True, "optimizer": False, "iteration": False}
         train_cfg.runner.experiment_name = f"go2w_transfer_v3_{name}"
         train_cfg.runner.run_name = f"{name}_from{parent['iteration']}_seed1"
-        train_cfg.runner.max_iterations = 150 if exposure_route else 200 if phase_route else 300
+        train_cfg.runner.max_iterations = 500 if zero_hold_route else 150 if exposure_route else 200 if phase_route else 300
         train_cfg.runner.save_interval = 50
         if not restore_route:
             train_cfg.algorithm.learning_rate = 5e-5
@@ -665,7 +732,7 @@ class GO2WCfgPPO(GO2CfgPPO):
 
 def add_arguments(parser):
     parameters = [
-        {"name": "--go2w_finetune", "choices": ["coverage", "coverage_mobility", "precision_clearance", "sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral"], "default": None, "help": "V3 refinements selectively load explicit saved models/normalizers/std with fresh optimizer/counter; legacy choices require step_recovery_v1 resume"},
+        {"name": "--go2w_finetune", "choices": ["coverage", "coverage_mobility", "precision_clearance", "sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral", "navigation_zero_hold"], "default": None, "help": "V3 refinements selectively load explicit saved models/normalizers/std with fresh optimizer/counter; legacy choices require step_recovery_v1 resume"},
         {"name": "--go2w_profile", "choices": ["step_recovery_v1", "event_step_v1", "transfer_v1", "transfer_v2", "transfer_v3"], "default": None, "help": "Opt-in training recipe; replay restores the saved profile automatically"},
         {"name": "--sagittal_stance_weight", "type": float, "default": None, "help": "Explicit event_step_v1 stance weight; full-demand weight stays 0.12; select the saved value for evaluation/play"},
         {"name": "--event_quality_profile", "choices": ["sufficient_clearance"], "default": None, "help": "Opt-in event quality and payment; select the saved choice for evaluation/play"},
@@ -699,7 +766,10 @@ def configure(env_cfg, cfg_train, args):
                     if explicit is not None and explicit != getattr(cfg, key, None):
                         raise ValueError(f"Explicit --{key}={explicit!r} conflicts with saved {getattr(cfg, key, None)!r}")
         return  # Saved rewards/commands remain authoritative for replay.
-    if getattr(args, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral"):
+    if args.resume and getattr(args, "go2w_profile", None) == "transfer_v3":
+        prepare_v3_resume(env_cfg, cfg_train, args)
+        return
+    if getattr(args, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral", "navigation_zero_hold"):
         prepare_sensor_smooth(env_cfg, cfg_train, args)
         return
     profile = getattr(args, "go2w_profile", None)
@@ -757,7 +827,12 @@ def validate_fresh_transfer(args, train_cfg):
     """Training-only guard, before any simulator/runner or checkpoint construction."""
     if getattr(train_cfg, "go2w_profile", None) not in ("transfer_v1", "transfer_v2", "transfer_v3"):
         return
-    if getattr(train_cfg, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral"):
+    if args.resume and getattr(args, "v3_resume_recipe", None):
+        expected = {"actor": True, "critic": True, "optimizer": True, "iteration": True}
+        if train_cfg.go2w_profile != "transfer_v3" or not train_cfg.runner.resume or train_cfg.runner.checkpoint_load_cfg != expected:
+            raise ValueError("Same-recipe V3 resume must restore the full native learning state")
+        return
+    if getattr(train_cfg, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral", "navigation_zero_hold"):
         expected = {"actor": True, "critic": True, "optimizer": False, "iteration": False}
         if (train_cfg.go2w_profile != "transfer_v3" or args.resume or not train_cfg.runner.resume
                 or train_cfg.runner.checkpoint_load_cfg != expected or not getattr(args, "sensor_parent", None)):
@@ -775,6 +850,17 @@ def validate_fresh_transfer(args, train_cfg):
 
 def validate_training(args, env_cfg, train_cfg):
     validate_fresh_transfer(args, train_cfg)
+    if getattr(args, "v3_resume_recipe", None):
+        from robot_gym.utils.helpers import class_to_dict
+        source = args.v3_resume_recipe
+        for key in ("commands", "rewards", "control", "domain_rand", "sim", "asset", "init_state", "noise",
+                    "normalization", "phase_guidance", "phase_observation_mode", "refinement_parent", "sensor_smooth"):
+            current = getattr(env_cfg, key)
+            if class_to_dict(current) != source["env_cfg"][key]:
+                raise ValueError(f"Same-recipe resume changed env_cfg.{key}")
+        for key in ("actor", "critic", "algorithm"):
+            if class_to_dict(getattr(train_cfg, key)) != source["train_cfg"][key]:
+                raise ValueError(f"Same-recipe resume changed train_cfg.{key}")
     if any(getattr(args, flag, False) for flag in ("eval_rolling_phase_zero", "eval_phase_transition", "eval_noise_pushes")):
         raise ValueError("Evaluation diagnostics are inference only")
     if getattr(args, "zero_command_brake", False):

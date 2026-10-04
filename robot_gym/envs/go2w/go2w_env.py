@@ -85,6 +85,9 @@ class Go2WEnv(Go2Env):
         validate_training(args, env_cfg, train_cfg)
 
     def setup_runner(self, runner):
+        if getattr(self.cfg, "training_resume", None) and runner.logger.log_dir is not None:
+            from .diagnostics import check_continuation_output
+            check_continuation_output(runner.checkpoint_path, runner.logger.log_dir)
         if self.phase_guided:
             from .step_events import project_log_std
             runner.std_projection_hook = project_log_std(runner.alg.optimizer, runner.alg.actor.distribution)
@@ -107,10 +110,13 @@ class Go2WEnv(Go2Env):
         if self.cfg.control.armature is not None:
             result["deployment_contract"] = transfer_contract(self)
             result["runtime_armature_min_max_kg_m2"] = [float(self.armature_samples.min()), float(self.armature_samples.max())]
-        if getattr(self.cfg, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral"):
+        if getattr(self.cfg, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral", "navigation_zero_hold"):
             result.update(initialization=f"{self.cfg.go2w_finetune} fine-tune: parent actor/critic/normalizers/std; fresh optimizer and local iteration",
                           parent=self.cfg.refinement_parent, refinement=self.cfg.sensor_smooth,
                           phase_observation_mode=getattr(self.cfg, "phase_observation_mode", "unconditional"))
+        if getattr(self.cfg, "training_resume", None):
+            result.update(initialization="same-recipe native resume: models/normalizers/std/Adam/LR/iteration retained",
+                          training_resume=self.cfg.training_resume)
         return result
 
     def export_metadata(self):
@@ -712,7 +718,7 @@ class Go2WEnv(Go2Env):
     def _reward_collision(self):
         return self.nonfoot_contact_count.clamp(max=4)
 
-    # Legacy rolling and event-step profiles.
+    # Legacy terms; stand_still is also opt-in for V3 zero-command holding.
 
     def _reward_step_event(self):
         return self.step_events.payment.sum(dim=1)

@@ -37,6 +37,48 @@ def sampler(cfg, n=4096):
 
 
 class SensorMotion(unittest.TestCase):
+    def test_zero_hold_changes_one_saved_coefficient_and_keeps_partial_commands(self):
+        parent, training = task_registry.get_cfgs('go2w')
+        apply_go2w_profile(parent, training, 'transfer_v3')
+        parent.go2w_finetune = training.go2w_finetune = 'navigation_partial_lateral'
+        parent.phase_observation_mode = 'command_demand'
+        parent.commands.pure_lateral_magnitude_range = [.02,.3]
+        parent.sensor_smooth = {'hip_weight':3.}
+        parent.refinement_parent = {'checkpoint':'phase.pt','iteration':199,'prior_updates':2200}
+        training.algorithm.learning_rate, training.algorithm.schedule = 5e-5, 'fixed'
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)
+            (path/'config.yaml').write_text(yaml.safe_dump({'task':'go2w','env_cfg':class_to_dict(parent),'train_cfg':class_to_dict(training)}))
+            torch.save({'iter':199},path/'model_199.pt')
+            with patch.object(sys,'argv',['train','--task','go2w','--go2w_profile','transfer_v3',
+                    '--go2w_finetune','navigation_zero_hold','--load_run',str(path),'--checkpoint','199']): args=get_args()
+            cfg, train = task_registry.get_cfgs('go2w')
+            update_cfg_from_args(cfg,train,args)
+            before = class_to_dict(cfg)
+            update_cfg_from_args(cfg,train,args)
+            self.assertEqual(before,class_to_dict(cfg))
+            validate_training(args,cfg,train)
+            expected = class_to_dict(parent.rewards)
+            expected['scales']['stand_still'] = -5.
+            self.assertEqual(class_to_dict(cfg.rewards),expected)
+            for key in ('commands','control','domain_rand','sim','init_state','normalization','noise','phase_guidance','sensor_smooth'):
+                self.assertEqual(json.loads(json.dumps(class_to_dict(getattr(cfg,key)))),json.loads(json.dumps(class_to_dict(getattr(parent,key)))))
+            self.assertEqual(class_to_dict(train.algorithm),class_to_dict(training.algorithm))
+            self.assertEqual((train.runner.max_iterations,train.runner.save_interval),(500,50))
+            self.assertEqual(train.runner.checkpoint_load_cfg,{'actor':True,'critic':True,'optimizer':False,'iteration':False})
+            self.assertEqual(cfg.refinement_parent['prior_updates'],2400)
+            e = Go2WEnv.__new__(Go2WEnv)
+            e.cfg = cfg
+            e.commands = torch.tensor([[0.,0.,0.],[0.,.03,0.],[0.,-.03,0.],[0.,0.,.175],[0.,0.,-.175],[.5,0.,0.]])
+            e.base_lin_vel = torch.full((6,3),.02)
+            e.base_ang_vel = torch.full((6,3),.01)
+            e.dof_vel = torch.full((6,16),.1)
+            e.wheel_action_indices = [3,7,11,15]
+            raw = e._reward_stand_still()
+            self.assertTrue(torch.isfinite(raw).all())
+            self.assertGreater(float(raw[0]),0.)
+            torch.testing.assert_close(raw[1:],torch.zeros(5))
+
     def test_partial_lateral_recipe_retains_phase_parent_and_only_changes_exposure(self):
         parent, training = task_registry.get_cfgs('go2w')
         apply_go2w_profile(parent, training, 'transfer_v3')
