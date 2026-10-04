@@ -539,9 +539,6 @@ class Go2WEnv(Go2Env):
         from .step_events import step_demand
         return step_demand(self.commands)
 
-    def _reward_step_event(self):
-        return self.step_events.payment.sum(dim=1)
-
     def compute_reward(self):
         if self.event_step:
             if getattr(self, "_event_reward_step", None) == self.common_step_counter:
@@ -549,41 +546,12 @@ class Go2WEnv(Go2Env):
             self._event_reward_step = self.common_step_counter
         super().compute_reward()
 
-    def _reward_hip_pose(self):
-        error = (self.dof_pos - self.default_dof_pos)[:, self.hip_indices]
-        if self.transfer_v2:
-            return self._supported_pose(error, self.hip_support_indices, "hip")
-        return (1 - 0.5 * self._step_demand()) * error.square().mean(dim=1)
-
-    def _reward_sagittal_pose(self):
-        error = (self.dof_pos - self.default_dof_pos)[:, self.sagittal_indices]
-        if self.transfer_v2:
-            return self._supported_pose(error, self.sagittal_support_indices, "sagittal")
-        stance = getattr(self.cfg.rewards, "sagittal_stance_weight", None)
-        if stance is not None:
-            gate = self._step_demand()
-            # The existing -0.6 scale and policy dt are applied by the accumulator.
-            return ((stance * (1 - gate) + 0.12 * gate) / 0.6) * error.square().mean(dim=1)
-        return (1 - 0.8 * self._step_demand()) * error.square().mean(dim=1)
-
     def _supported_pose(self, error, support_indices, group):
         coefficients = self.cfg.rewards.support_pose[group]
         demand = self._step_demand()[:, None]
         moving = torch.where(self.loaded_wheels[:, support_indices], coefficients["loaded"], coefficients["unloaded"])
         coefficient = coefficients["stand"] * (1 - demand) + moving * demand
         return (coefficient * error.square()).mean(dim=1)
-
-    def _reward_wheel_swing(self):
-        return self.step_events.dense_swing(self.wheel_clearance, self.commands, self.cfg.rewards.dense_swing)
-
-    def _reward_lateral_wheel_scrub(self):
-        return self._step_demand() * (self.loaded_wheels * self.wheel_center_lateral_speed.square()).mean(dim=1)
-
-    def _reward_prolonged_unloading(self):
-        return ((self.step_events.unloaded_time - 0.60) / 0.20).clamp(0, 1).square().mean(dim=1)
-
-    def _reward_insufficient_support(self):
-        return torch.relu(2 - (self.wheel_normal_force > 6).sum(dim=1)).square()
 
     def compute_observations(self):
         # Keep this construction explicit so simulator velocity can later be replaced by an estimate.
@@ -628,6 +596,44 @@ class Go2WEnv(Go2Env):
         scale = self.cfg.rewards.phase_objective["tracking_scales"][axis]
         return 1 - huber((self.commands[:, axis] - actual) / scale)
 
+    def _compute_fallen_mask(self):
+        return super()._compute_fallen_mask() | self.base_contact
+
+    def _lateral_gait_gate(self):
+        cfg = self.cfg.rewards
+        return (
+            (self.commands[:, 1].abs() - cfg.lateral_step_start_vel)
+            / (cfg.lateral_step_activation_vel - cfg.lateral_step_start_vel)
+        ).clamp(0, 1)
+
+    def _yaw_mobility_gate(self):
+        cfg = self.cfg.rewards
+        return (
+            (self.commands[:, 2].abs() - cfg.yaw_mobility_start)
+            / (cfg.yaw_mobility_full - cfg.yaw_mobility_start)
+        ).clamp(0, 1)
+
+    def _mobility_gate(self):
+        # Allow moderate-yaw unloading without requiring a prescribed gait.
+        return torch.maximum(
+            self._lateral_gait_gate(),
+            self.cfg.rewards.yaw_mobility_weight * self._yaw_mobility_gate(),
+        )
+
+    def _pose_relaxation_gate(self):
+        cfg = self.cfg.rewards
+        yaw = (
+            (self.commands[:, 2].abs() - cfg.yaw_pose_start)
+            / (cfg.yaw_pose_full - cfg.yaw_pose_start)
+        ).clamp(0, 1)
+        return torch.maximum(self._lateral_gait_gate(), cfg.yaw_pose_weight * yaw)
+
+    def _gait_gate(self):
+        # Go2's inherited swing-clearance kernel calls this hook; pose uses its own gate.
+        return self._mobility_gate()
+
+    # Reward functions
+
     def _reward_tracking_x(self):
         return self._tracking_axis(0)
 
@@ -668,8 +674,63 @@ class Go2WEnv(Go2Env):
         # Actual left-imager location and its virtual sagittal mirror; raw world-up velocity.
         return self.sensor_vz_squared
 
-    def _compute_fallen_mask(self):
-        return super()._compute_fallen_mask() | self.base_contact
+    def _reward_lateral_wheel_scrub(self):
+        return self._step_demand() * (self.loaded_wheels * self.wheel_center_lateral_speed.square()).mean(dim=1)
+
+    def _reward_insufficient_support(self):
+        return torch.relu(2 - (self.wheel_normal_force > 6).sum(dim=1)).square()
+
+    def _reward_normalized_effort(self):
+        # Clipped instantaneous P/V control effort; an effort surrogate, not measured mechanical energy.
+        effort = (self.torques / self.torque_limits).square()
+        return effort[:, self.leg_action_indices].mean(dim=1) + effort[
+            :, self.wheel_action_indices
+        ].mean(dim=1)
+
+    def _reward_leg_action_rate(self):
+        return (
+            (self.actions - self.last_actions)[:, self.leg_action_indices]
+            .square()
+            .sum(dim=1)
+        )
+
+    def _reward_wheel_action_rate(self):
+        return (
+            (self.actions - self.last_actions)[:, self.wheel_action_indices]
+            .square()
+            .sum(dim=1)
+        )
+
+    def _reward_collision(self):
+        return self.nonfoot_contact_count.clamp(max=4)
+
+    # Legacy rolling and event-step profiles.
+
+    def _reward_step_event(self):
+        return self.step_events.payment.sum(dim=1)
+
+    def _reward_hip_pose(self):
+        error = (self.dof_pos - self.default_dof_pos)[:, self.hip_indices]
+        if self.transfer_v2:
+            return self._supported_pose(error, self.hip_support_indices, "hip")
+        return (1 - 0.5 * self._step_demand()) * error.square().mean(dim=1)
+
+    def _reward_sagittal_pose(self):
+        error = (self.dof_pos - self.default_dof_pos)[:, self.sagittal_indices]
+        if self.transfer_v2:
+            return self._supported_pose(error, self.sagittal_support_indices, "sagittal")
+        stance = getattr(self.cfg.rewards, "sagittal_stance_weight", None)
+        if stance is not None:
+            gate = self._step_demand()
+            # The existing -0.6 scale and policy dt are applied by the accumulator.
+            return ((stance * (1 - gate) + 0.12 * gate) / 0.6) * error.square().mean(dim=1)
+        return (1 - 0.8 * self._step_demand()) * error.square().mean(dim=1)
+
+    def _reward_wheel_swing(self):
+        return self.step_events.dense_swing(self.wheel_clearance, self.commands, self.cfg.rewards.dense_swing)
+
+    def _reward_prolonged_unloading(self):
+        return ((self.step_events.unloaded_time - 0.60) / 0.20).clamp(0, 1).square().mean(dim=1)
 
     def _reward_tracking_lin_vel(self):
         error = self.commands[:, :2] - self.base_lin_vel[:, :2]
@@ -678,39 +739,6 @@ class Go2WEnv(Go2Env):
             -error[:, 0].square() / self.cfg.rewards.tracking_sigma_x
             - error[:, 1].square() / self.cfg.rewards.tracking_sigma_y
         )
-
-    def _lateral_gait_gate(self):
-        cfg = self.cfg.rewards
-        return (
-            (self.commands[:, 1].abs() - cfg.lateral_step_start_vel)
-            / (cfg.lateral_step_activation_vel - cfg.lateral_step_start_vel)
-        ).clamp(0, 1)
-
-    def _yaw_mobility_gate(self):
-        cfg = self.cfg.rewards
-        return (
-            (self.commands[:, 2].abs() - cfg.yaw_mobility_start)
-            / (cfg.yaw_mobility_full - cfg.yaw_mobility_start)
-        ).clamp(0, 1)
-
-    def _mobility_gate(self):
-        # Allow moderate-yaw unloading without requiring a prescribed gait.
-        return torch.maximum(
-            self._lateral_gait_gate(),
-            self.cfg.rewards.yaw_mobility_weight * self._yaw_mobility_gate(),
-        )
-
-    def _pose_relaxation_gate(self):
-        cfg = self.cfg.rewards
-        yaw = (
-            (self.commands[:, 2].abs() - cfg.yaw_pose_start)
-            / (cfg.yaw_pose_full - cfg.yaw_pose_start)
-        ).clamp(0, 1)
-        return torch.maximum(self._lateral_gait_gate(), cfg.yaw_pose_weight * yaw)
-
-    def _gait_gate(self):
-        # Go2's inherited swing-clearance kernel calls this hook; pose uses its own gate.
-        return self._mobility_gate()
 
     def _reward_default_pose(self):
         err = (
@@ -727,13 +755,6 @@ class Go2WEnv(Go2Env):
             :, self.leg_action_indices
         ].square().mean(dim=1)
 
-    def _reward_normalized_effort(self):
-        # Clipped instantaneous P/V control effort; an effort surrogate, not measured mechanical energy.
-        effort = (self.torques / self.torque_limits).square()
-        return effort[:, self.leg_action_indices].mean(dim=1) + effort[
-            :, self.wheel_action_indices
-        ].mean(dim=1)
-
     def _reward_leg_acc(self):
         return (
             ((self.dof_vel - self.last_dof_vel)[:, self.leg_action_indices] / self.dt)
@@ -748,20 +769,6 @@ class Go2WEnv(Go2Env):
             .sum(dim=1)
         )
 
-    def _reward_leg_action_rate(self):
-        return (
-            (self.actions - self.last_actions)[:, self.leg_action_indices]
-            .square()
-            .sum(dim=1)
-        )
-
-    def _reward_wheel_action_rate(self):
-        return (
-            (self.actions - self.last_actions)[:, self.wheel_action_indices]
-            .square()
-            .sum(dim=1)
-        )
-
     def _reward_stand_still(self):
         motion = (
             self.base_lin_vel[:, :2].square().sum(dim=1)
@@ -769,9 +776,6 @@ class Go2WEnv(Go2Env):
         )
         motion += 0.02 * self.dof_vel[:, self.wheel_action_indices].square().mean(dim=1)
         return self._stand_mask() * motion
-
-    def _reward_collision(self):
-        return self.nonfoot_contact_count.clamp(max=4)
 
     def _reward_unnecessary_wheel_air(self):
         if self.event_step:
