@@ -44,6 +44,12 @@ class RollingPlacement(unittest.TestCase):
         torch.testing.assert_close(cost, rolling_placement_error(reflected, commands*torch.tensor([1., -1., -1.]), reference, cfg, 1e-6))
 
     def test_new_recipe_restores_parent_and_historical_replay(self):
+        self.check_saved_recipe('navigation_rolling_placement')
+
+    def test_combined_recipe_restores_parent_and_historical_replay(self):
+        self.check_saved_recipe('navigation_rolling_control')
+
+    def check_saved_recipe(self, recipe):
         parent, training = task_registry.get_cfgs('go2w')
         apply_go2w_profile(parent, training, 'transfer_v3')
         parent.go2w_finetune = training.go2w_finetune = 'navigation_zero_hold'
@@ -59,7 +65,7 @@ class RollingPlacement(unittest.TestCase):
             (path/'config.yaml').write_text(yaml.safe_dump(source))
             torch.save({'iter': 499}, path/'model_499.pt')
             with patch.object(sys, 'argv', ['train', '--task', 'go2w', '--go2w_profile', 'transfer_v3',
-                    '--go2w_finetune', 'navigation_rolling_placement', '--load_run', str(path), '--checkpoint', '499']):
+                    '--go2w_finetune', recipe, '--load_run', str(path), '--checkpoint', '499']):
                 args = get_args()
             cfg, train = task_registry.get_cfgs('go2w')
             update_cfg_from_args(cfg, train, args)
@@ -70,6 +76,8 @@ class RollingPlacement(unittest.TestCase):
             expected = copy.deepcopy(source['env_cfg']['rewards'])
             expected['scales']['rolling_placement'] = -.05
             expected['rolling_placement'] = cfg.rewards.rolling_placement
+            if recipe == 'navigation_rolling_control':
+                expected['phase_objective']['rolling_yaw_scale'] = .07
             self.assertEqual(expected, class_to_dict(cfg.rewards))
             for key in ('commands', 'control', 'domain_rand', 'sim', 'init_state', 'noise', 'phase_observation_mode', 'sensor_smooth'):
                 self.assertEqual(json.loads(json.dumps(class_to_dict(getattr(cfg, key)))), json.loads(json.dumps(source['env_cfg'][key])))

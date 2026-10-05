@@ -189,7 +189,8 @@ def prepare_sensor_smooth(env_cfg, train_cfg, args):
     phase_route = name == "sensor_phase_conditioned"
     exposure_route = name == "navigation_partial_lateral"
     zero_hold_route = name == "navigation_zero_hold"
-    placement_route = name == "navigation_rolling_placement"
+    rolling_control_route = name == "navigation_rolling_control"
+    placement_route = name in ("navigation_rolling_placement", "navigation_rolling_control")
     restore_route = phase_route or exposure_route or zero_hold_route or placement_route
     if args.task != "go2w" or args.go2w_profile != "transfer_v3" or args.resume:
         raise ValueError(f"{name} requires --task go2w --go2w_profile transfer_v3; omit --resume (fresh optimizer/counter)")
@@ -256,6 +257,9 @@ def prepare_sensor_smooth(env_cfg, train_cfg, args):
                 "midpoint_deadband_m": .015, "midpoint_scale_m": .05,
             }
             env_cfg.rewards.scales.rolling_placement = -.05
+        if rolling_control_route:
+            # Combined placement/yaw refinement; stepping keeps the saved tracking scale.
+            env_cfg.rewards.phase_objective["rolling_yaw_scale"] = .07
         previous = copy.deepcopy(parent["env_cfg"].get("refinement_parent"))
         env_cfg.refinement_parent = {"checkpoint": parent["checkpoint"], "iteration": parent["iteration"],
             "parent_local_updates": parent["total_updates"] - (previous or {}).get("prior_updates", 0),
@@ -743,7 +747,7 @@ class GO2WCfgPPO(GO2CfgPPO):
 
 def add_arguments(parser):
     parameters = [
-        {"name": "--go2w_finetune", "choices": ["coverage", "coverage_mobility", "precision_clearance", "sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral", "navigation_zero_hold", "navigation_rolling_placement"], "default": None, "help": "V3 refinements selectively load explicit saved models/normalizers/std with fresh optimizer/counter; legacy choices require step_recovery_v1 resume"},
+        {"name": "--go2w_finetune", "choices": ["coverage", "coverage_mobility", "precision_clearance", "sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral", "navigation_zero_hold", "navigation_rolling_placement", "navigation_rolling_control"], "default": None, "help": "V3 refinements selectively load explicit saved models/normalizers/std with fresh optimizer/counter; legacy choices require step_recovery_v1 resume"},
         {"name": "--go2w_profile", "choices": ["step_recovery_v1", "event_step_v1", "transfer_v1", "transfer_v2", "transfer_v3"], "default": None, "help": "Opt-in training recipe; replay restores the saved profile automatically"},
         {"name": "--sagittal_stance_weight", "type": float, "default": None, "help": "Explicit event_step_v1 stance weight; full-demand weight stays 0.12; select the saved value for evaluation/play"},
         {"name": "--event_quality_profile", "choices": ["sufficient_clearance"], "default": None, "help": "Opt-in event quality and payment; select the saved choice for evaluation/play"},
@@ -780,7 +784,7 @@ def configure(env_cfg, cfg_train, args):
     if args.resume and getattr(args, "go2w_profile", None) == "transfer_v3":
         prepare_v3_resume(env_cfg, cfg_train, args)
         return
-    if getattr(args, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral", "navigation_zero_hold", "navigation_rolling_placement"):
+    if getattr(args, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral", "navigation_zero_hold", "navigation_rolling_placement", "navigation_rolling_control"):
         prepare_sensor_smooth(env_cfg, cfg_train, args)
         return
     profile = getattr(args, "go2w_profile", None)
@@ -843,7 +847,7 @@ def validate_fresh_transfer(args, train_cfg):
         if train_cfg.go2w_profile != "transfer_v3" or not train_cfg.runner.resume or train_cfg.runner.checkpoint_load_cfg != expected:
             raise ValueError("Same-recipe V3 resume must restore the full native learning state")
         return
-    if getattr(train_cfg, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral", "navigation_zero_hold", "navigation_rolling_placement"):
+    if getattr(train_cfg, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral", "navigation_zero_hold", "navigation_rolling_placement", "navigation_rolling_control"):
         expected = {"actor": True, "critic": True, "optimizer": False, "iteration": False}
         if (train_cfg.go2w_profile != "transfer_v3" or args.resume or not train_cfg.runner.resume
                 or train_cfg.runner.checkpoint_load_cfg != expected or not getattr(args, "sensor_parent", None)):

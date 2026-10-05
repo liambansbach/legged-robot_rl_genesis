@@ -110,7 +110,7 @@ class Go2WEnv(Go2Env):
         if self.cfg.control.armature is not None:
             result["deployment_contract"] = transfer_contract(self)
             result["runtime_armature_min_max_kg_m2"] = [float(self.armature_samples.min()), float(self.armature_samples.max())]
-        if getattr(self.cfg, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral", "navigation_zero_hold", "navigation_rolling_placement"):
+        if getattr(self.cfg, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral", "navigation_zero_hold", "navigation_rolling_placement", "navigation_rolling_control"):
             result.update(initialization=f"{self.cfg.go2w_finetune} fine-tune: parent actor/critic/normalizers/std; fresh optimizer and local iteration",
                           parent=self.cfg.refinement_parent, refinement=self.cfg.sensor_smooth,
                           phase_observation_mode=getattr(self.cfg, "phase_observation_mode", "unconditional"))
@@ -609,9 +609,13 @@ class Go2WEnv(Go2Env):
         return scale * cfg.noise.noise_level
 
     def _tracking_axis(self, axis):
-        from .phase import huber
+        from .phase import huber, rolling_command_mask
         actual = self.base_lin_vel[:, axis] if axis < 2 else self.base_ang_vel[:, 2]
         scale = self.cfg.rewards.phase_objective["tracking_scales"][axis]
+        rolling_scale = self.cfg.rewards.phase_objective.get("rolling_yaw_scale")
+        if axis == 2 and rolling_scale is not None:
+            scale = torch.where(rolling_command_mask(self.commands, self.cfg.commands.stand_threshold),
+                                rolling_scale, scale)
         return 1 - huber((self.commands[:, axis] - actual) / scale)
 
     def _compute_fallen_mask(self):

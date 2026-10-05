@@ -1,6 +1,6 @@
 # Go2-W sensor refinement reviews
 
-Current decision (2026-10-05): **keep navigation-zero-hold model_499.pt as an intermediate**, retain 250 as a straighter fallback, and prepare one opt-in rolling-placement objective. See [the current zero-hold review](#navigation-zero-hold-500-update-review-2026-10-05). Earlier selections, proposals and cleanup results below are historical.
+Current decision (2026-10-05): **prepare navigation_rolling_control from zero-hold model_499.pt**, combining the prepared placement cost with conditional yaw precision; retain 250 as a straighter fallback. See [the combined preparation](#combined-rolling-control-preparation-2026-10-05). Earlier selections, placement-only proposals and cleanup results below are historical.
 
 ## Sensor smoothing: verified 500-update review
 
@@ -523,3 +523,101 @@ python -m robot_gym.scripts.train `
 Edits are confined to Go2-W config, one optional cached geometry/reward calculation and focused tests. Six tests passed: `python -m unittest tests.test_go2w_rolling_placement tests.test_go2w_resume`. They cover measured geometry, deadbands, reflection, partial-command exclusion, saved recipe/history and existing resume behavior. Native no-update loading proves exact model/normalizer/std parity and fresh optimizer/counter. One **64-environment, two-update native smoke** completed at `logs/go2w_transfer_v3_navigation_rolling_placement_smoke/placement_execution_smoke_2026-10-05_10-14-06/`: label 1, Adam step 80, finite models and active finite reward. It validates execution only; no other optimizer updates ran in this review.
 
 No production training, push, package upgrade, deletion, receiving-repository edit, cleanup, full test suite, robustness bank, checkpoint sweep or second extra rollout occurred. `play.py`, Go2 and Dodo are untouched. The 58/16 command-demand contract, normalization, simulator-derived body velocity and previous-issued-action semantics are unchanged. Future diagnostic transfer must preserve these; no hardware or Sim2Sim qualification is claimed.
+
+## Combined rolling-control preparation (2026-10-05)
+
+**Decision: prepare one 500-update warm start, `navigation_rolling_control`, from zero-hold CK499.** This supersedes the unstarted placement-only production proposal. It has two deliberate behavioral deltas: actual rolling placement and conditional yaw precision. This is a combined engineering refinement; improvement cannot later be attributed to either delta independently without an ablation. No new policy performance is claimed here.
+
+Explicit parent: `logs/go2w_transfer_v3_navigation_zero_hold/navigation_zero_hold_from199_seed1_2026-10-05_08-46-00/model_499.pt`. Keep `model_250.pt` there as the straighter fallback and preserve all earlier references. Saved configurations under `logs/` confirm that placement-only has **only the earlier two-update smoke**, with no production run. Branch `testing` was clean at the start of this preparation; `play.py` remains untouched.
+
+Local artifacts are under [rolling_control_preparation](../evaluation/navigation_zero_hold_500_review/rolling_control_preparation/): [fully resolved config](../evaluation/navigation_zero_hold_500_review/rolling_control_preparation/config.yaml), [load proof](../evaluation/navigation_zero_hold_500_review/rolling_control_preparation/preparation.json), exact `config_delta.json`, [cost comparison](../evaluation/navigation_zero_hold_500_review/rolling_control_preparation/costs.json), `action_range.json`, and [frozen selection protocol](../evaluation/navigation_zero_hold_500_review/rolling_control_preparation/selection_protocol.json). Large checkpoints/traces remain outside Git.
+
+### Two changes, one fixed recipe
+
+The existing collision-center placement implementation is reused unchanged. Cached authored-base front/rear reference widths are **.380199997/.380199997 m**, pair midpoints zero. Per-pair dimensionless cost is the sum of Huber width and midpoint deviations after deadbands, averaged over the two pairs: width deadband/scale **.04/.10 m**, midpoint **.015/.05 m**, coefficient **-.05**. There is no contact gate, pose lock, new input, state setter, or FK inside a reward step. Loaded support offsets remain permissible.
+
+V3 yaw remains **`.8 * (1 - Huber((command_yaw - body_angular_z) / scale))`**. Only an opt-in `rewards.phase_objective.rolling_yaw_scale=.07` is added. The saved general scale stays **.35 rad/s**, weight/ceiling **.8**. Both new objectives share the existing gate **`norm([command_vy, command_yaw]) < 1e-6`**: measured motion does not choose the gate; vx of either sign does not disable it. Equality and larger norms use the old yaw scale and exclude placement. Subthreshold requests pass, and their actual commanded yaw is still tracked. This is a hard threshold discontinuity, including immediately after turn-to-zero switches; no command-state machinery or ramp is added. Partial lateral/turning commands retain their previous objectives. This gate is distinct from the smooth phase-demand function.
+
+Old configs omit the new key and retain their exact yaw kernel and replay semantics. Stand_still **-5**, partial lateral **[.02,.30]**, command-demand clock/phase guidance, sensor/angular/orientation rewards, normalizers, learned std and bounds, 58/16 architecture, action/history/reference contract, timing, plant and DR all remain saved-parent values. LR **5e-5 fixed**, entropy **.003**, gamma/GAE **.995/.95**, 64 rollout ticks, and every other PPO setting are unchanged. No heading controller, estimator, mirror-loss change, or inference action modification is introduced.
+
+### Costs on retained trajectories
+
+All entries below are **signed weighted error rates per second**, evaluated at the retained **50 Hz reward boundaries**, not 200 Hz contact peaks. Yaw columns exclude the unchanged +.8 ceiling; total yaw reward equals .8 plus that cost. Early is first 1 s of the named segment; late is 20–30 s for sustained cases, 15–20 s for GUI, and the final 2 s otherwise. Full means the entire command or stop segment. `costs.json` includes each companion term for every full/early/late window, plus first-5-s windows and peaks.
+
+| Retained case | Old yaw full | New yaw full | New first 1 s | New late |
+|---|---:|---:|---:|---:|
+| 250 stand | -.00002 | -.00039 | -.00001 | -.00001 |
+| 499 stand | -.00018 | -.00457 | -.00001 | -.00366 |
+| 250 vx=.5 | -.00054 | -.01357 | -.00101 | -.03351 |
+| 499 vx=.5 | -.00161 | -.04037 | -.00027 | -.01184 |
+| 499 GUI vx=.6 | -.00212 | -.05306 | -.00015 | -.03179 |
+| 250 fast stop | -.00006 | -.00158 | -.00689 | -.000005 |
+| 499 fast stop | -.00141 | -.03528 | -.06707 | -.00299 |
+| 499 lateral-to-roll 1 | -.00153 | -.03816 | -.10329 | -.01269 |
+| 499 lateral-to-roll 2 | -.00158 | -.03947 | -.09742 | -.01535 |
+| 499 transition stop | -.00012 | -.00289 | -.00206 | -.00227 |
+| 499 positive yaw stop | -.00767 | -.18920 | -.18408 | -.09604 |
+| 499 negative yaw stop | -.00099 | -.02320 | -.05708 | -.03239 |
+| 499 strong positive yaw stop | -.00331 | -.06106 | -.21180 | -.00477 |
+| 499 strong negative yaw stop | -.00316 | -.05211 | -.18764 | -.04087 |
+
+Companion costs over the full segments, with the prospective placement coefficient applied once:
+
+| Retained case | Placement | Existing rolling pose | Existing stand_still | Existing x+y tracking error |
+|---|---:|---:|---:|---:|
+| 250 stand | -.00247 | -.00569 | -.00195 | -.00067 |
+| 499 stand | -.00184 | -.00568 | -.00079 | -.00016 |
+| 250 vx=.5 | -.01747 | -.02335 | 0 | -.00396 |
+| 499 vx=.5 | -.01522 | -.02010 | 0 | -.00833 |
+| 499 GUI vx=.6 | -.01318 | -.01775 | 0 | -.01186 |
+| 250 fast stop | -.01934 | -.01975 | -.00895 | -.00781 |
+| 499 fast stop | -.01380 | -.01761 | -.00966 | -.00712 |
+| 499 lateral-to-roll 1 | -.00235 | -.00918 | 0 | -.03286 |
+| 499 lateral-to-roll 2 | -.00002 | -.00384 | 0 | -.00948 |
+| 499 transition stop | -.00089 | -.00429 | -.00157 | -.00049 |
+
+The selected **.07 rad/s** makes errors within its quadratic region 25 times as costly; outside it Huber grows linearly, so the ratio is less than 25. At 499's first lateral-to-roll transition, first-second yaw cost -.1033 accompanies x+y error -.0965, placement -.00132 and pose -.00806. First-second fast-stop yaw -.0671 accompanies stand_still -.05065, x+y -.05042 and pose -.02136. Late forward yaw -.01184 accompanies placement -.02115 and pose -.02576. Thus the change materially prices curvature and rotation in stand without making steady posture costs irrelevant.
+
+Turn-stop transients are more demanding: strong-turn first-second yaw costs are -.212/-.188, versus stand_still -.0292/-.0310. Worst instantaneous yaw-error rate is **-2.98** (total yaw reward -2.18; error contribution -.0596 per policy tick); the moderate positive-yaw stop also retains a substantial full cost -.189. These are meaningful penalties, not negligible peaks. They do not clearly justify moving away from .07 before a learning test, but they make braking/transition retention a required check. Neither these counterfactual costs nor a 25x local curvature imply learning success. The retained phase sequence supplies lateral-to-roll transitions, **not a direct turn-to-roll trajectory**; existing turn-to-zero screen traces exercise the same gate switch. No new rollout was launched to fill that distinction. Active lateral/turning yaw rewards remain numerically unchanged on those traces.
+
+### Action range and exposure
+
+CK499 FL calf clips **69.6%** of forward ticks entirely in the positive direction: its reference -1.4, scale .4 and clip +/-1 give target **[-1.8,-1.0] rad**. The actor asks for further extension, not flexion. Late actual/applied calf means are **-1.0417/-1.0000**, control force +1.67 Nm; GUI positive clipping is 62.4%. FL hip actual/applied is **+.3527/+.1693**, within a target interval +/- .3. Issued/applied targets agree. Matched forward substeps have zero 99%-force-limit occupancy, peak ratio .613. Target clipping is not torque saturation. More calf flexion and inward hip target range remain available; the data establish an extension limit but **no clear action-range blocker to the intended placement correction**. They do not prove a stable, narrower solution is feasible. No action range, force, gain or geometry change is made.
+
+Actual diagnostic rows cover 498 updates (438/448 missing records). Logged time fractions are **17.24% stand, 16.40% straight**: those families necessarily activate the new gate, providing at least **33.64%** coverage. Exact gate occupancy was not logged. Selected 8–15/20–30 s hold ticks account for **7.83%/5.51%** pooled exposure; the code allows these holds for stand/straight/arc, but the logs have no family-by-hold cross-tab. Late-window fractions are similar. Partial lateral draws remain uniform absolute [.02,.30], both signs, above the .01 linear deadzone. Partial-magnitude time exposure is unavailable. The phase-guided sampler's existing sensor-hold path is active; the legacy moving-long branch is not. No sampler campaign, new exposure statistics, or mixture change is introduced.
+
+### Warm start and fixed decision protocol
+
+Preparation restores the explicit parent's complete saved recipe first and applies the two deltas once. Native no-update loading verified **exact actor/critic/normalizer/std parity**, normalizer counts 760,217,600 each, fresh Adam state, LR 5e-5 and local iteration zero. Prior lineage remains 2,900 updates. This is a **warm start, not training from scratch or true resume**. The existing unchanged-recipe true-resume path remains intact. The resolved config is the fixed rewards/sampler/observations/physics target for a future fresh-start comparison; no fresh-training branch is added.
+
+One budget: **500 updates**, save every 50; installed runner labels midpoint **250 after 251 updates**, final **499 after 500**. Prepared production command, **not executed** (from this checkout; no `--resume`):
+
+```powershell
+$env:NUMBA_CACHE_DIR = Join-Path (Get-Location) '.cache/numba'
+$env:GS_CACHE_FILE_PATH = Join-Path (Get-Location) '.cache/genesis'
+$env:QD_OFFLINE_CACHE_FILE_PATH = Join-Path (Get-Location) '.cache/quadrants'
+& "$env:USERPROFILE/anaconda3/envs/genesis-gpu/python.exe" -m robot_gym.scripts.train `
+  --task go2w --go2w_profile transfer_v3 --go2w_finetune navigation_rolling_control `
+  --load_run logs/go2w_transfer_v3_navigation_zero_hold/navigation_zero_hold_from199_seed1_2026-10-05_08-46-00 `
+  --checkpoint 499 --experiment_name go2w_transfer_v3_navigation_rolling_control `
+  --run_name navigation_rolling_control_from499_seed1 `
+  --num_envs 4096 --max_iterations 500 --seed 1 `
+  --logger tensorboard --training_diagnostics --headless --rl_device cuda:0
+```
+
+The selection protocol was saved before the execution smoke. Its targets are development goals, **not hardware safety limits**:
+
+- At vx=.5 for 30 s: maximum cross-track **<=.05 m**, absolute pose-derived heading change **<=2 degrees**, measured from the moving-segment start line/heading. Report achieved vx and RMSE; slowing or stopping is not success. Declared speed comparison band: mean .45–.55 m/s, RMSE <=.04 m/s.
+- Stand: 20–30 s XY RMS **<=.005 m/s**. Also require improved late yaw RMS and full stand heading change over CK499's .00670 rad/s and -11.1 degrees, retaining CK250's .00030 rad/s comparison. Translation alone cannot qualify holding. Separate startup displacement/path.
+- No material increase in full 8 s stop path/reversal/residual motion, or loss of retained stepping. Compare endpoint and path separately against CK499, CK250 and original V3. Use prior approximately 15% comparison bands descriptively, considering absolute magnitude and censoring, rather than turning them into safety thresholds.
+- Placement must approach the corridor without impairing support, speed, stopping or necessary corrective actions. Retain both lateral/yaw signs and inspect physical cycles/clearance distributions. Small-lateral cross-axis drift remains unqualified; this recipe does not directly resolve it.
+
+Future evaluation is limited to **250 and 499: existing sustained stand/forward_fast; the better candidate: one phase-transition and transfer_screen; at most one vx=.6 reproduction if needed**. Match nominal conditions/windows/sampling and reuse all historical outputs. Do not relax targets after seeing results. If neither checkpoint meets the combined goals, recommend a **separately authorized fresh-start comparison using this same fixed target recipe**, with appropriate initial exploration and training budget, instead of adding a third reward or another renamed fine-tune.
+
+### Validation and limits
+
+Nine focused tests passed: `python -m unittest tests.test_go2w_rolling_control tests.test_go2w_rolling_placement tests.test_go2w_resume`. They cover old kernels/replay, conditional scale with the real commanded yaw target, threshold boundary, reflection, x/y preservation, measured geometry, reward/dt weighting once, exact recipe restoration and true-resume behavior. Native full-parent load proof is saved separately. Code changes stay in Go2-W's existing config/kernel and focused tests; no evaluator or loading framework was added.
+
+Exactly one **64-environment, two-update native smoke** completed at `logs/go2w_transfer_v3_navigation_rolling_control_smoke/rolling_control_execution_smoke_2026-10-05_11-08-17/`. Saved label 1 has Adam step 80, LR 5e-5, finite models/optimizer and parent-normalizer count advanced by 8,192. Both rewards have finite diagnostics; placement is active, with raw means .00105/.00467, and coefficient/dt weighting matches once. The resolved behavioral config matches the production target; only the requested execution/output budget differs. [smoke_validation.json](../evaluation/navigation_zero_hold_500_review/rolling_control_preparation/smoke_validation.json) and [commands.ps1](../evaluation/navigation_zero_hold_500_review/rolling_control_preparation/commands.ps1) record proof and actual commands. These are the only optimizer updates in this preparation; they validate execution, not improvement.
+
+This preparation uses existing nominal traces only; no fresh behavioral evaluation, robustness bank, production training, push, artifact deletion, stack upgrade, receiving-side edit or broad test campaign was performed. The combined objective has no demonstrated behavioral improvement yet and is not a hardware/Sim2Sim qualification.

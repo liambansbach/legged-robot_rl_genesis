@@ -51,6 +51,11 @@ def corridor_error(dx, reference, desired_swing, stance_tolerance, swing_toleran
     return huber(torch.relu((dx - reference).abs() - tolerance) / length_scale).mean(dim=1)
 
 
+def rolling_command_mask(commands, zero_threshold):
+    """Pure longitudinal/stand command gate; independent of measured motion."""
+    return commands[:, 1:3].norm(dim=1) < zero_threshold
+
+
 def rolling_placement_error(centers, commands, reference, cfg, zero_threshold):
     """Soft actual lateral placement cost, only for pure longitudinal/stand commands."""
     y = centers[:, :, 1]
@@ -60,5 +65,5 @@ def rolling_placement_error(centers, commands, reference, cfg, zero_threshold):
     midpoint_error = torch.relu((midpoint - reference[1]).abs() - cfg["midpoint_deadband_m"])
     cost = huber(width_error / cfg["width_scale_m"]) + huber(midpoint_error / cfg["midpoint_scale_m"])
     # Even partial lateral/yaw requests are excluded; unloading never disables the cost.
-    rolling = commands[:, 1:3].norm(dim=1) < zero_threshold
+    rolling = rolling_command_mask(commands, zero_threshold)
     return rolling * cost.mean(dim=1)
