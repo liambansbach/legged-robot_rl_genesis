@@ -1,6 +1,6 @@
 # Go2-W sensor refinement reviews
 
-Current decision (2026-10-05): **keep navigation-partial-lateral model_199.pt as an intermediate** and prepare one zero-command objective activation. See [the current navigation review](#navigation-partial-lateral-200-update-review-2026-10-05). Earlier selections and cleanup results below are historical.
+Current decision (2026-10-05): **keep navigation-zero-hold model_499.pt as an intermediate**, retain 250 as a straighter fallback, and prepare one opt-in rolling-placement objective. See [the current zero-hold review](#navigation-zero-hold-500-update-review-2026-10-05). Earlier selections, proposals and cleanup results below are historical.
 
 ## Sensor smoothing: verified 500-update review
 
@@ -424,3 +424,102 @@ Edits are confined to Go2-W config/metadata/resume handling and focused tests; t
 The actual three inference commands used the same `--task go2w --experiment_name go2w_transfer_v3_navigation_partial_lateral --load_run navigation_partial_lateral_from199_seed1_2026-10-04_23-48-18 --checkpoint 199 --num_envs 1 --seed 1 --headless --rl_device cuda:0` selection. Their additional flags were respectively `--eval_mode sensor_sustained --eval_phase_transition --output evaluation/navigation_partial_200_review/final_transition`; `--eval_mode sensor_sustained --transfer_cases stand forward_fast --diagnostic_trace --output evaluation/navigation_partial_200_review/final_rolling`; and `--eval_mode transfer_screen --output evaluation/navigation_partial_200_review/final_screen`, run through `python -m robot_gym.scripts.evaluate` in genesis-gpu. Outputs were fresh and historical baselines unchanged.
 
 No production training, push, package upgrade, deletion, receiving-repository edit or new storage task occurred. `play.py`, Go2 and Dodo remain untouched. This is one nominal seed and a bounded screen, with no new robustness/transfer qualification. The selected model retains its 58/16 command-demand contract, including the two raw clock entries and previous-issued-action semantics; a later receiving simulator must preserve its saved normalizer, joint/action mapping and clock timing rather than use a 56-input or unconditional-phase receiver.
+
+## Navigation zero hold: 500-update review (2026-10-05)
+
+**Decision: keep zero-hold 499 as an intermediate development parent and prepare one rolling-placement objective.** Retain 250 as a straighter fallback. Neither warrants a Sim2Sim freeze yet: 499 improves translation at zero command but develops asymmetric rolling geometry and continuing yaw drift; 250 still creeps substantially. Geometry improvement is not guaranteed to correct curvature.
+
+Selected checkpoint: `logs/go2w_transfer_v3_navigation_zero_hold/navigation_zero_hold_from199_seed1_2026-10-05_08-46-00/model_499.pt`. Fallback: `model_250.pt` in the same directory. Exact parent: `logs/go2w_transfer_v3_navigation_partial_lateral/navigation_partial_lateral_from199_seed1_2026-10-04_23-48-18/model_199.pt`. All remain unmodified.
+
+Compact results: [review.json](../evaluation/navigation_zero_hold_500_review/review.json). Native traces, manifests, detailed windows/per-joint measurements, reflection residuals, training inspection and prepared config are under `evaluation/navigation_zero_hold_500_review/`. [commands.ps1](../evaluation/navigation_zero_hold_500_review/commands.ps1) records executable evaluation/replay commands and the separate, unexecuted production proposal.
+
+### Run and logs
+
+The actual production run saved labels 0, 50, 100, 150, 200, 250, 300, 350, 400, 450 and 499. Iteration metadata agrees: **250 represents 251 local updates**, Adam step 10,040; **499 represents 500**, Adam step 20,000 (40 minibatches/update). Preparation is completed; TensorBoard ends at 499. Diagnostic rows **438/448** and TensorBoard row **406** are missing records, not missing updates. Normalizer counts at 250/499 are 694,943,744/760,217,600.
+
+The only saved behavioral delta is `stand_still: 0 -> -5`. Go2-W's active method is `vx_body² + vy_body² + angular_z_body² + .02*mean(wheel_rate²)`, gated by the complete three-axis command norm below 1e-6. Registration applies coefficient and policy dt once. Ordinary play skips reward accumulation. The 58/16 interface, command-demand encoding, sampler, other rewards, normalizers, dynamics, observation noise, training DR and PPO settings otherwise match the parent. Symmetry uses augmentation, with mirror loss disabled and coefficient zero.
+
+Random initial episode counters accompany empty reward/length accumulators. Episode reward entries divide by the full 60 s duration. A full episode is `60/.02/64 = 46.875` updates: logged length rises from 31 ticks at update 0 to approximately 3,000 at 47, while return rises from 1.62 to 157.36 (06:46:06–06:49:33 UTC). This strongly supports startup accounting as a major contributor, without excluding simultaneous learning. Total return across different objectives/durations is not used to rank checkpoints.
+
+| Window | Diagnostic rows | Measured KL mean/p95 | PPO clipping | Value loss | Steps/s |
+|---|---:|---:|---:|---:|---:|
+| 75–125 | 51 | .00427/.00576 | .1093 | .00333 | 56,120 |
+| 225–275 | 51 | .00426/.00569 | .1123 | .00231 | 56,817 |
+| 400–499 | 98 | .00421/.00562 | .1097 | .00201 | 56,659 |
+
+The existing wrapper measures KL on original minibatch samples using old/current distributions, excluding augmentation copies. Scheduler KL arrays are empty: installed RSL-RL 5.5.1 calls that branch only for an adaptive schedule. Fixed LR is **5e-5**, also verified in checkpoint Adam groups; desired_kl is not a hard bound.
+
+Signed weighted rates in these windows respectively: stand_still **-.04869/-.03924/-.03641**; sensor vertical **-.00476/-.00484/-.00467**; reference height **-.00460/-.00593/-.00577**; phase clearance **-.00711/-.00745/-.00762**; wheel_corridor **-.000894/-.000992/-.001275**. These stochastic aggregates do not establish deterministic holding. `wheel_corridor` prices fore-aft wheel-under-thigh x offsets, not lateral width. Yaw remains `.8*(1-Huber(error/.35))`, ceiling .8, not a Gaussian; the approximately .765 contribution does not justify tighter tracking scales.
+
+Late effective action std is approximately .1000 except front thighs (.1236). Floor occupancy percentages in hip/thigh/calf/wheel order: FL **49/0/83/97**, FR **48/0/87/96**, RL **40/90/22/98**, RR **43/89/26/97**. Full per-joint std, clipping and raw/weighted rates are in `training.json`. The .1 floor is nonzero—1.8 rad/s for wheels before clipping—and distinct from observation noise or reward-error scales. No LR/exploration change is proposed.
+
+### Physical decision
+
+Only 250 and 499 received fresh 30 s stand and 3 s zero + 30 s vx=.5 + 8 s stop tests. One nominal environment, seed 1, deterministic actor, no noise/pushes/delay. Relevant asset/control/physics/initial-state settings, schedules and sampling match the reused baseline traces (`baseline_compatibility.json`); original V3 retains unconditional phase semantics. No sustained case, transition or screen case fell, reset or made non-wheel contact. Terminal failures were not spliced into successful holds.
+
+| Candidate | Stand endpoint/path m | Late stand XY/yaw RMS (m/s, rad/s) | 8 s stop endpoint/path m | Final stop XY RMS m/s | Forward heading change ° | Max cross-track m |
+|---|---:|---:|---:|---:|---:|---:|
+| Original V3/1499 | .0479/.2838 | .01056/.02336 | .0316/.0795 | .00864 | -2.92 | .1287 |
+| Phase parent/199 | .2042/.2046 | .00178/.00012 | .0759/.0760 | .00384 | +.04 | .0208 |
+| Navigation parent/199 | .3039/.3475 | .01682/.00010 | .0600/.1258 | .01501 | +.52 | .1041 |
+| Zero hold/250 | .2399/.2402 | .01324/.00030 | .0425/.0789 | .00625 | -.62 | .0066 |
+| **Zero hold/499** | **.0526/.1003** | **.00257/.00670** | **.0311/.1051** | **.00544** | **+12.60** | **.5076** |
+
+Late stand is 20–30 s; final stop is its last 2 s. Startup 0–5 s stand displacement is .0332/.0352 m for 250/499, versus .0160 m for the immediate parent. At 499, reduced translation accompanies -11.1° stand heading change. Its stop endpoint resembles original V3, but the longer path and reversal matter: final mean vx/vy is -.00467/+.00265 m/s and yaw RMS .00605 rad/s. At 250 final backward speed is .00620 m/s. Neither endpoint alone nor the older settling threshold establishes a quiet hold.
+
+For vx=.5, 250 mean vx/vy/body-angular-z is **.50489/-.000012/-.000360**, RMSE **.02204/.00240/.01289**; 499 mean is **.47110/-.000696/+.007372**, RMSE **.03189/.00331/.02224**. Heading is derived from pose (unwrapped world projection of body +X), not integrated body angular-z. Cross-track uses the movement-start pose and heading. At 499 the initial heading offset is only .080°; drift is -4.78° in 0–5 s and +6.86° during 20–30 s. Endpoint cross-track is +.421 m, below the .508 m maximum: continuing curvature changes direction.
+
+The supplied GUI sequence—499, direct vx=.6, vy=yaw=0, 1,000 ticks/20 s—was reproduced in **one additional native rollout**. Mean vx is .5697 m/s, yet max cross-track is **.4636 m**, endpoint -.1879 m, and heading goes from -2.46° at 5 s to +7.68° at 20 s. Final-five-second yaw rate averages +.01972 rad/s. Good body vx tracking can therefore coexist with curved travel. Current `play.py` fixes the axes, restores the correct model/config, uses nominal deterministic inference and the same phase timing. No replay/indexing/control bug was found; it remains untouched. No second extra rollout was needed.
+
+### Geometry and symmetry diagnosis
+
+Cached reference output and existing FK/cylinder helpers agree on **.380199997 m** front/rear widths and zero pair midpoints. This is imposed authored geometry, not loaded equilibrium. No static-pose simulation or rollout state setter was used.
+
+| Late vx=.5 quantity | 250 | 499 |
+|---|---:|---:|
+| Wheel-center y, FL/FR/RL/RR m | .28799/-.28746/.18734/-.18639 | .31286/-.22527/.22222/-.18819 |
+| Front/rear width m | .57545/.37372 | .53814/.41041 |
+| Front/rear midpoint m | .00026/.00047 | .04379/.01702 |
+| Actual front hips FL/FR rad | +.28375/-.28201 | +.35266/-.10875 |
+| Applied front hips FL/FR rad | +.03064/-.02960 | +.16930/+.01678 |
+| Front hip tracking-error RMS rad | .25471/.25386 | .18340/.12558 |
+| Base height m | .40405 | .40376 |
+| Roll/pitch mean rad | -.00091/-.03330 | -.00948/-.01064 |
+
+Issued and delayed-applied targets agree exactly; post-step positions are aligned with that tick's held targets. Unlike the historical symmetric loaded hip error, **499 has both asymmetric targets and substantial loaded tracking errors**. Front width grows .00932 m/s in 1–5 s and .00048 m/s in 20–30 s; rear width changes -.00044 m/s late. The GUI sequence ends with front width .5445 m and midpoint +.0391 m.
+
+Late wheel targets/actual rates at 499 (FL/FR/RL/RR) are **4.761/6.116/5.444/4.906** versus **5.439/5.319/5.217/5.214 rad/s**. Current-state control forces average **-.678/+.796/+.227/-.308 Nm**; front hip forces -7.33/+5.02 Nm. These do not establish ground yaw moment. FL calf action clips on **69.6%** of forward ticks (250: both front calves approximately 32.7%). At 200 Hz there is no 99%-force-limit occupancy; peak force ratios are .613/.617 for 499/250. Peak wheel loads at 499 are 102.4/104.4/98.7/98.4 N. Runtime readbacks show matched left/right gains, armature .01, friction and joint mappings; commands are exact. No further physics audit was made.
+
+Full/late forward imager world-z velocity RMS at matched 200 Hz: **250 .00900/.00424**, **499 .00961/.000111**, immediate parent **.00602/.000124**, original **.02195/.02158 m/s**. Stand 50 Hz full/late: 250 .01316/.000154; 499 .01272/.000191. A quiet late point does not erase worsening transitions/geometry and does not establish image quality or hardware vibration performance.
+
+The single transition sequence retains ±.03 lateral response: full mean vy **+.02467/-.02742**, last-2-s **+.02671/-.02694**; unwanted vx is -.00455/-.01555 (late -.01732/-.01531). Completed >=2 mm lift counts FL/FR/RL/RR are **3/3/2/0** and **3/3/0/1**, none >=2 cm. Existing 6/10 N event hysteresis and censored-window handling are retained; clearance distributions and loaded lateral-motion metrics are in native outputs. Small-command control remains imperfect; neither reward credit nor a clearance threshold alone establishes success. Transition-stop endpoint/path improves to .0275/.0301 m versus parent's .1073/.1262.
+
+The 13-case screen retains lateral ±.3 means **+.29356/-.29681** (axis RMSE .02379/.02420), yaw ±.8 means **+.77947/-.78002** (RMSE .05362/.04790). Completed >=2 cm cycles are 6/6/6/6 for both lateral signs and positive yaw, 6/6/6/5 for negative yaw.
+
+Reflection tests use 150 recorded forward observations per sustained candidate, 100 for GUI, mirrored **before the saved normalizer**. Deterministic CPU action parity with recorded outputs is within 6e-7; normalizers remain unchanged. At 499, hip residual RMS in normalized actions is FL/FR/RL/RR **.002686/.001080/.002376/.000713**, physically **.000806/.000324/.000713/.000214 rad**. Largest leg residual is .00245 rad (RR calf); wheel residuals .0418/.0333/.0399/.0547 rad/s. All joints' signed means/RMS/p95 are in `*_symmetry.json`. This does not suggest a large mirror-mapping failure on these states, but proves neither plant symmetry nor closed-loop stability. An equivariant actor can respond asymmetrically to asymmetric states. Geometry's causal role in curvature remains unisolated.
+
+### One prepared refinement
+
+Opt-in **navigation_rolling_placement** adds only `rewards.scales.rolling_placement=-.05`, with saved physical parameters. Per front/rear pair, let `width=y_left-y_right`, `midpoint=(y_left+y_right)/2`:
+
+`raw = mean_pairs[Huber(relu(abs(width-width_ref)-.04)/.10) + Huber(relu(abs(midpoint)-.015)/.05)]`.
+
+It is gated by `norm([command_vy,command_yaw]) < 1e-6`: stand/longitudinal rolling only, protecting partial lateral and intentional turning. No contact gate, hidden controller or rigid pose lock. Width deadband is 4 cm; midpoint deadband 1.5 cm. Geometry is actual collision-center placement, not PD support offsets. References are derived once in preparation, saved and cached; no FK in reward steps or added observations.
+
+On recorded 499 late forward motion, estimated width/midpoint rates are **-.01698/-.00417**, total **-.02115**, versus rolling_pose -.02576 and x/y/yaw tracking-error costs .00454/.000009/.000474. Late stand estimate -.00393 versus rolling_pose -.00853 and stand_still -.000478. This establishes objective scale, not expected learning success. No simultaneous mirror-loss, tracking-scale, hip/gain, action-limit, phase, sensor, sampler, LR or exploration change is prepared.
+
+The selected saved recipe is restored first, with exact actor/critic/normalizer/std retention. The new objective deliberately uses **fresh Adam/local counter zero**, retaining lineage at 2,900 prior updates; this is not same-recipe resume. Existing true resume remains intact. Budget **500 updates**, saves every 50, midpoint review at label 250 (251 updates), final label 499. Saved config/proof: `next_rolling_placement_refinement/` in the review output. **Production command, not executed:**
+
+```powershell
+python -m robot_gym.scripts.train `
+  --task go2w --go2w_profile transfer_v3 --go2w_finetune navigation_rolling_placement `
+  --load_run logs/go2w_transfer_v3_navigation_zero_hold/navigation_zero_hold_from199_seed1_2026-10-05_08-46-00 `
+  --checkpoint 499 --experiment_name go2w_transfer_v3_navigation_rolling_placement `
+  --run_name navigation_rolling_placement_from499_seed1 `
+  --num_envs 4096 --max_iterations 500 --seed 1 `
+  --logger tensorboard --training_diagnostics --headless --rl_device cuda:0
+```
+
+Edits are confined to Go2-W config, one optional cached geometry/reward calculation and focused tests. Six tests passed: `python -m unittest tests.test_go2w_rolling_placement tests.test_go2w_resume`. They cover measured geometry, deadbands, reflection, partial-command exclusion, saved recipe/history and existing resume behavior. Native no-update loading proves exact model/normalizer/std parity and fresh optimizer/counter. One **64-environment, two-update native smoke** completed at `logs/go2w_transfer_v3_navigation_rolling_placement_smoke/placement_execution_smoke_2026-10-05_10-14-06/`: label 1, Adam step 80, finite models and active finite reward. It validates execution only; no other optimizer updates ran in this review.
+
+No production training, push, package upgrade, deletion, receiving-repository edit, cleanup, full test suite, robustness bank, checkpoint sweep or second extra rollout occurred. `play.py`, Go2 and Dodo are untouched. The 58/16 command-demand contract, normalization, simulator-derived body velocity and previous-issued-action semantics are unchanged. Future diagnostic transfer must preserve these; no hardware or Sim2Sim qualification is claimed.

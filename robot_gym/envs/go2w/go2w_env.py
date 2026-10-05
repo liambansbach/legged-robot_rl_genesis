@@ -110,7 +110,7 @@ class Go2WEnv(Go2Env):
         if self.cfg.control.armature is not None:
             result["deployment_contract"] = transfer_contract(self)
             result["runtime_armature_min_max_kg_m2"] = [float(self.armature_samples.min()), float(self.armature_samples.max())]
-        if getattr(self.cfg, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral", "navigation_zero_hold"):
+        if getattr(self.cfg, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral", "navigation_zero_hold", "navigation_rolling_placement"):
             result.update(initialization=f"{self.cfg.go2w_finetune} fine-tune: parent actor/critic/normalizers/std; fresh optimizer and local iteration",
                           parent=self.cfg.refinement_parent, refinement=self.cfg.sensor_smooth,
                           phase_observation_mode=getattr(self.cfg, "phase_observation_mode", "unconditional"))
@@ -321,6 +321,10 @@ class Go2WEnv(Go2Env):
                 self.desired_swing = torch.zeros_like(self.wheel_clearance)
                 self.desired_clearance = torch.zeros_like(self.wheel_clearance)
                 self.dx_reference = torch.tensor(self.cfg.rewards.phase_objective["wheel_thigh_dx_reference_m"], device=self.device)
+                if getattr(self.cfg.rewards.scales, "rolling_placement", 0.):
+                    c = self.cfg.rewards.rolling_placement
+                    self.placement_reference = torch.tensor(
+                        [c["width_reference_m"], c["midpoint_reference_m"]], device=self.device)
                 # Nominal model weight per four supports; independent of DR samples.
                 self.nominal_support_load = sum(float(m.get("value")) for m in
                     self.urdf_reader.root.findall("link/inertial/mass")) * abs(self.cfg.sim.gravity[2]) / 4
@@ -403,7 +407,7 @@ class Go2WEnv(Go2Env):
                 center = self.foot_pos + rotate_wxyz(wheel_quat, self.wheel_geometry[0])
                 thigh = self.robot.get_links_pos(self.thigh_link_indices_local, relative=True)
                 self.wheel_thigh_dx[:] = rotate_wxyz(inv_quat(self.base_quat)[:, None], center - thigh)[..., 0]
-                if self.cfg.env.capture_precision:
+                if self.cfg.env.capture_precision or hasattr(self, "placement_reference"):
                     self.wheel_center_body = rotate_wxyz(inv_quat(self.base_quat)[:, None], center - self.base_pos[:, None])
 
     def _reset_command_timer(self, env_ids):
@@ -677,6 +681,11 @@ class Go2WEnv(Go2Env):
         c = self.cfg.rewards.phase_objective
         error = torch.relu((self.base_pos[:, 2] - self.cfg.rewards.base_height_target).abs() - c["height_tolerance_m"])
         return huber(error / c["height_scale_m"])
+
+    def _reward_rolling_placement(self):
+        from .phase import rolling_placement_error
+        return rolling_placement_error(self.wheel_center_body, self.commands, self.placement_reference,
+                                       self.cfg.rewards.rolling_placement, self.cfg.commands.stand_threshold)
 
     def _reward_rolling_pose(self):
         error = (self.dof_pos - self.default_dof_pos)[:, self.leg_action_indices].square()

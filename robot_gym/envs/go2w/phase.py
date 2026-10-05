@@ -49,3 +49,16 @@ def support_error(loads, desired_swing, nominal_load):
 def corridor_error(dx, reference, desired_swing, stance_tolerance, swing_tolerance, length_scale):
     tolerance = stance_tolerance + (swing_tolerance - stance_tolerance) * desired_swing
     return huber(torch.relu((dx - reference).abs() - tolerance) / length_scale).mean(dim=1)
+
+
+def rolling_placement_error(centers, commands, reference, cfg, zero_threshold):
+    """Soft actual lateral placement cost, only for pure longitudinal/stand commands."""
+    y = centers[:, :, 1]
+    width = y[:, [0, 2]] - y[:, [1, 3]]
+    midpoint = (y[:, [0, 2]] + y[:, [1, 3]]) / 2
+    width_error = torch.relu((width - reference[0]).abs() - cfg["width_deadband_m"])
+    midpoint_error = torch.relu((midpoint - reference[1]).abs() - cfg["midpoint_deadband_m"])
+    cost = huber(width_error / cfg["width_scale_m"]) + huber(midpoint_error / cfg["midpoint_scale_m"])
+    # Even partial lateral/yaw requests are excluded; unloading never disables the cost.
+    rolling = commands[:, 1:3].norm(dim=1) < zero_threshold
+    return rolling * cost.mean(dim=1)
