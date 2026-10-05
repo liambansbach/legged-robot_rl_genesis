@@ -1,6 +1,6 @@
 # Go2-W sensor refinement reviews
 
-Current decision (2026-10-05): **prepare navigation_rolling_control from zero-hold model_499.pt**, combining the prepared placement cost with conditional yaw precision; retain 250 as a straighter fallback. See [the combined preparation](#combined-rolling-control-preparation-2026-10-05). Earlier selections, placement-only proposals and cleanup results below are historical.
+Current decision (2026-10-05): **neither evaluated rolling-control checkpoint meets the frozen functional goals**. Recommend a separately authorized fresh-start comparison with the fixed target recipe, rather than another reward or immediate continuation. See [the rolling-control review](#navigation-rolling-control-500-update-review-2026-10-05). Earlier selections, preparation statements and cleanup results below are historical.
 
 ## Sensor smoothing: verified 500-update review
 
@@ -621,3 +621,82 @@ Nine focused tests passed: `python -m unittest tests.test_go2w_rolling_control t
 Exactly one **64-environment, two-update native smoke** completed at `logs/go2w_transfer_v3_navigation_rolling_control_smoke/rolling_control_execution_smoke_2026-10-05_11-08-17/`. Saved label 1 has Adam step 80, LR 5e-5, finite models/optimizer and parent-normalizer count advanced by 8,192. Both rewards have finite diagnostics; placement is active, with raw means .00105/.00467, and coefficient/dt weighting matches once. The resolved behavioral config matches the production target; only the requested execution/output budget differs. [smoke_validation.json](../evaluation/navigation_zero_hold_500_review/rolling_control_preparation/smoke_validation.json) and [commands.ps1](../evaluation/navigation_zero_hold_500_review/rolling_control_preparation/commands.ps1) record proof and actual commands. These are the only optimizer updates in this preparation; they validate execution, not improvement.
 
 This preparation uses existing nominal traces only; no fresh behavioral evaluation, robustness bank, production training, push, artifact deletion, stack upgrade, receiving-side edit or broad test campaign was performed. The combined objective has no demonstrated behavioral improvement yet and is not a hardware/Sim2Sim qualification.
+
+## Navigation rolling control: 500-update review (2026-10-05)
+
+**Decision B: neither 250 nor 499 satisfies the frozen functional goals.** Retain both as research references; do not select either for a diagnostic Sim2Sim transfer. The next action is a **separately authorized fresh-start comparison using the same fixed rewards, sampler, observations and physics**, with an appropriate initial exploration/training budget. No new objective or immediate extension is proposed. This is a comparison hypothesis, not a promise that a fresh start will succeed.
+
+### Identity and scope
+
+The actual production run is `logs/go2w_transfer_v3_navigation_rolling_control/navigation_rolling_control_from499_seed1_2026-10-05_11-20-28/`. The quoted earlier preparation accurately described its then-unstarted status; production has since completed. Parent is exactly `logs/go2w_transfer_v3_navigation_zero_hold/navigation_zero_hold_from199_seed1_2026-10-05_08-46-00/model_499.pt`. Config/preparation/checkpoint contents and TensorBoard agree: **500 updates**, labels 0,50,100,150,200,250,300,350,400,450,499; 250 represents 251 local updates. Final Adam step is 20,000, LR 5e-5. The actor remains 58-input/16-action; normalizer count 891,289,600 equals the parent's 760,217,600 plus 500 rollouts of 4096x64. Native selective loading retained actor/critic/normalizers/std with fresh Adam/local counter. All earlier models remain preserved.
+
+The saved recipe matches the fully resolved preparation; the only serialization difference is relative versus absolute `load_run` spelling. Both placement -.05 and rolling yaw scale .07 were active, with general yaw scale .35, weight .8, stand_still -5, partial lateral [.02,.30], command-demand encoding and all other saved settings unchanged. Missing diagnostic rows **109/302/354** and TensorBoard rows **174/302** are missing records, not missing updates. Mid/late measured KL means are .00434/.00429, PPO clipping .1144/.1107, value loss .02437/.02644. Scheduler KL arrays remain empty under fixed LR. Late effective std spans .100–.140, with calf/rear-thigh floor occupancy recorded in `identity.json`; the floor is nonzero. Startup retains the approximately 47-update episode-accounting ramp. Aggregate reward does not rank these policies across changed objectives.
+
+Evidence: [compact review](../evaluation/navigation_rolling_control_500_review/review.json), [comparison](../evaluation/navigation_rolling_control_500_review/comparison.json), native traces/manifests, identity and baseline compatibility under `evaluation/navigation_rolling_control_500_review/`; [commands.ps1](../evaluation/navigation_rolling_control_500_review/commands.ps1) records exact commands. Only 250/499 received 30 s stand and 3 s zero + 30 s vx=.5 + 8 s stop. Seed 1, one nominal environment, deterministic inference, no noise/pushes/delay. Relevant plant/config, initial state, actual command arrays, phase-segment timing and 50/200 Hz sampling match the reused zero-hold and original-V3 traces; original V3 retains its own unconditional phase semantics. Timeout is 60 s, beyond the 30/41 s cases. No sustained case fell, reset, timed out or made non-wheel contact.
+
+### Tracking, holding and stopping
+
+| Candidate | Forward vx mean / RMSE m/s | 90% response s | Heading change degrees | Max cross-track m | Late stand XY / yaw RMS |
+|---|---:|---:|---:|---:|---:|
+| Original V3/1499, reused | .4638/.0396 | .26 | -2.92 | .1287 | .01056/.02336 |
+| Zero-hold/250, reused | .5049/.0220 | .18 | -.62 | .0066 | .01324/.00030 |
+| Zero-hold/499 parent, reused | .4711/.0319 | .42 | +12.60 | .5076 | .00257/.00670 |
+| Rolling-control/250 | .4721/.0308 | .20 | +5.18 | .5311 | .01426/.00627 |
+| Rolling-control/499 | .4694/.0329 | .20 | -5.39 | .3306 | .00810/.00651 |
+
+Heading comes from the unwrapped pose projection; cross-track uses the moving-start position and heading. At 499 the initial heading is -.969 degrees, but subsequent drift is +.247 degrees in the first 5 s and **-3.165 degrees during 20–30 s**. At 250 those changes are -.035/+1.963 degrees. The curvature is not merely an initial orientation offset. Both candidates pass the frozen speed band .45–.55 and vx RMSE <=.04, but **fail <=.05 m cross-track, <=2 degrees heading change and <=.005 m/s late stand XY RMS**. Both slightly improve late stand yaw RMS over the parent; only 499 improves full stand heading drift (-15.02/+3.43 degrees for 250/499 versus parent's -11.1).
+
+Full forward signed biases `(vx,vy,body angular-z)` are **(-.02788,-.00007,+.00305)** for 250 and **(-.03058,-.00007,-.00316)** for 499. Full RMSE vectors are (.03080,.00069,.00420) and (.03287,.00041,.00500); first-second vectors are (.07612,.00329,.00752) and (.07942,.00166,.00912). Low body vy does not establish straight world travel. Neither overshoots vx=.5; final-one-second vx residual errors are -.0172/-.0270 m/s.
+
+Response calculations use 50 Hz post-step samples and the mean measured velocity in the preceding .2 s as the start. Progress is `(measured-start)/(requested target-start)`, never normalized to an achieved plateau. Report first 90% crossing, a .2 s dwell at/above 90%, and settling inside +/-10% of the commanded step for the rest of the segment with at least .5 s remaining. Missing crossings or insufficient tails remain null; a zero rise means both crossings share a 20 ms sample, not instantaneous physical response. Forward first/dwell crossings are both .20 s, 10–90% rises .18 s. These are descriptive thresholds, not newly invented functional passes or a bandwidth/navigation-update-rate claim.
+
+Stand 0–5 s endpoint/path is **.00808/.00937 m** at 250 and **.11445/.11466** at 499; full 30 s endpoint/path is **.26445/.28604** and **.41514/.41745**. The parent's full values were .0526/.1003. Late mean `(vx,vy,yaw)` is (.01415,.00073,-.00423) and (.00808,.00012,+.00622). Thus 499's improved late translation relative to 250 coexists with much worse startup/full stand translation than the parent.
+
+Full 8 s stop endpoint/path is **.11264/.11458 m** at 250 and **.08863/.09550** at 499, versus parent .0311/.1051, zero-hold250 .0425/.0789 and original .0316/.0795. Backward excursion from the running maximum along the stop-start heading is .00082/.00174 m, versus parent's .05427: reversal improves. However final-two-second XY RMS **.01140/.00862 m/s** exceeds parent's .00544 (about +109%/+58%); mean vx stays positive .01140/.00862, and yaw RMS is .00588/.00539. The frozen stopping requirement therefore does not pass as a whole, despite the shorter 499 path and reduced reversal. Stop 90% crossings are .20 s; this loose reduction threshold must not be confused with a stationary hold. First-second stop RMSE vectors are (.07380,.00123,.01073) and (.06853,.00815,.00919).
+
+### Posture and sensors are secondary
+
+| Late forward quantity | Rolling-control 250 | Rolling-control 499 | Parent 499 |
+|---|---:|---:|---:|
+| Front/rear width m | .4722/.3918 | .4537/.3876 | .5381/.4104 |
+| Front/rear pair midpoint m | -.00223/+.00458 | +.00445/-.00325 | +.04379/+.01702 |
+| Front widening, 1–5 / 20–30 s, mm/s | 7.46/1.74 | 6.60/1.01 | 9.32/.48 |
+| Actual FL/FR hips rad | +.1381/-.1519 | +.1333/-.1054 | +.3527/-.1087 |
+| Issued/applied FL/FR hip targets rad | +.0644/-.0735 | +.0695/-.0521 | +.1693/+.0168 |
+| Base height m | .4018 | .3979 | .4038 |
+
+The soft reference corridor is .38020 +/- .04 m width and zero +/- .015 m midpoint. Rear width/midpoints approach it, front width remains above it and continues widening; it is not an exact pose constraint or proof of unsafe support. Actual versus issued/applied front thigh/calf targets are retained in the JSON. At 499 the late calf actual/applied pairs are FL -1.499/-1.458 and FR -1.533/-1.476 rad. Forward calf clipping is absent, versus parent's 69.6% FL positive clipping. Only front-thigh positive clipping remains, .067%/.133% at 250/499; stop front-thigh negative clipping is .75%. Issued/applied targets agree exactly. Forward 200 Hz force-limit peak ratios .739/.743, stop .824/.929, have zero 99%-limit occupancy. Wheel contact duties exceed 99.7% during forward motion; peak loads are about 100 N. Target clipping and force saturation are distinct.
+
+Actual left-imager world-z velocity RMS, **full / first second / late 20–30 s**, in m/s:
+
+| Case and sampling | 250 | 499 | Parent 499 |
+|---|---:|---:|---:|
+| Stand, 50 Hz | .02010/.11004/.000384 | .01843/.10090/.000444 | .01272/.06965/.000191 |
+| Forward, 200 Hz | .01254/.06856/.000316 | .00864/.04730/.000126 | .00961/.05225/.000111 |
+
+At 499 forward body-axis roll/pitch-rate RMS at 200 Hz is (.00177,.01763) full, (.00955,.09639) first second, and (.000187,.000268) late; 250 is (.00362,.03499), (.01958,.19138), (.000135,.000753). Stand uses 50 Hz; its 499 roll/pitch pairs are (.00134,.01890), (.00268,.10346), (.000519,.000662). These rigid-body metrics show quieter late motion than transitions, not measured image quality. The 499 forward camera improves modestly over the parent in the full window; stand camera motion worsens. None compensates for failed holding/straightness.
+
+### Retention and next action
+
+Checkpoint 499 received the single phase-transition sequence and 13-case transfer_screen because its cross-track, late stand creep and stop path were better than 250. Every case completed without falls, timeouts, nonfinite states or non-wheel contacts. This selection does not qualify it for transfer.
+
+**Reverse tracking regresses:** a -.10 m/s command achieves **-.06581 m/s**, RMSE .03468 versus parent's .01201. Its 90% threshold is **not reached in the 5 s segment**; final-one-second error remains +.03233 m/s. This is an additional functional deficiency, not a camera/posture trade-off.
+
+| CK499 commanded axis | Mean | Full / first-second axis RMSE | First 90% crossing s | Overshoot |
+|---|---:|---:|---:|---:|
+| Partial lateral +.03 | +.03294 | .00952/.01231 | .06 | .02241 |
+| Partial lateral -.03 | -.03061 | .01121/.01267 | .08 | .02074 |
+| Strong lateral +.30 | +.29723 | .01668/.02681 | .10 | .03904 |
+| Strong lateral -.30 | -.29706 | .02005/.03275 | .16 | .03132 |
+| Strong yaw +.80 | +.79182 | .05139/.06390 | .06 | .11221 |
+| Strong yaw -.80 | -.78816 | .05887/.08192 | .12 | .14359 |
+
+Units are m/s for lateral and rad/s for yaw. Partial commands are from the existing sequence; strong commands are 5 s screen segments. Partial final-two-second vy means are +.03206/-.03319, with unwanted vx +.01300/+.01555 and yaw -.01819/+.00946. Neither partial settles in its +/- .003 m/s band. Completed >=2 mm cycles FL/FR/RL/RR are 2/1/0/0 and 2/2/3/1; peak completed clearances reach about 3.5/5.6 mm, with no >=2 cm cycles. Existing 6/10 N hysteresis and boundary censoring are retained. Good mean vy does not erase cross-axis drift or establish clean small-command stepping. Partial yaw-error RMS rises to .0384/.0387 from parent's .0278/.0271.
+
+All wheels complete six >=2 cm cycles in both strong lateral and yaw directions (parent negative yaw had five on RR). Strong lateral axis RMSE improves, but cross-axis yaw RMS worsens to **.0802/.0702**, versus parent's .0565/.0539. Negative strong-yaw axis RMSE increases about 23%; stepping is retained with tracking trade-offs, not an overall retention pass. Transition-stop endpoint/path is **.06772/.06781 m**, versus parent's .02749/.03014; final vx is +.00779 m/s. Partial lateral camera full/first-second RMS at 50 Hz is .05046/.07567 and .02598/.02814, versus parent's .02182/.02380 and .01795/.02016. Transition motion must be considered alongside quiet late rolling.
+
+The existing sequence contains lateral-to-roll transitions, not direct turn-to-roll. The four screen **turn-to-zero** stops have yaw 90% crossings .10–.12 s. For commands +.4/-.4/+.8/-.8, final-two-second yaw RMS is **.00252/.00170/.00072/.00624 rad/s**, versus parent's .03430/.01992/.00764/.02238. Thus the tighter gate switch has useful rotational stopping behavior in these traces. It still leaves approximately .0075–.0129 m/s final vx. Strong-turn stop XY paths are .0630/.0838 m, versus parent's .0252/.0396. No claim is made that the yaw change alone caused these outcomes in a combined refinement.
+
+The existing numeric targets and descriptive approximately 15% comparison semantics remain unchanged. Small-command/cross-axis behavior, stopping residuals and continued widening remain part of the functional review. No additional long-forward rollout is needed to establish the reproduced curvature; horizons beyond the tested 30 s movement remain unqualified. No new robustness/seed bank, symmetry audit, static-pose experiment or historical simulation was run.
+
+Only local postprocessing and this report were added; existing geometry/sensor/event helpers and native evaluators were reused. The added response calculation was checked on a below-target plateau, a known ramp crossing and its sign reflection. No unit-test campaign, optimizer smoke, training, reward/PPO/physics change, push, deletion, package upgrade or receiving-repository edit occurred. `play.py` and all checkpoints remain unchanged.
