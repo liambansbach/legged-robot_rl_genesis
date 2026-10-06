@@ -1,6 +1,6 @@
 # Go2-W sensor refinement reviews
 
-Current decision (2026-10-06): **the complete fixed rolling-control task is prepared for a genuinely fresh 3000-update comparison; production has not started**. The single two-update execution smoke passed. Neither previous rolling-control checkpoint meets the frozen functional goals. See [fresh preparation](#navigation-rolling-control-fresh-preparation-2026-10-06) and [the preceding review](#navigation-rolling-control-500-update-review-2026-10-05). Earlier selections, preparation statements and cleanup results below are historical.
+Current status (2026-10-06): the fresh rolling-control run was started with a saved 2000-update budget and interrupted; model1000 contains 1001 updates and logs reach label1058. See the [targeted interrupted-run diagnosis](go2w_fresh_1000_diagnosis.md). No further training or recipe change was executed. The 3000-update preparation and earlier selections below are historical.
 
 ## Sensor smoothing: verified 500-update review
 

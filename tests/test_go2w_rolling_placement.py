@@ -17,6 +17,32 @@ from robot_gym.utils.helpers import class_to_dict, update_cfg_from_args
 
 
 class RollingPlacement(unittest.TestCase):
+    def test_narrow_crossed_wide_and_displaced_pairs(self):
+        # Formula/geometry regression, not a statement about policy gradients.
+        cfg = dict(width_deadband_m=.04, width_scale_m=.10,
+                   midpoint_deadband_m=.015, midpoint_scale_m=.05)
+        reference = torch.tensor([[.3802, .3802], [0., 0.]])
+        widths = torch.tensor([[.3802, .3802], [.30, .3802], [.20, .3802],
+                               [.10, .3802], [.10, .10], [-.10, -.10],
+                               [.6604, .3802], [.3802, .3802]])
+        centers = torch.zeros(len(widths), 4, 3)
+        centers[:, [0, 2], 1] = widths / 2
+        centers[:, [1, 3], 1] = -widths / 2
+        centers[-1, :2, 1] += .065
+        commands = torch.tensor([[.5, 0., 0.]]).repeat(len(widths), 1)
+        raw = rolling_placement_error(centers, commands, reference, cfg, 1e-6)
+        torch.testing.assert_close(raw, torch.tensor([
+            0., .040401, .451, .951, 1.902, 3.902, .951, .25]))
+        self.assertTrue(torch.all(raw[1:6] > raw[:5]))
+        weighted_rate, weighted_tick = -.05 * raw, -.05 * .02 * raw
+        self.assertTrue(torch.all(weighted_rate[1:6] < weighted_rate[:5]))
+        torch.testing.assert_close(weighted_tick, weighted_rate * .02)
+        # Even small intentional lateral/yaw commands exclude placement.
+        for command in ([.5, .02, 0.], [.5, 0., .03], [0., 0., -.5]):
+            commands[:] = torch.tensor(command)
+            self.assertFalse(rolling_placement_error(
+                centers, commands, reference, cfg, 1e-6).any())
+
     def test_measured_reference_and_partial_command_gate(self):
         height, dx, centers = v3_reference_geometry(with_centers=True)
         self.assertEqual((height, dx), v3_reference_geometry())
