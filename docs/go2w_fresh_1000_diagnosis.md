@@ -565,3 +565,135 @@ stopping, both lateral/yaw signs including partial commands, and placement with
 support/tracking. These three short cases are an early diagnostic review, not
 that final qualification. A positive review still requires explicit authorization
 before spending any of the conditional remaining 500 updates.
+
+## Completed fixed-LR stage-one review — 6 October 2026
+
+**Recommendation: continue unchanged for the planned remaining 500 updates.**
+The policy makes useful functional progress without renewed severe clenching,
+recurring self-contact or progressive height collapse in these short cases.
+Continuation was **not launched**. Height, path accuracy and stepping clearance
+remain unfinished; this is an acquisition decision, not final qualification.
+
+The actual run is
+`logs/go2w_transfer_v3_navigation_rolling_control_fixed_lr/lr_only_from250_stage1_seed1_2026-10-06_11-54-29/`.
+Its completed `model_499.pt` is **501 lineage updates**, after 250 additions to
+original fresh source250. Full-load flags, first/final Adam counters
+**10080/20040** and both final normalizer counts **131,334,144** confirm learning
+state continuity. Production has no separate pre-update tensor dump; exact
+pre-update parity remains the preparation proof. Functional task and other PPO
+settings match the source. Config, native Adam and all 250 recorded LRs are
+**fixed .0003**. No historical499 is used.
+
+### Later learning windows
+
+Both windows have all 50 records, after the **46.875-update** episode-accounting
+ramp (60 s / .02 s / 64). Early resumed return growth is not sufficient evidence.
+Empty native scheduler-KL arrays mean no adaptive decisions, **not zero KL**.
+
+| Metric; weighted costs are reward rates | Labels300–349 | Labels450–499 |
+|---|---:|---:|
+| Measured KL mean / maximum minibatch | .00690 / .01056 | .00767 / .01334 |
+| PPO ratio clipping fraction | 18.73% | 19.18% |
+| Value loss | .41776 | .30275 |
+| Height / rolling pose / placement | −.05478 / −.00631 / −.00055 | −.07226 / −.00805 / −.00089 |
+| Insufficient support / phase support | −.02980 / −.03584 | −.01813 / −.02648 |
+| Phase clearance / sensor vertical velocity | −.03374 / −.03039 | −.03144 / −.02300 |
+| Stand-still / body angular motion | −.26745 / −.09100 | −.19933 / −.06997 |
+
+Per-joint vectors are in `training_review.json`. Std falls (rear thigh
+.263→.219), while rear thigh/calf mean-action saturation on stochastic states
+rises from 1.43%/1.01% to 2.44%/2.35%. These are not deterministic outcomes.
+
+### Four agreed cases and retained comparisons
+
+Exactly **four 15 s cases** ran: fixed499 forward/yaw+/yaw− and adaptive500
+forward, also **501 updates**. Nominal initial pose, phase, seed1 and 50 Hz
+conventions match retained traces. All three requested windows, joint targets
+and contacts are saved. Below: **late-five-second** values; heading/cross-track
+cover the entire 15 s case.
+
+| Forward vx=.5 | Fixed499 | Equal-age adaptive500 | Retained source250 | Retained failed1000 |
+|---|---:|---:|---:|---:|
+| Achieved vx / vx RMSE, m/s | .5124 / .01242 | .4444 / .05575 | .4864 / .01368 | .4822 / .02194 |
+| vy bias / yaw bias, m/s and rad/s | −.00197 / −.00469 | +.00215 / −.00960 | −.00238 / −.02203 | +.00052 / +.01183 |
+| Front / rear width, m | .4209 / .3990 | .4269 / .4760 | .4230 / .4050 | .1521 / .5736 |
+| Front / rear pair midpoint y, m | +.0233 / −.0050 | −.0727 / +.0848 | +.0357 / −.0277 | −.0035 / +.0108 |
+| Height, m | .3823 | .3797 | .3853 | .3690 |
+| Signed pitch, degrees | +6.37 | −3.88 | +6.26 | −6.84 |
+| Full heading / max cross-track | −6.24° / .556 m | +24.68° / 2.364 m | −20.94° / 1.355 m | +11.56° / .655 m |
+| Self-contact boundaries / 750 | 0 | 0 | 0 | 514, FL calf / FR calf |
+
+Fixed499's front/rear widths widen by **18.7/7.1 mm**
+from 1–5 s to 10–15 s, rather than clenching. Height changes **.38319→.38225 m**
+(−0.94 mm; after-1s slope −0.095 mm/s), versus adaptive500's **−10.96 mm**.
+The remaining **45.5 mm** deficit to the unchanged .42774 m height reference
+is real. Pitch settles from +5.01° early to +6.37° late, with **.055° late
+standard deviation**; roll is −.777° ± .072° standard deviation. A numerical
+rotation check verifies positive pitch as nose-down (body +X toward world −Z).
+The late bias is largely static.
+
+Forward sensor world-z velocity RMS (front camera/radar) is **.0300/.0286 m/s**
+over the full case, **.00154/.00121** after 1 s, and **.000260/.000251** late.
+Late body angular RMS x/y/z is **.00136/.000795/.00469 rad/s**. The 15 s path
+still drifts substantially; it does not qualify the unchanged 30 s target.
+
+Fixed499 has no sustained target clipping: isolated **20 ms** events in forward
+and yaw+, none in yaw−. Adaptive500's **RL calf** clips in the positive direction
+for **12.04 s**, including every late sample. Fixed499's late FL/FR calves are **−1.703/−1.806 rad**
+versus issued/applied **−1.462/−1.582 rad**, without clipping. No case reaches
+99% of a force limit at sampled boundaries;
+maximum control-force ratios are **.540/.450/.435** for fixed forward/yaw+/yaw−,
+and **.583** for adaptive forward. Target clipping is not force saturation.
+
+Yaw+/yaw− achieve **+.5092/−.5197 rad/s** late, with yaw RMSE **.0792/.0853**,
+vx bias **+.00449/+.00408 m/s**, vy bias **−.0195/+.0205 m/s**, and final XY
+displacement **.0475/.0730 m**. Retained failed1000 achieved late **+.118/−.296**;
+there is no
+equal-age yaw comparison or source250 yaw trace. The user's lateral observation
+remains qualitative.
+
+| Yaw quantity; wheel order FL, FR, RL, RR | +.5 command | −.5 command |
+|---|---|---|
+| Late actual peak clearance, mm (desired 40 each; demand=1) | 8.68, 4.34, 5.63, 14.35 | 5.12, 10.88, 18.49, 7.88 |
+| Late desired-swing unloading below6 N | 62%, 74%, 85%, 81% | 81%, 45%, 73%, 78% |
+| Late mean normal load, N | 50.8, 48.9, 46.4, 49.7 | 46.3, 50.6, 49.9, 46.3 |
+| Completed unloading events / events reaching2 mm | 30/14, 38/18, 31/25, 22/16 | 39/19, 28/11, 26/16, 30/20 |
+| Left / right-censored events | 0/1, 0/0, 0/0, 0/1 | 0/1, 0/0, 0/0, 0/1 |
+
+Unloading can fragment within the 17–18 complete demanded phase cycles; these
+are not all clean steps. No completed yaw+ event reaches2 cm; only one yaw−
+RL event does. FR remains loaded through much of demanded yaw− swing. Late
+camera/radar world-z RMS is **.0647/.0595** for yaw+ and **.0616/.0588 m/s** for
+yaw−; body roll/pitch angular RMS is **.208/.101** and **.207/.118 rad/s**.
+Clearance, support timing and sensor motion need further acquisition.
+
+All four new cases have **zero falls, resets, non-wheel ground contacts and
+self-contact boundaries**, with no named self-contact pairs. This conclusion
+uses explicit self-contact capture, not the zero ground-collision reward.
+Counts/force ratios cover sampled policy boundaries, not all substeps.
+No states/actions/contacts were corrected or filtered.
+
+### Decision and unexecuted continuation
+
+Equal-age adaptive500 is not yet severely clenched either; its poorer tracking,
+larger offsets and sustained calf clipping are the useful comparison. This one
+resumed branch does not establish LR as the sole cause. Final goals remain
+unchanged while the planned **500 remaining updates** allow further acquisition.
+
+[continuation_unexecuted.ps1](../evaluation/fresh_1000_diagnosis/lr_stage1_review/continuation_unexecuted.ps1)
+contains the **one exact unexecuted command**: ordinary full-state resume of
+stage499 into a separate experiment. Configuration resolution verifies saved
+fixed3e-4 without an LR override, unchanged task and all load flags. No fine-tune
+or fresh-recipe flag is present. Installed native counting gives **labels499–998 /
+1001 lineage updates**. No training or optimizer smoke ran during this review.
+
+Evidence: [compact comparison](../evaluation/fresh_1000_diagnosis/lr_stage1_review/comparison.json),
+[all physical windows/targets/cycles](../evaluation/fresh_1000_diagnosis/lr_stage1_review/physical_details.json),
+[training windows and source verification](../evaluation/fresh_1000_diagnosis/lr_stage1_review/training_review.json),
+[exact evaluation commands](../evaluation/fresh_1000_diagnosis/lr_stage1_review/evaluation_commands.ps1),
+[continuation resolution](../evaluation/fresh_1000_diagnosis/lr_stage1_review/continuation_resolution.json)
+and [calculation checks](../evaluation/fresh_1000_diagnosis/lr_stage1_review/calculation_validation.json).
+Only new numerical calculations were checked. The initial relative-path lookup
+failed before simulation; the retained console records it. Exactly four cases
+subsequently completed, with no training. Source policies/configs and `play.py`
+hashes are unchanged.
