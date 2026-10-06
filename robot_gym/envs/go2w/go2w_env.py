@@ -56,9 +56,28 @@ def rigid_sensor_state(base_position, base_quaternion, linear_body, angular_body
     return base_position[:, None] + offset_world, rotate_wxyz(base_quaternion[:, None], velocity_body)
 
 
+def unique_contact_count(ids, valid):
+    """Count a link/pair once per boundary, regardless of manifold multiplicity."""
+    ordered = torch.where(valid, ids, -1).sort(dim=1).values
+    first = torch.ones_like(ordered, dtype=torch.bool)
+    first[:, 1:] = ordered[:, 1:] != ordered[:, :-1]
+    return ((ordered >= 0) & first).sum(dim=1)
+
+
+def undesired_self_contacts(contacts, link_start, allowed_pairs, force_threshold):
+    """Named robot pairs only; symmetric cached mask excludes adjacent links."""
+    a, b = contacts['link_a'] - link_start, contacts['link_b'] - link_start
+    count = allowed_pairs.shape[0]
+    valid = contacts['valid_mask'] & (a >= 0) & (a < count) & (b >= 0) & (b < count)
+    valid &= contacts['force_a'].norm(dim=-1) > force_threshold
+    valid &= allowed_pairs[a.clamp(0, count-1), b.clamp(0, count-1)]
+    return unique_contact_count(torch.minimum(a, b) * count + torch.maximum(a, b), valid)
+
+
 class Go2WEnv(Go2Env):
     phase_guided = False  # Legacy fixtures/bundles have no phase state.
     sensor_refinement = False
+    reference_tracking = False
 
     @staticmethod
     def replay_observation_dim(saved, default):
@@ -174,6 +193,11 @@ class Go2WEnv(Go2Env):
             c = self.cfg.phase_guidance
             self.desired_swing, self.desired_clearance = targets(
                 self.phase, self.commands, self.phase_offsets, c["stance_fraction"], c["apex_m"])
+        if self.reference_tracking:
+            contacts = self.robot.get_contacts(exclude_self_contact=False, is_padded=True)
+            self.undesired_self_pair_count = undesired_self_contacts(
+                contacts, self.robot.link_start, self.self_contact_pairs,
+                self.cfg.rewards.contact_force_threshold)
 
     def _post_physics_step_callback(self):
         super()._post_physics_step_callback()
@@ -184,6 +208,9 @@ class Go2WEnv(Go2Env):
 
     def capture_task_state(self):
         state = {}
+        if self.reference_tracking:
+            state.update(undesired_self_pair_count=self.undesired_self_pair_count.clone(),
+                         nonfoot_ground_link_count=self.nonfoot_ground_link_count.clone())
         if self.phase_guided:
             state.update(phase=self.phase.clone(), desired_clearance=self.desired_clearance.clone(),
                          desired_swing=self.desired_swing.clone(), wheel_thigh_dx=self.wheel_thigh_dx.clone())
@@ -257,6 +284,7 @@ class Go2WEnv(Go2Env):
         self.transfer_v2 = getattr(self.cfg, "go2w_profile", None) == "transfer_v2"
         self.phase_guided = getattr(self.cfg, "go2w_profile", None) == "transfer_v3"
         self.sensor_refinement = getattr(self.cfg, "sensor_smooth", None) is not None
+        self.reference_tracking = getattr(self.cfg, "go2w_recipe", None) == "reference_tracking_v1"
         self.wheel_geometry_enabled = self.step_recovery or self.event_step or self.phase_guided
         if self.event_step:
             self.completed_updates = getattr(self.cfg, "_event_completed_updates", 0)
@@ -310,6 +338,21 @@ class Go2WEnv(Go2Env):
 
     def _init_buffers(self):
         super()._init_buffers()
+        if self.reference_tracking:
+            c = self.cfg.rewards.reference_pose
+            self.reference_pose_scales = torch.tensor(
+                [c['scales_rad'][self.joint_names[i].split('_')[1]] for i in self.leg_action_indices],
+                device=self.device)
+            # Resolve names/adjacency once. Physical self-collision remains enabled.
+            names = {link.name: link.idx_local for link in self.robot.links}
+            self.self_contact_pairs = ~torch.eye(len(names), dtype=torch.bool, device=self.device)
+            for joint in self.urdf_reader.root.findall('joint'):
+                a, b = joint.find('parent').get('link'), joint.find('child').get('link')
+                if a in names and b in names:
+                    self.self_contact_pairs[names[a], names[b]] = False
+                    self.self_contact_pairs[names[b], names[a]] = False
+            self.undesired_self_pair_count = torch.zeros(self.num_envs, device=self.device)
+            self.nonfoot_ground_link_count = torch.zeros(self.num_envs, device=self.device)
         if self.sensor_refinement:
             offset = fixed_sensor_frames(self.urdf_reader.robot_file_path_absolute)["front_realsense"]["translation_m"]
             self.sensor_offsets = torch.tensor([offset, [offset[0], -offset[1], offset[2]]], device=self.device)
@@ -380,6 +423,16 @@ class Go2WEnv(Go2Env):
     def _update_wheel_support(self, contacts):
         from robot_gym.utils.diagnostics import summed_normal_force
 
+        if self.reference_tracking:
+            # This getter is already filtered to the ground. Count named links, not points.
+            links = torch.cat((contacts['link_a'], contacts['link_b']), dim=1)
+            forces = torch.cat((contacts['force_a'], contacts['force_b']), dim=1)
+            valid = torch.cat((contacts['valid_mask'], contacts['valid_mask']), dim=1)
+            valid &= (links >= self.robot.link_start) & (links < self.robot.link_end)
+            valid &= ~torch.isin(links, self.foot_link_indices)
+            valid &= forces[..., 2].abs() > self.cfg.rewards.contact_force_threshold
+            self.nonfoot_ground_link_count = unique_contact_count(links, valid)
+
         self.wheel_normal_force[:] = summed_normal_force(
             contacts, self.foot_link_indices
         )
@@ -427,7 +480,7 @@ class Go2WEnv(Go2Env):
                 center = self.foot_pos + rotate_wxyz(wheel_quat, self.wheel_geometry[0])
                 thigh = self.robot.get_links_pos(self.thigh_link_indices_local, relative=True)
                 self.wheel_thigh_dx[:] = rotate_wxyz(inv_quat(self.base_quat)[:, None], center - thigh)[..., 0]
-                if self.cfg.env.capture_precision or hasattr(self, "placement_reference"):
+                if self.cfg.env.capture_precision or hasattr(self, "placement_reference") or self.reference_tracking:
                     self.wheel_center_body = rotate_wxyz(inv_quat(self.base_quat)[:, None], center - self.base_pos[:, None])
 
     def _reset_command_timer(self, env_ids):
@@ -631,6 +684,11 @@ class Go2WEnv(Go2Env):
     def _tracking_axis(self, axis):
         from .phase import huber, rolling_command_mask
         actual = self.base_lin_vel[:, axis] if axis < 2 else self.base_ang_vel[:, 2]
+        if self.reference_tracking:
+            from .phase import broad_precision_tracking
+            c = self.cfg.rewards.common_tracking
+            return broad_precision_tracking(self.commands[:, axis] - actual, c['broad_scales'][axis],
+                                            c['precision_scales'][axis], c['beta'][axis])
         scale = self.cfg.rewards.phase_objective["tracking_scales"][axis]
         rolling_scale = self.cfg.rewards.phase_objective.get("rolling_yaw_scale")
         if axis == 2 and rolling_scale is not None:
@@ -697,8 +755,10 @@ class Go2WEnv(Go2Env):
     def _reward_wheel_corridor(self):
         from .phase import corridor_error
         c = self.cfg.rewards.phase_objective
-        return corridor_error(self.wheel_thigh_dx, self.dx_reference, self.desired_swing,
+        cost = corridor_error(self.wheel_thigh_dx, self.dx_reference, self.desired_swing,
                               c["corridor_stance_m"], c["corridor_swing_m"], c["corridor_scale_m"])
+        # The new recipe retains repositioning guidance only for requested stepping.
+        return self._step_demand() * cost if self.reference_tracking else cost
 
     def _reward_reference_height(self):
         from .phase import huber
@@ -716,6 +776,19 @@ class Go2WEnv(Go2Env):
         if self.sensor_refinement:
             error = error * self.rolling_pose_weights
         return (1 - self._step_demand()) * error.mean(dim=1)
+
+    def _reward_reference_pose(self):
+        from .phase import reference_pose_error
+        legs = self.leg_action_indices
+        return reference_pose_error(self.dof_pos[:, legs], self.default_dof_pos[:, legs],
+                                    self.reference_pose_scales, self.commands, self.cfg.rewards.reference_pose)
+
+    def _reward_wheel_rate_zero(self):
+        # Suppress wheel spinning/slipping at rest, separately from body tracking.
+        return self._stand_mask() * self.dof_vel[:, self.wheel_action_indices].square().mean(dim=1)
+
+    def _reward_contact_safety(self):
+        return (self.nonfoot_ground_link_count + self.undesired_self_pair_count).clamp(max=4)
 
     def _reward_sensor_vertical_velocity(self):
         # Actual left-imager location and its virtual sagittal mirror; raw world-up velocity.

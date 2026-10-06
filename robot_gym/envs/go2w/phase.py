@@ -8,6 +8,29 @@ def huber(error):
     return torch.where(magnitude <= 1, .5 * error.square(), magnitude - .5)
 
 
+def broad_precision_tracking(error, broad_scale, precision_scale, beta):
+    """Dimensionless reward rate; axis weight and policy dt belong to the accumulator."""
+    return 1 - huber(error / broad_scale) - beta * (-torch.expm1(-.5 * (error / precision_scale).square()))
+
+
+def reference_pose_activation(commands, lateral_full, yaw_full, stepping_fraction):
+    """Smooth requested-motion relaxation, including small lateral commands."""
+    # A smooth union avoids the derivative kink of max at equal axis demands.
+    lateral = (commands[:, 1].abs() / lateral_full).clamp(0, 1)
+    yaw = (commands[:, 2].abs() / yaw_full).clamp(0, 1)
+    lateral = lateral.square() * (3 - 2 * lateral)
+    yaw = yaw.square() * (3 - 2 * yaw)
+    relaxation = 1 - (1 - lateral) * (1 - yaw)
+    return 1 - (1 - stepping_fraction) * relaxation
+
+
+def reference_pose_error(actual_legs, reference_legs, scales, commands, cfg):
+    """Actual P-joint pose only; wheel angles, actions and support targets are absent."""
+    activation = reference_pose_activation(commands, cfg['lateral_full_m_s'],
+                                          cfg['yaw_full_rad_s'], cfg['stepping_fraction'])
+    return activation * huber((actual_legs - reference_legs) / scales).mean(dim=1)
+
+
 def demand(commands):
     lateral = ((commands[:, 1].abs() - .01) / .04).clamp(0, 1)
     yaw = ((commands[:, 2].abs() - .10) / .15).clamp(0, 1)

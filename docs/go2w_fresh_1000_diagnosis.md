@@ -1,5 +1,10 @@
 # Interrupted fresh rolling-control diagnosis — 6 October 2026
 
+Stage-two closure: the fixed-LR branch completed at model998 / 1001 lineage updates.
+The [consolidated reference_tracking_v1 preparation](go2w_reference_tracking_v1.md)
+supersedes the stage-one continuation recommendation below and records the final
+matched measurements, one new fresh recipe and its unexecuted command.
+
 The deterministic checkpoint1000 policy has real forward clenching and weak,
 uneven yaw stepping. No placement formula, sign, indexing, frame, cache, or
 configuration-mutation bug was found. Placement correctly penalizes the invalid

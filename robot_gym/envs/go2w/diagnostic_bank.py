@@ -779,6 +779,9 @@ def rollout_precision(env, policy, schedule, sensor=False, rolling_phase_zero=Fa
                     "reset_buf", "episode_length_buf", "nonfoot_contact_count")}
                 if "wheel_center_lateral_speed" in state:
                     values["wheel_center_lateral_speed"] = state["wheel_center_lateral_speed"]
+                for key in ('undesired_self_pair_count', 'nonfoot_ground_link_count'):
+                    if key in state:
+                        values[key] = state[key]
                 if sensor:
                     values["observations"] = recorded_observation
                 if hasattr(env, "active_push_force") and env.cfg.domain_rand.push_robots:
@@ -842,6 +845,8 @@ def precision_metrics(data, schedule, dt, metadata, initial):
                   "nonwheel_contact_steps": int((d["nonfoot_contact_count"] > 0).sum()),
                   "timeouts": int(d["time_out_buf"].sum()), "nonfinite": bool(d["nonfinite"].any()),
                   "phases": [], "swings": {}}
+        if 'undesired_self_pair_count' in d:
+            result['undesired_self_contact_boundaries'] = int((d['undesired_self_pair_count'] > 0).sum())
         offset = 0
         for phase, (seconds, command) in enumerate(schedule):
             count = round(seconds/dt); end = min(offset+count, n)
@@ -873,6 +878,7 @@ def precision_metrics(data, schedule, dt, metadata, initial):
                  "heading_change_abs_rad": float(abs(heading[end-1]-start_heading)),
                  "leg_error_rms_per_joint": np.sqrt(np.mean(error**2, axis=0)).tolist(),
                  "stance_width_front_rear_m": (feet[tail][:, [0, 2], 1]-feet[tail][:, [1, 3], 1]).mean(0).tolist(),
+                 "actual_reference_pose_rms_rad": float(np.sqrt(np.mean(error**2))),
                  "tilt_rms_rad": np.sqrt((d["rpy"][tail, :2]**2).mean(0)).tolist(),
                  "wheel_camber_mean_rad": np.arcsin(np.clip(axles[tail, :, 2], -1, 1)).mean(0).tolist(),
                  "wheel_toe_mean_rad": np.arctan2(-axles[tail, :, 0], axles[tail, :, 1]).mean(0).tolist(),
@@ -888,6 +894,9 @@ def precision_metrics(data, schedule, dt, metadata, initial):
             p["body_roll_pitch_mean_rad"] = body_rpy[tail, :2].mean(0).tolist()
             p["body_roll_pitch_rms_rad"] = np.sqrt((body_rpy[tail, :2]**2).mean(0)).tolist()
             p["body_roll_pitch_peak_to_peak_rad"] = np.ptp(body_rpy[sl, :2], axis=0).tolist()
+            if "wheel_center_body" in d:
+                p["wheelbase_center_mean_m"] = float((feet[tail, :2, 0].mean(1)-feet[tail, 2:, 0].mean(1)).mean())
+                p["wheel_pair_midpoints_xy_m"] = ((feet[tail][:, [0, 2], :2]+feet[tail][:, [1, 3], :2])/2).mean(0).tolist()
             if "wheel_thigh_dx" in d:
                 p["full_phase_posture"] = {
                     "height_mean_m": float(d["base_pos"][sl, 2].mean()),

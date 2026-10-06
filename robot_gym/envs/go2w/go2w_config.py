@@ -149,13 +149,15 @@ def prepare_fresh_rolling_control(env_cfg, train_cfg, args):
             raise ValueError("Expected a saved Go2-W task/training configuration")
         source = saved["env_cfg"]
         if (source.get("go2w_profile") != "transfer_v3" or source.get("go2w_behavior") != "phase_guided"
-                or source.get("go2w_finetune") != "navigation_rolling_control"
+                or not (source.get("go2w_recipe") == "reference_tracking_v1"
+                        or source.get("go2w_finetune") == "navigation_rolling_control")
                 or source.get("phase_observation_mode") != "command_demand"
                 or source["env"]["num_observations"] != 58 or source["env"]["num_actions"] != 16
                 or source["asset"]["name"] != "go2w"):
-            raise ValueError("Fresh recipe must contain the complete phase-guided navigation_rolling_control task")
+            raise ValueError("Fresh recipe must contain a complete supported phase-guided task")
         args.fresh_task_recipe = saved
     saved = args.fresh_task_recipe
+    reference_tracking = saved['env_cfg'].get('go2w_recipe') == 'reference_tracking_v1'
     if args.experiment_name == saved["train_cfg"]["runner"]["experiment_name"]:
         raise ValueError("Fresh training requires a separate output experiment")
     args.resolved_checkpoint = None
@@ -170,15 +172,17 @@ def prepare_fresh_rolling_control(env_cfg, train_cfg, args):
     if train_cfg is not None:
         train_cfg.seed = 1
         train_cfg.actor.distribution_cfg.update(init_std=.40, std_type="log", learn_std=True, std_range=[.10, .70])
-        train_cfg.algorithm.learning_rate, train_cfg.algorithm.schedule = 3e-4, "adaptive"
+        train_cfg.algorithm.learning_rate = 3e-4
+        train_cfg.algorithm.schedule = "fixed" if reference_tracking else "adaptive"
         train_cfg.algorithm.desired_kl = .01
         train_cfg.runner.resume = False
         train_cfg.runner.resume_path = train_cfg.runner.load_run = train_cfg.runner.checkpoint = None
         train_cfg.runner.checkpoint_load_cfg = None
         train_cfg.runner.num_steps_per_env = 64
-        train_cfg.runner.max_iterations, train_cfg.runner.save_interval = 3000, 250
-        train_cfg.runner.experiment_name = "go2w_transfer_v3_navigation_rolling_control_fresh"
-        train_cfg.runner.run_name = "navigation_rolling_control_fresh_seed1"
+        train_cfg.runner.max_iterations, train_cfg.runner.save_interval = (2000 if reference_tracking else 3000), 250
+        name = "reference_tracking_v1" if reference_tracking else "navigation_rolling_control_fresh"
+        train_cfg.runner.experiment_name = f"go2w_transfer_v3_{name}"
+        train_cfg.runner.run_name = f"{name}_seed1"
 
 
 def prepare_v3_resume(env_cfg, train_cfg, args):
@@ -209,7 +213,9 @@ def prepare_v3_resume(env_cfg, train_cfg, args):
         selection.experiment_name = selection.run_name = selection.num_envs = selection.max_iterations = None
         selection.logger = selection.seed = None
         source_env, source_train, checkpoint = task_registry.resolve_replay(selection)
-        if source_env.go2w_profile != "transfer_v3" or not getattr(source_env, "go2w_finetune", None):
+        if source_env.go2w_profile != "transfer_v3" or not (
+                getattr(source_env, "go2w_finetune", None)
+                or getattr(source_env, "go2w_recipe", None) == "reference_tracking_v1"):
             raise ValueError("This resume path requires a saved V3 refinement or fresh rolling-control run")
         saved = torch.load(checkpoint, map_location="cpu", weights_only=False)
         args.v3_resume_recipe = {"env_cfg": class_to_dict(source_env), "train_cfg": class_to_dict(source_train),
@@ -826,7 +832,7 @@ class GO2WCfgPPO(GO2CfgPPO):
 def add_arguments(parser):
     parameters = [
         {"name": "--go2w_resume_fixed_lr", "type": float, "default": None, "help": "Opt-in V3 full-state resume branch: override native schedule and all Adam group LRs after loading; task unchanged"},
-        {"name": "--go2w_fresh_recipe", "help": "Fresh rolling-control training from a complete saved config.yaml only; no checkpoint loading"},
+        {"name": "--go2w_fresh_recipe", "help": "Fresh training from a complete supported task YAML; no checkpoint loading"},
         {"name": "--go2w_finetune", "choices": ["coverage", "coverage_mobility", "precision_clearance", "sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral", "navigation_zero_hold", "navigation_rolling_placement", "navigation_rolling_control"], "default": None, "help": "V3 refinements selectively load explicit saved models/normalizers/std with fresh optimizer/counter; legacy choices require step_recovery_v1 resume"},
         {"name": "--go2w_profile", "choices": ["step_recovery_v1", "event_step_v1", "transfer_v1", "transfer_v2", "transfer_v3"], "default": None, "help": "Opt-in training recipe; replay restores the saved profile automatically"},
         {"name": "--sagittal_stance_weight", "type": float, "default": None, "help": "Explicit event_step_v1 stance weight; full-demand weight stays 0.12; select the saved value for evaluation/play"},
@@ -963,6 +969,19 @@ def validate_fresh_transfer(args, train_cfg):
 
 def validate_training(args, env_cfg, train_cfg):
     validate_fresh_transfer(args, train_cfg)
+    if getattr(env_cfg, 'go2w_recipe', None) == 'reference_tracking_v1':
+        # Also applies to saved full-state resumes; this recipe never adapts LR.
+        if (train_cfg.algorithm.schedule != 'fixed' or train_cfg.algorithm.learning_rate != 3e-4
+                or train_cfg.algorithm.gamma != .995 or train_cfg.algorithm.lam != .95):
+            raise ValueError('reference_tracking_v1 requires fixed LR 3e-4, gamma .995 and lambda .95')
+        if (env_cfg.phase_observation_mode != 'command_demand'
+                or env_cfg.env.num_observations != 58 or env_cfg.env.num_actions != 16):
+            raise ValueError('reference_tracking_v1 requires the demand-conditioned 58/16 contract')
+        for key in ('rolling_pose', 'rolling_placement', 'stand_still', 'collision', 'lin_vel_z'):
+            if getattr(env_cfg.rewards.scales, key, 0.):
+                raise ValueError(f'reference_tracking_v1 replaces {key}; do not stack it')
+        if 'rolling_yaw_scale' in env_cfg.rewards.phase_objective:
+            raise ValueError('reference_tracking_v1 uses one common tracking kernel')
     if getattr(args, "v3_resume_recipe", None):
         from robot_gym.utils.helpers import class_to_dict
         source = args.v3_resume_recipe
