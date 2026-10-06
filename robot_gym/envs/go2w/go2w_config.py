@@ -124,8 +124,65 @@ def v3_completed_updates(saved_env, iteration):
     return (saved_env.get("refinement_parent") or {}).get("prior_updates", 0) + iteration + 1
 
 
+def prepare_fresh_rolling_control(env_cfg, train_cfg, args):
+    """Use a complete saved task recipe as configuration only; never resolve a model."""
+    import copy
+    from pathlib import Path
+    import yaml
+    from robot_gym.utils.helpers import update_class_from_dict
+
+    if args.task != "go2w" or args.go2w_profile != "transfer_v3":
+        raise ValueError("--go2w_fresh_recipe requires --task go2w --go2w_profile transfer_v3")
+    for flag in ("resume", "load_run", "checkpoint", "go2w_finetune", "reference_config",
+                 "sagittal_stance_weight", "event_quality_profile", "transfer_armature", "transfer_delay",
+                 "transfer_cases", "episode_length_s",
+                 "entropy_coef", "tracking_sigma_x", "zero_command_brake"):
+        value = getattr(args, flag, None)
+        if (bool(value) if flag in ("resume", "zero_command_brake") else value is not None):
+            raise ValueError(f"Fresh saved-recipe training requires --{flag} to be omitted")
+    if not hasattr(args, "fresh_task_recipe"):
+        path = Path(args.go2w_fresh_recipe).resolve()
+        with path.open(encoding="utf-8") as stream:
+            saved = yaml.safe_load(stream)
+        if not isinstance(saved, dict) or saved.get("task") != "go2w" or not all(
+                isinstance(saved.get(k), dict) for k in ("env_cfg", "train_cfg")):
+            raise ValueError("Expected a saved Go2-W task/training configuration")
+        source = saved["env_cfg"]
+        if (source.get("go2w_profile") != "transfer_v3" or source.get("go2w_behavior") != "phase_guided"
+                or source.get("go2w_finetune") != "navigation_rolling_control"
+                or source.get("phase_observation_mode") != "command_demand"
+                or source["env"]["num_observations"] != 58 or source["env"]["num_actions"] != 16
+                or source["asset"]["name"] != "go2w"):
+            raise ValueError("Fresh recipe must contain the complete phase-guided navigation_rolling_control task")
+        args.fresh_task_recipe = saved
+    saved = args.fresh_task_recipe
+    if args.experiment_name == saved["train_cfg"]["runner"]["experiment_name"]:
+        raise ValueError("Fresh training requires a separate output experiment")
+    args.resolved_checkpoint = None
+    for cfg, key in ((env_cfg, "env_cfg"), (train_cfg, "train_cfg")):
+        if cfg is not None:
+            update_class_from_dict(cfg, copy.deepcopy(saved[key]))
+    if env_cfg is not None:
+        env_cfg.refinement_parent = env_cfg.training_resume = None
+        env_cfg.recipe_source = {"config": str(Path(args.go2w_fresh_recipe).resolve()),
+                                 "use": "configuration only; no model ancestry"}
+        env_cfg.env.num_envs, env_cfg.seed = 4096, 1
+    if train_cfg is not None:
+        train_cfg.seed = 1
+        train_cfg.actor.distribution_cfg.update(init_std=.40, std_type="log", learn_std=True, std_range=[.10, .70])
+        train_cfg.algorithm.learning_rate, train_cfg.algorithm.schedule = 3e-4, "adaptive"
+        train_cfg.algorithm.desired_kl = .01
+        train_cfg.runner.resume = False
+        train_cfg.runner.resume_path = train_cfg.runner.load_run = train_cfg.runner.checkpoint = None
+        train_cfg.runner.checkpoint_load_cfg = None
+        train_cfg.runner.num_steps_per_env = 64
+        train_cfg.runner.max_iterations, train_cfg.runner.save_interval = 3000, 250
+        train_cfg.runner.experiment_name = "go2w_transfer_v3_navigation_rolling_control_fresh"
+        train_cfg.runner.run_name = "navigation_rolling_control_fresh_seed1"
+
+
 def prepare_v3_resume(env_cfg, train_cfg, args):
-    """Restore one saved refinement recipe and all native learning state."""
+    """Restore one saved V3 recipe and all native learning state."""
     import copy
     from pathlib import Path
     import torch
@@ -136,7 +193,7 @@ def prepare_v3_resume(env_cfg, train_cfg, args):
         raise ValueError("V3 resume requires an explicit run directory and checkpoint")
     if args.max_iterations is None or args.max_iterations <= 0:
         raise ValueError("V3 resume requires --max_iterations as a positive number of additional updates")
-    for flag in ("go2w_finetune", "reference_config", "sagittal_stance_weight", "event_quality_profile",
+    for flag in ("go2w_finetune", "go2w_fresh_recipe", "reference_config", "sagittal_stance_weight", "event_quality_profile",
                  "transfer_armature", "transfer_delay", "transfer_cases", "episode_length_s",
                  "entropy_coef", "tracking_sigma_x", "zero_command_brake"):
         value = getattr(args, flag, None)
@@ -152,7 +209,7 @@ def prepare_v3_resume(env_cfg, train_cfg, args):
         selection.logger = selection.seed = None
         source_env, source_train, checkpoint = task_registry.resolve_replay(selection)
         if source_env.go2w_profile != "transfer_v3" or not getattr(source_env, "go2w_finetune", None):
-            raise ValueError("This resume path requires a saved V3 refinement")
+            raise ValueError("This resume path requires a saved V3 refinement or fresh rolling-control run")
         saved = torch.load(checkpoint, map_location="cpu", weights_only=False)
         args.v3_resume_recipe = {"env_cfg": class_to_dict(source_env), "train_cfg": class_to_dict(source_train),
             "checkpoint": str(checkpoint), "source_iteration": int(saved["iter"]),
@@ -747,6 +804,7 @@ class GO2WCfgPPO(GO2CfgPPO):
 
 def add_arguments(parser):
     parameters = [
+        {"name": "--go2w_fresh_recipe", "help": "Fresh rolling-control training from a complete saved config.yaml only; no checkpoint loading"},
         {"name": "--go2w_finetune", "choices": ["coverage", "coverage_mobility", "precision_clearance", "sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral", "navigation_zero_hold", "navigation_rolling_placement", "navigation_rolling_control"], "default": None, "help": "V3 refinements selectively load explicit saved models/normalizers/std with fresh optimizer/counter; legacy choices require step_recovery_v1 resume"},
         {"name": "--go2w_profile", "choices": ["step_recovery_v1", "event_step_v1", "transfer_v1", "transfer_v2", "transfer_v3"], "default": None, "help": "Opt-in training recipe; replay restores the saved profile automatically"},
         {"name": "--sagittal_stance_weight", "type": float, "default": None, "help": "Explicit event_step_v1 stance weight; full-demand weight stays 0.12; select the saved value for evaluation/play"},
@@ -774,6 +832,8 @@ def add_arguments(parser):
 
 def configure(env_cfg, cfg_train, args):
     if getattr(args, "_replay_restored", False):
+        if getattr(args, "go2w_fresh_recipe", None):
+            raise ValueError("--go2w_fresh_recipe is training-only; replay uses its saved run")
         for cfg in (env_cfg, cfg_train):
             if cfg is not None:
                 for key in ("go2w_profile", "go2w_finetune"):
@@ -781,6 +841,9 @@ def configure(env_cfg, cfg_train, args):
                     if explicit is not None and explicit != getattr(cfg, key, None):
                         raise ValueError(f"Explicit --{key}={explicit!r} conflicts with saved {getattr(cfg, key, None)!r}")
         return  # Saved rewards/commands remain authoritative for replay.
+    if getattr(args, "go2w_fresh_recipe", None):
+        prepare_fresh_rolling_control(env_cfg, cfg_train, args)
+        return
     if args.resume and getattr(args, "go2w_profile", None) == "transfer_v3":
         prepare_v3_resume(env_cfg, cfg_train, args)
         return
@@ -846,6 +909,13 @@ def validate_fresh_transfer(args, train_cfg):
         expected = {"actor": True, "critic": True, "optimizer": True, "iteration": True}
         if train_cfg.go2w_profile != "transfer_v3" or not train_cfg.runner.resume or train_cfg.runner.checkpoint_load_cfg != expected:
             raise ValueError("Same-recipe V3 resume must restore the full native learning state")
+        return
+    if getattr(args, "go2w_fresh_recipe", None):
+        if (not getattr(args, "fresh_task_recipe", None) or args.resume
+                or getattr(args, "resolved_checkpoint", None) is not None or train_cfg.runner.resume
+                or any(getattr(train_cfg.runner, key) is not None for key in
+                       ("resume_path", "load_run", "checkpoint", "checkpoint_load_cfg"))):
+            raise ValueError("Fresh recipe must not inherit any checkpoint initialization")
         return
     if getattr(train_cfg, "go2w_finetune", None) in ("sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral", "navigation_zero_hold", "navigation_rolling_placement", "navigation_rolling_control"):
         expected = {"actor": True, "critic": True, "optimizer": False, "iteration": False}

@@ -1,6 +1,6 @@
 # Go2-W sensor refinement reviews
 
-Current decision (2026-10-05): **neither evaluated rolling-control checkpoint meets the frozen functional goals**. Recommend a separately authorized fresh-start comparison with the fixed target recipe, rather than another reward or immediate continuation. See [the rolling-control review](#navigation-rolling-control-500-update-review-2026-10-05). Earlier selections, preparation statements and cleanup results below are historical.
+Current decision (2026-10-06): **the complete fixed rolling-control task is prepared for a genuinely fresh 3000-update comparison; production has not started**. The single two-update execution smoke passed. Neither previous rolling-control checkpoint meets the frozen functional goals. See [fresh preparation](#navigation-rolling-control-fresh-preparation-2026-10-06) and [the preceding review](#navigation-rolling-control-500-update-review-2026-10-05). Earlier selections, preparation statements and cleanup results below are historical.
 
 ## Sensor smoothing: verified 500-update review
 
@@ -700,3 +700,55 @@ The existing sequence contains lateral-to-roll transitions, not direct turn-to-r
 The existing numeric targets and descriptive approximately 15% comparison semantics remain unchanged. Small-command/cross-axis behavior, stopping residuals and continued widening remain part of the functional review. No additional long-forward rollout is needed to establish the reproduced curvature; horizons beyond the tested 30 s movement remain unqualified. No new robustness/seed bank, symmetry audit, static-pose experiment or historical simulation was run.
 
 Only local postprocessing and this report were added; existing geometry/sensor/event helpers and native evaluators were reused. The added response calculation was checked on a below-target plateau, a known ramp crossing and its sign reflection. No unit-test campaign, optimizer smoke, training, reward/PPO/physics change, push, deletion, package upgrade or receiving-repository edit occurred. `play.py` and all checkpoints remain unchanged.
+
+## Navigation rolling control: fresh preparation (2026-10-06)
+
+**Prepared, not launched:** one continuous, genuinely fresh **3000-update** run of the complete fixed task. Its configuration source is `logs/go2w_transfer_v3_navigation_rolling_control/navigation_rolling_control_from499_seed1_2026-10-05_11-20-28/config.yaml`. No checkpoint from that run was opened or loaded during this preparation. This is an engineering comparison of fresh initialization with a suitable optimization setup, not an initialization-only causal ablation or a promise of convergence.
+
+The source matches the earlier resolved rolling-control preparation; only relative versus absolute `runner.load_run` spelling differs. [Fully resolved fresh configuration](../evaluation/navigation_rolling_control_fresh_preparation/config.yaml), [exact configuration differences](../evaluation/navigation_rolling_control_fresh_preparation/config_difference.json), and [compact preparation evidence](../evaluation/navigation_rolling_control_fresh_preparation/preparation.json) are saved locally. After excluding operational lineage/provenance fields, the **entire resolved environment configuration equals the source**, including population and seed. Actor/critic architecture and distribution configuration also match; algorithm differences are only LR and schedule.
+
+The task retains placement -.05, collision-center width references .3801999968 m, width deadband/scale .04/.10 m and midpoint deadband/scale .015/.05 m. It retains conditional yaw scale .07, general scale .35 and weight .8, stand_still -5, partial lateral [.02,.30] with both signs, the complete command mixture/durations/sensor holds, command-demand phase observations and guidance, all sensor/orientation/height/support/effort/action-rate terms, masks, noise, randomization, reference/control/URDF and timing. V3 yaw remains `0.8 * (1 - Huber(error/scale))`, using commanded yaw minus body angular-z; no legacy Gaussian path is activated.
+
+| Intentional difference | Previous warm start | Prepared fresh run |
+|---|---|---|
+| Models, normalizers, action std | Inherited learned state | New actor/critic; normalizer count 0; Gaussian std .40 |
+| Adam and counter | Fresh Adam/local counter, inherited models | Empty Adam/local counter 0; no model ancestry |
+| Initial LR / schedule | 5e-5 / fixed | 3e-4 / native adaptive, desired KL .01 |
+| Additional-update budget / save interval | 500 / 50 | 3000 / 250, plus native final |
+| Output and provenance | `navigation_rolling_control_from499...` | Separate `go2w_transfer_v3_navigation_rolling_control_fresh`; YAML source only |
+
+Unchanged learning settings include 4096 environments x 64 ticks, seed 1, log-std with `learn_std=True` and [.10,.70] bounds, entropy .003, gamma .995, GAE .95, 512/256/128 ELU actor/critic, clipping .2, five epochs and eight minibatches. The source's textual `init_std=.4` was already present but warm-start loading replaced it with learned std; fresh construction now actually uses .4. The requested fresh setup matches installed RSL-RL **5.5.1** and existing fresh-V3 defaults. Its adaptive branch can raise/lower LR within [1e-5,1e-2]; desired KL is not a hard trust-region bound. The existing log-std projection hook is retained.
+
+The small Go2-W-only `--go2w_fresh_recipe` path reads YAML and deep-copies saved configuration. It preserves runtime identity `transfer_v3` / `phase_guided` / `navigation_rolling_control`, so the historical `go2w_finetune` label does not disable phase/sensor behavior or trigger selective loading. It clears `refinement_parent`, `training_resume`, `resolved_checkpoint`, runner resume/load selectors and inherited selective-load flags. `recipe_source` records configuration provenance only. Existing warm-start and saved replay paths remain available; no shared runner, PPO, reward implementation, evaluator or `play.py` change was made.
+
+**Validation:** 12 focused tests passed (`test_go2w_fresh_recipe`, `test_go2w_resume`, `test_go2w_rolling_control`, `test_go2w_rolling_placement`). They cover saved-task equality/idempotence, loading rejection, deep-copy isolation, unchanged historical replay/full resume, yaw/gating/reflection, and reward weighting. Source YAML bytes and cached nested configuration remained unchanged. All 22 nonzero reward entries were inspected at runtime: continuous terms receive dt=.02 once, while discrete termination retains its existing weighting. Placement/yaw/stand/sensor registered weights are -.001/+.016/-.1/-.02; complete names and coefficients are in the initialization evidence.
+
+Exactly **one 4096-environment native two-update smoke** completed at `logs/go2w_transfer_v3_navigation_rolling_control_fresh_smoke/fresh_execution_smoke_2026-10-06_02-12-56/`. Before its first update, snapshots taken immediately after native model construction matched the runner models exactly; both 58-input normalizers had count 0, mean 0 and variance/std 1. All 16 learned std values were .40000004, Adam state was empty, iteration was 0 and checkpoint paths were null. Runner/PPO/model/Adam load methods were guarded and each had **zero calls**. Phase-guided and sensor behavior were active, with command-demand encoding and 58/58/16 shapes. [Initialization proof](../evaluation/navigation_rolling_control_fresh_preparation/initialization.json) precedes all learning.
+
+After 128 rollout ticks, label **1** represented two updates, Adam step counts were **80**, normalizer counts were **524288** each, and std spanned .39993–.40077. All rollout observations/actions/rewards, model tensors, Adam tensors and diagnostic records were finite. Saved task settings matched the production target exactly; only smoke budget/output names differed. The native scheduler reached **1e-5 during update 0** and remained there at update 1. Mean measured/scheduler KL was .09637/.02133 and PPO ratio clipping .71990/.54144. These startup measurements include newly adapting normalizers and policy updates; they neither demonstrate convergence nor establish optimizer failure. Keep the requested setup, and include LR/KL/clipping in the bounded progress review. Random-policy terminations and two updates do not measure policy quality. [Smoke evidence](../evaluation/navigation_rolling_control_fresh_preparation/smoke_validation.json) and the adjacent console/diagnostics retain the details.
+
+A **CPU-only native reload of this new smoke checkpoint** exactly restored actor/critic, normalizers, std, all Adam state, actual LR=1e-5 and iteration=1; no further rollout/update occurred. [Resume evidence](../evaluation/navigation_rolling_control_fresh_preparation/resume_validation.json) confirms all four load flags true. An unchanged continuation uses the existing `--resume`, explicit fresh-run `--load_run`/`--checkpoint`, and `--max_iterations` for additional updates; omit `--go2w_fresh_recipe` and `--go2w_finetune`. The saved recipe stays authoritative and source output is preserved. Native labels overlap on resume: loading label k starts the next update at k again; lineage metadata counts additional updates. Simulator/RNG state is not restored bit-for-bit.
+
+The one prepared production command, **not executed**, from the repository root with the installed environment is below; [production.ps1](../evaluation/navigation_rolling_control_fresh_preparation/production.ps1) also contains local cache environment settings. The fresh production output directory does not yet exist.
+
+```powershell
+& "$env:USERPROFILE\anaconda3\envs\genesis-gpu\python.exe" -m robot_gym.scripts.train `
+    --task go2w `
+    --go2w_profile transfer_v3 `
+    --go2w_fresh_recipe logs/go2w_transfer_v3_navigation_rolling_control/navigation_rolling_control_from499_seed1_2026-10-05_11-20-28/config.yaml `
+    --experiment_name go2w_transfer_v3_navigation_rolling_control_fresh `
+    --run_name navigation_rolling_control_fresh_seed1 `
+    --num_envs 4096 `
+    --max_iterations 3000 `
+    --seed 1 `
+    --logger tensorboard `
+    --training_diagnostics `
+    --headless `
+    --rl_device cuda:0
+```
+
+The [frozen fresh-run review plan](../evaluation/navigation_rolling_control_fresh_preparation/selection_protocol.json) copies the original target block unchanged. Forward .5 m/s for 30 s requires max cross-track <=.05 m, absolute heading change <=2 degrees, achieved mean .45–.55 m/s and RMSE <=.04 m/s. Late stand XY RMS must be <=.005 m/s; late yaw and full heading must also improve over the documented zero-hold499 reference. Keep the original stopping/reversal/retained-step comparisons and descriptive approximately 15% bands, including original V3 and zero-hold250. Geometry/camera improvements remain secondary; targets are development criteria, not hardware safety limits.
+
+Expected fresh labels are 0,250,...,2750 and final **2999**. Allow at most one lightweight progress check around 1000, without automatic task changes or a deployment qualification. Final comparison is **2000 (2001 updates) and 2999 (3000 updates)**: existing sustained stand/forward_fast and the existing slow-reverse screen subset for both; phase-transition and transfer_screen only for the better candidate. Reuse historical baselines and sampling conventions. Report signed bias/RMSE, first-second errors, command-relative response thresholds (unreached remains unavailable), path/heading, stand/stop translation **and rotation**, reversals, stepping and cross-axis errors. Preserve the documented reverse underspeed and partial-command cross-axis deficits in the assessment. No new numeric response pass is invented.
+
+No future-review physical cases were run during preparation. If this continuous fresh run later misses the same combined goals, discuss the remaining objective/observation/coverage limitation rather than automatically adding another fine-tune or multiplying reward weights. Production training, new behavioral evaluations, cleanup, pushes, upgrades and receiving-simulator edits remain unperformed. The only optimizer work in this task was the authorized two-update smoke; it validates execution, not policy quality.
