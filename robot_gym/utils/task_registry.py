@@ -323,6 +323,8 @@ class TaskRegistry:
             # action from a TensorDict captured before loading.
             env.compute_observations()
 
+        if save_config:
+            env.finalize_runner_loading(runner, train_cfg, args)
 
         if save_config and args.training_diagnostics:
             env.install_training_diagnostics(runner, log_dir)

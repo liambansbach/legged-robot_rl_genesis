@@ -33,6 +33,9 @@ class BaseTask:
     def setup_runner(self, runner):
         """Install task-owned training state, if any, before checkpoint loading."""
 
+    def finalize_runner_loading(self, runner, train_cfg, args):
+        """Apply explicitly requested training overrides after native state loading."""
+
     def install_training_diagnostics(self, runner, log_dir):
         """Optional task-owned scalar diagnostics."""
 

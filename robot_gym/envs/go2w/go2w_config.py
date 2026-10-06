@@ -203,6 +203,7 @@ def prepare_v3_resume(env_cfg, train_cfg, args):
     if not hasattr(args, "v3_resume_recipe"):
         selection = copy.copy(args)
         selection.resume = False
+        selection.go2w_resume_fixed_lr = None
         selection.go2w_profile = selection.go2w_finetune = None
         selection.load_run = str(Path(args.load_run).resolve())
         selection.experiment_name = selection.run_name = selection.num_envs = selection.max_iterations = None
@@ -214,7 +215,13 @@ def prepare_v3_resume(env_cfg, train_cfg, args):
         args.v3_resume_recipe = {"env_cfg": class_to_dict(source_env), "train_cfg": class_to_dict(source_train),
             "checkpoint": str(checkpoint), "source_iteration": int(saved["iter"]),
             "source_total_updates": v3_completed_updates(class_to_dict(source_env), int(saved["iter"]))}
+        if getattr(args, "go2w_resume_fixed_lr", None) is not None:
+            args.v3_resume_recipe["source_optimizer_learning_rates"] = [
+                group["lr"] for group in saved["optimizer_state_dict"]["param_groups"]]
     source = args.v3_resume_recipe
+    fixed_lr = getattr(args, "go2w_resume_fixed_lr", None)
+    if fixed_lr is not None and args.experiment_name == source["train_cfg"]["runner"]["experiment_name"]:
+        raise ValueError("An LR-only branch requires a distinct output experiment")
     if args.seed not in (None, source["train_cfg"]["seed"]):
         raise ValueError("Same-recipe resume retains the saved seed")
     if args.num_envs not in (None, source["env_cfg"]["env"]["num_envs"]) and not (args.num_envs == 64 and args.max_iterations <= 2):
@@ -226,12 +233,26 @@ def prepare_v3_resume(env_cfg, train_cfg, args):
     if env_cfg is not None:
         env_cfg.training_resume = {k: source[k] for k in ("checkpoint", "source_iteration", "source_total_updates")}
         env_cfg.training_resume["additional_updates"] = args.max_iterations
+        if source["env_cfg"].get("training_resume"):
+            env_cfg.training_resume["previous_generation"] = copy.deepcopy(source["env_cfg"]["training_resume"])
+        if fixed_lr is not None:
+            env_cfg.training_resume["optimization_change"] = {
+                "kind": "lr_only", "schedule": "fixed", "learning_rate": fixed_lr,
+                "source_schedule": source["train_cfg"]["algorithm"]["schedule"],
+                "source_config_learning_rate": source["train_cfg"]["algorithm"]["learning_rate"],
+                "source_optimizer_learning_rates": source["source_optimizer_learning_rates"],
+                "retention": "actor, critic, both normalizers, learned std, Adam moments/steps and iteration",
+                "application": "after native checkpoint loading; simulator/RNG state is not restored bit-for-bit"}
     if train_cfg is not None:
         train_cfg.runner.resume = True
         train_cfg.runner.resume_path = source["checkpoint"]
         train_cfg.runner.checkpoint_load_cfg = {"actor": True, "critic": True, "optimizer": True, "iteration": True}
         train_cfg.runner.experiment_name = source["train_cfg"]["runner"]["experiment_name"] + "_resume"
         train_cfg.runner.run_name = f"resume_from{source['source_iteration']}_seed{source['train_cfg']['seed']}"
+        if fixed_lr is not None:
+            train_cfg.algorithm.learning_rate, train_cfg.algorithm.schedule = fixed_lr, "fixed"
+            train_cfg.runner.experiment_name = source["train_cfg"]["runner"]["experiment_name"] + "_fixed_lr"
+            train_cfg.runner.run_name = f"fixed_lr_from{source['source_iteration']}_seed{source['train_cfg']['seed']}"
 
 
 def prepare_sensor_smooth(env_cfg, train_cfg, args):
@@ -804,6 +825,7 @@ class GO2WCfgPPO(GO2CfgPPO):
 
 def add_arguments(parser):
     parameters = [
+        {"name": "--go2w_resume_fixed_lr", "type": float, "default": None, "help": "Opt-in V3 full-state resume branch: override native schedule and all Adam group LRs after loading; task unchanged"},
         {"name": "--go2w_fresh_recipe", "help": "Fresh rolling-control training from a complete saved config.yaml only; no checkpoint loading"},
         {"name": "--go2w_finetune", "choices": ["coverage", "coverage_mobility", "precision_clearance", "sensor_smooth", "sensor_phase_conditioned", "navigation_partial_lateral", "navigation_zero_hold", "navigation_rolling_placement", "navigation_rolling_control"], "default": None, "help": "V3 refinements selectively load explicit saved models/normalizers/std with fresh optimizer/counter; legacy choices require step_recovery_v1 resume"},
         {"name": "--go2w_profile", "choices": ["step_recovery_v1", "event_step_v1", "transfer_v1", "transfer_v2", "transfer_v3"], "default": None, "help": "Opt-in training recipe; replay restores the saved profile automatically"},
@@ -831,6 +853,12 @@ def add_arguments(parser):
 
 
 def configure(env_cfg, cfg_train, args):
+    fixed_lr = getattr(args, "go2w_resume_fixed_lr", None)
+    if fixed_lr is not None:
+        if (not math.isfinite(fixed_lr) or fixed_lr <= 0 or args.task != "go2w"
+                or not args.resume or getattr(args, "go2w_profile", None) != "transfer_v3"
+                or getattr(args, "_replay_restored", False)):
+            raise ValueError("--go2w_resume_fixed_lr requires a finite positive LR and training --task go2w --go2w_profile transfer_v3 --resume")
     if getattr(args, "_replay_restored", False):
         if getattr(args, "go2w_fresh_recipe", None):
             raise ValueError("--go2w_fresh_recipe is training-only; replay uses its saved run")
@@ -944,7 +972,11 @@ def validate_training(args, env_cfg, train_cfg):
             if class_to_dict(current) != source["env_cfg"][key]:
                 raise ValueError(f"Same-recipe resume changed env_cfg.{key}")
         for key in ("actor", "critic", "algorithm"):
-            if class_to_dict(getattr(train_cfg, key)) != source["train_cfg"][key]:
+            expected = dict(source["train_cfg"][key])
+            fixed_lr = getattr(args, "go2w_resume_fixed_lr", None)
+            if key == "algorithm" and fixed_lr is not None:
+                expected.update(learning_rate=fixed_lr, schedule="fixed")
+            if class_to_dict(getattr(train_cfg, key)) != expected:
                 raise ValueError(f"Same-recipe resume changed train_cfg.{key}")
     if any(getattr(args, flag, False) for flag in ("eval_rolling_phase_zero", "eval_phase_transition", "eval_noise_pushes")):
         raise ValueError("Evaluation diagnostics are inference only")

@@ -453,3 +453,115 @@ the existing CLI has no validated LR-after-load override, and inventing one or
 silently retaining the checkpoint LR would mislabel the experiment. No PPO fork,
 monkey-patch, optimizer smoke, production run, push, artifact deletion, historical
 policy edit, package upgrade, or IsaacLab change occurred.
+
+## LR-only branch preparation — 6 October 2026
+
+The subsequent request authorizes preparation of the discriminator above.
+**Production has not started.** The first stage is limited to **250 additional
+updates**, with the remaining **500 conditional on review and explicit further
+authorization**. No random initialization or reward alternative is prepared.
+
+Source is this report's original fresh run,
+`navigation_rolling_control_fresh_seed1_2026-10-06_09-04-36/model_250.pt`.
+Its internal label is **250**, every Adam counter is **10040**, and both
+normalizer counts are **65,798,144**, independently confirming **251 completed
+updates**. SHA256 is
+`a9b3675c4fb376ae83998da23e300d1870aa08ac72bbfa20f9d704d3f585e3e8`.
+Checkpoint1000 remains a failed comparison, never the initialization.
+
+The small opt-in `--go2w_resume_fixed_lr 0.0003` extends the existing full-state
+V3 loading path. Native loading restores actor, critic, both empirical
+normalizers, learned action std, all Adam moments/counters and iteration first.
+The task's post-load hook then sets native `schedule="fixed"`,
+`alg.learning_rate=3e-4` and **every Adam group LR=3e-4**, before diagnostics and
+config saving. It does not modify RSL-RL. Ordinary resume and historical
+selective initialization retain their existing loading behavior.
+
+| Check | Verified result |
+|---|---|
+| Actual LR change | Saved Adam LR **0.0008649755859375 → 0.0003**; adaptive → fixed. Source YAML already says initial LR .0003, so the YAML algorithm diff is schedule only |
+| Before first update | Exact actor/critic state equality, including normalizer buffers/counts and learned std; exact Adam equality except group LR; internal iteration retained |
+| Task preservation | Complete saved environment equal apart from continuation provenance; actor/critic architecture, all other PPO settings, seed, batch, observations, sampler, rewards, control, physics, exploration bounds and normalizer behavior retained |
+| Source preservation | Source checkpoint, saved YAML and local `play.py` hashes unchanged; source recipe is copied, with no fine-tuning delta or grandparent reload |
+| Focused tests | **14 passed**: resume/config validation, all-group LR override, ordinary fixed-LR resume, existing fresh/selective initialization and placement checks |
+| Single native smoke | **4096 × 64**, exactly **2** updates; **128** policy ticks and **80** Adam steps checked for fixed LR; observations/actions/rewards and final learning state finite |
+| Saved smoke states | Labels **250/251** mean **252/253** lineage updates; Adam steps **10080/10120**; normalizer counts **66,060,288 / 66,322,432** in both models; moments advance, LR stays .0003 |
+| Ordinary reload | Native CPU full-state reload of smoke251, **without** the opt-in flag, exactly matches its saved learning state and retains fixed .0003; no further updates |
+
+The smoke's native learning loop and checkpoint saves completed. Its final
+read-only probe then raised a CUDA-versus-CPU `torch.equal` error while checking
+changed Adam moments. Both saved states and the ordinary reload were verified
+on CPU afterward, with **zero additional simulation or optimizer updates**.
+The original console traceback and run metadata (`interrupted_or_failed`,
+label251) are preserved; this is a probe failure after two completed updates,
+not a third update or a reported clean process exit.
+
+Preparation evidence is in
+[lr_only_preparation](../evaluation/fresh_1000_diagnosis/lr_only_preparation/):
+[resolved config](../evaluation/fresh_1000_diagnosis/lr_only_preparation/config.yaml),
+[source and exact differences](../evaluation/fresh_1000_diagnosis/lr_only_preparation/preparation.json),
+[pre-update load proof](../evaluation/fresh_1000_diagnosis/lr_only_preparation/pre_update_load_state.json),
+[smoke verification](../evaluation/fresh_1000_diagnosis/lr_only_preparation/smoke_validation.json),
+[ordinary reload proof](../evaluation/fresh_1000_diagnosis/lr_only_preparation/resume_validation.json)
+and [focused test output](../evaluation/fresh_1000_diagnosis/lr_only_preparation/focused_tests.txt).
+The separate smoke run is
+`logs/go2w_transfer_v3_navigation_rolling_control_fixed_lr_smoke/lr_only_from250_two_update_smoke_2026-10-06_11-38-30/`.
+Its checkpoints are validation artifacts, not production initialization.
+
+### Prepared command and lineage
+
+[production.ps1](../evaluation/fresh_1000_diagnosis/lr_only_preparation/production.ps1)
+contains the **one exact, unexecuted PowerShell production command**, including
+the existing Python interpreter and local cache settings. It selects source250,
+seed1, 4096 environments, the saved 64-step rollout and remaining PPO settings,
+and 250 additional updates. Its distinct experiment is
+`go2w_transfer_v3_navigation_rolling_control_fixed_lr`, with run name
+`lr_only_from250_stage1_seed1` and a new timestamped directory.
+
+Native RSL-RL 5.5.1 repeats the loaded label. The first stage runs labels
+**250–499**, then saves **model_499.pt at 501 lineage updates**. The final native
+save occurs even though label499 is not a periodic save boundary. Saved config,
+full checkpoint and `training_resume` provenance support ordinary full-state
+resume from that immediate branch; fixed LR must remain saved and loaded.
+The next generation preserves previous-generation provenance and uses
+`source_total_updates + (saved_label - source_label + 1)` for completed lineage.
+
+If subsequently authorized, a separate 500-update stage from label499 would
+end at **label998 / 1001 lineage updates**. The earlier label999 estimate applies
+to one uninterrupted 750-update call, not this staged plan. No second-stage
+command or automatic continuation is prepared. Simulator/RNG state is not
+restored bit-for-bit: this is a **changed-optimization branch**, not a perfectly
+paired causal experiment or an exact continuation.
+
+### First-stage review, not final qualification
+
+The [review plan](../evaluation/fresh_1000_diagnosis/lr_only_preparation/review_plan.json)
+is frozen before production: evaluate only the stage's final checkpoint, using
+the same **15-second nominal deterministic forward vx=.5, yaw+.5 and yaw−.5**
+cases and existing measurement conventions. Preserve full, after-first-second
+and late-five-second windows, action/reward boundary capture, terminal/reset
+events and named contact records. Reuse source250 forward and failed1000
+results; source250 has no historical yaw traces to invent. The original
+**adaptive model_500.pt exists**, with internal label500, Adam step20040 and
+**501 updates**. Allow only one extra forward case on it during the future
+review for equal training age; nothing was evaluated now.
+
+Prioritize named collision-center widths and pair midpoints, height, actual
+joint angles/targets, persistent clipping, self-contact counts and named pairs,
+achieved velocities/yaw errors/cross-axis motion, and each wheel's desired versus
+actual clearance, unloading/support and complete/censored cycles. Retain wheel
+tilt and sensor/body motion context. Yaw .5 already has full phase demand.
+The collision reward remains a **non-wheel ground-contact** count; recurring
+calf/self-contact is a **failed candidate property** even if that reward is zero.
+Do not disable self-collision, correct policy states/actions or filter away
+contacts/resets.
+
+Less clenching alone cannot justify continuation. Require useful functional
+progress in forward tracking and both yaw signs/stepping, alongside acceptable
+contact/target behavior; fixed LR may simply slow acquisition. Neither aggregate
+return nor a smaller loss suffices. All existing final functional targets are
+copied unchanged into the review plan: forward speed/path/heading, late stand,
+stopping, both lateral/yaw signs including partial commands, and placement with
+support/tracking. These three short cases are an early diagnostic review, not
+that final qualification. A positive review still requires explicit authorization
+before spending any of the conditional remaining 500 updates.

@@ -100,6 +100,20 @@ class Go2WEnv(Go2Env):
         from .training_diagnostics import TrainingDiagnostics
         TrainingDiagnostics(runner, self, Path(log_dir) / "diagnostics.jsonl")
 
+    def finalize_runner_loading(self, runner, train_cfg, args):
+        lr = getattr(args, "go2w_resume_fixed_lr", None)
+        if lr is None:
+            return
+        expected = {"actor": True, "critic": True, "optimizer": True, "iteration": True}
+        if (not runner.checkpoint_path or train_cfg.runner.checkpoint_load_cfg != expected
+                or train_cfg.algorithm.schedule != "fixed" or train_cfg.algorithm.learning_rate != lr):
+            raise ValueError("Fixed-LR branch requires validated full-state checkpoint loading")
+        # Native load restores Adam's saved LR; override only after that restoration.
+        runner.alg.schedule, runner.alg.learning_rate = "fixed", lr
+        for group in runner.alg.optimizer.param_groups:
+            group["lr"] = lr
+        runner.cfg["algorithm"].update(schedule="fixed", learning_rate=lr)
+
     def training_metadata(self):
         from .step_events import lateral_high
         from .deployment import transfer_contract
@@ -121,6 +135,8 @@ class Go2WEnv(Go2Env):
         if getattr(self.cfg, "training_resume", None):
             result.update(initialization="same-recipe native resume: models/normalizers/std/Adam/LR/iteration retained",
                           training_resume=self.cfg.training_resume)
+            if "optimization_change" in self.cfg.training_resume:
+                result["initialization"] = "changed-optimization branch: full native state retained, then explicit fixed-LR override"
         return result
 
     def export_metadata(self):
