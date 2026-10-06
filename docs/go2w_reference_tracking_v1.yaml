@@ -1,4 +1,6 @@
-# Resolved reference_tracking_v1. Configuration only; no checkpoint initialization.
+# Fully resolved reference_tracking_v1, final configuration cleanup (2026-10-06).
+# Configuration only: fresh actor/critic, normalizers, Gaussian and Adam; no checkpoint.
+# Canonical V3 joints: every leg hip=0, thigh=.70, calf=-1.40, wheel=0 rad.
 task: go2w
 train_cfg:
   actor:
@@ -111,6 +113,8 @@ env_cfg:
     robot_name: go2w
     sha256: d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c
     source_commit: ed8dc93b3065a8e2a3a5919f032ed4690529117c
+  # Required navigation limits live in ranges. Only this recipe opts into the
+  # separate reserve sampler; dormant event-profile fields retain legacy meaning.
   commands:
     curriculum: false
     discovery_segment_duration_range:
@@ -148,27 +152,27 @@ env_cfg:
     num_commands: 3
     phase_mixed_ranges:
     - - -0.3
+      - 1.0
+    - - -0.3
       - 0.3
-    - - -0.2
-      - 0.2
-    - - -0.5
-      - 0.5
+    - - -1.0
+      - 1.0
     pure_lateral_magnitude_range:
     - 0.02
     - 0.3
     pure_yaw_magnitude_range:
-    - 0.3
-    - 0.8
+    - 0.05
+    - 1.0
     ranges:
-      ang_vel_yaw:
-      - -0.8
-      - 0.8
       lin_vel_x:
-      - -0.35
-      - 0.6
+      - -0.3
+      - 1.0
       lin_vel_y:
       - -0.3
       - 0.3
+      ang_vel_yaw:
+      - -1.0
+      - 1.0
     resampling_time: 10.0
     resampling_time_range: null
     short_command_duration_range:
@@ -181,6 +185,31 @@ env_cfg:
     - 3.0
     sustained_command_probability: 0.3
     yaw_deadzone: 0.01
+    # Core / exact required edge / reserve for ordinary moving families.
+    # Stand stays zero; precision keeps its dedicated small ranges.
+    # Edge/reserve choose one active axis and either sign with equal probability.
+    reference_tracking_sampling:
+      tier_probabilities:
+      - 0.8
+      - 0.1
+      - 0.1
+      reserve_ranges:
+        lin_vel_x:
+        - -0.4
+        - 1.2
+        lin_vel_y:
+        - -0.5
+        - 0.5
+        ang_vel_yaw:
+        - -1.5
+        - 1.5
+      precision_ranges:
+      - - -0.063
+        - 0.108
+      - - 0.0
+        - 0.0
+      - - -0.16
+        - 0.16
   control:
     action_scale:
       FL_hip_joint: 0.3
@@ -337,12 +366,13 @@ env_cfg:
     push_duration_range_s:
     - 0.1
     - 0.2
+    # Overall bounds only here; push_force_mixture selects the event magnitude.
     push_force_range:
     - 20.0
-    - 50.0
+    - 150.0
     push_interval_range_s:
-    - 3.0
-    - 6.0
+    - 5.0
+    - 10.0
     push_robots: true
     push_torque_range:
     - 0.0
@@ -355,6 +385,19 @@ env_cfg:
     randomize_kd: true
     randomize_kp: true
     scale_base_inertia_with_mass: true
+    # One magnitude and horizontal direction per event; independent of commands.
+    push_force_mixture:
+      probabilities:
+      - 0.8
+      - 0.15
+      - 0.05
+      magnitude_ranges_n:
+      - - 20.0
+        - 50.0
+      - - 50.0
+        - 100.0
+      - - 100.0
+        - 150.0
   env:
     capture_precision: false
     capture_transitions: false

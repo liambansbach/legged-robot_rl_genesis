@@ -74,6 +74,59 @@ def undesired_self_contacts(contacts, link_start, allowed_pairs, force_threshold
     return unique_contact_count(torch.minimum(a, b) * count + torch.maximum(a, b), valid)
 
 
+def navigation_commands(families, ranges, cfg):
+    """Opt-in core/edge/reserve draws; stand and precision stay inside core."""
+    n, device = len(families), families.device
+    sampling = cfg.reference_tracking_sampling
+    names = ('lin_vel_x', 'lin_vel_y', 'ang_vel_yaw')
+    core = torch.tensor([ranges[name] for name in names], device=device)
+    reserve = torch.tensor([sampling['reserve_ranges'][name] for name in names], device=device)
+    cmd = core[:, 0] + torch.rand((n, 3), device=device) * (core[:, 1] - core[:, 0])
+    active = torch.stack(((families == 1) | (families == 2) | (families == 4) | (families == 6),
+                          (families == 5) | (families == 6),
+                          (families == 2) | (families == 3) | (families == 4) | (families == 6)), dim=1)
+    for family, axis, limits in ((5, 1, cfg.pure_lateral_magnitude_range),
+                                 (3, 2, cfg.pure_yaw_magnitude_range)):
+        u = 2 * torch.rand(n, device=device) - 1
+        cmd[:, axis] = torch.where(families == family,
+            (limits[0] + (limits[1] - limits[0]) * u.abs()) * torch.where(u < 0, -1., 1.), cmd[:, axis])
+    precision = torch.tensor(sampling['precision_ranges'], device=device)
+    cmd = torch.where((families == 4)[:, None],
+        precision[:, 0] + torch.rand((n, 3), device=device) * (precision[:, 1] - precision[:, 0]), cmd)
+    cmd *= active
+
+    tier = torch.multinomial(torch.tensor(sampling['tier_probabilities'], device=device), n, replacement=True)
+    tier[(families == 0) | (families == 4)] = 0
+    # Select only one active axis, uniformly, then choose its signed limit.
+    axis = torch.rand((n, 3), device=device).masked_fill(~active, -1).argmax(dim=1)
+    sign = torch.randint(0, 2, (n,), device=device)
+    edge, outer = core[axis, sign], reserve[axis, sign]
+    # A reserve draw is strictly outside core, even for a zero uniform draw.
+    inner = torch.nextafter(edge, outer)
+    extended = inner + torch.rand(n, device=device) * (outer - inner)
+    rows = torch.arange(n, device=device)
+    cmd[rows, axis] = torch.where(tier == 1, edge,
+                                 torch.where(tier == 2, extended, cmd[rows, axis]))
+    return cmd, tier
+
+
+def horizontal_push_force(draws, mixture):
+    """One tier, magnitude and azimuth per event; draws are independent U[0,1)."""
+    # Sum in Python precision before casting; .80 + .15 must not move the
+    # float32 .95 tier boundary by an extra representable value.
+    probabilities = mixture['probabilities']
+    boundaries = draws.new_tensor([sum(probabilities[:i]) for i in range(1, len(probabilities))])
+    limits = draws.new_tensor(mixture['magnitude_ranges_n'])
+    tier = torch.bucketize(draws[:, 0].contiguous(), boundaries, right=True)
+    magnitude = limits[tier, 0] + draws[:, 1] * (limits[tier, 1] - limits[tier, 0])
+    angle = 2 * torch.pi * draws[:, 2] - torch.pi
+    force = torch.stack((magnitude * angle.cos(), magnitude * angle.sin(), torch.zeros_like(magnitude)), dim=1)
+    # Keep the vector norm inside the configured cap even at float32 roundoff.
+    cap = torch.nextafter(limits[:, 1].max(), draws.new_zeros(()))
+    force *= (cap / force.norm(dim=1).clamp_min(cap)).unsqueeze(1)
+    return force, tier
+
+
 class Go2WEnv(Go2Env):
     phase_guided = False  # Legacy fixtures/bundles have no phase state.
     sensor_refinement = False
@@ -183,6 +236,24 @@ class Go2WEnv(Go2Env):
                 metadata["phase"]["observation"] = "slots 56:58 = demand(command) * [sin(2*pi*p), cos(2*pi*p)] before embedded normalizer; zero raw clock at zero demand, not necessarily normalized zero"
                 metadata["phase"]["demand"] = {"lateral_start_full_m_s": [.01, .05], "yaw_start_full_rad_s": [.10, .25],
                     "combination": "max of clipped linear ramps, then smoothstep d*d*(3-2*d); invariant under sagittal reflection"}
+        sampling = getattr(self.cfg.commands, 'reference_tracking_sampling', None)
+        if self.reference_tracking and sampling is not None:
+            from robot_gym.utils.helpers import class_to_dict
+            metadata['navigation_commands'] = {
+                'required_ranges': class_to_dict(self.cfg.commands.ranges),
+                'training_sampling': sampling,
+                'units': ['m/s', 'm/s', 'rad/s'],
+                'reserve_rule': 'One selected active axis outside required; other axes inside required',
+            }
+        mixture = getattr(self.cfg.domain_rand, 'push_force_mixture', None)
+        if self.reference_tracking and mixture is not None:
+            metadata['body_push_events'] = {
+                'force_mixture': mixture,
+                'interval_s': self.cfg.domain_rand.push_interval_range_s,
+                'duration_s': self.cfg.domain_rand.push_duration_range_s,
+                'application': 'Fixed horizontal force per event at base-link COM; zero external torque',
+                'impulse': 'Force norm times sampled physics ticks times physics dt; reset may truncate an event',
+            }
         return metadata
 
     def update_task_state(self):
@@ -208,6 +279,11 @@ class Go2WEnv(Go2Env):
 
     def capture_task_state(self):
         state = {}
+        if hasattr(self, 'push_event_duration_steps'):
+            for name in ('push_event_tier', 'push_event_duration_steps', 'push_event_impulse_ns'):
+                state[name] = getattr(self, name).clone()
+        if hasattr(self, 'command_sampling_tier'):
+            state['command_sampling_tier'] = self.command_sampling_tier.clone()
         if self.reference_tracking:
             state.update(undesired_self_pair_count=self.undesired_self_pair_count.clone(),
                          nonfoot_ground_link_count=self.nonfoot_ground_link_count.clone())
@@ -338,6 +414,12 @@ class Go2WEnv(Go2Env):
 
     def _init_buffers(self):
         super()._init_buffers()
+        if self.reference_tracking and getattr(self.cfg.commands, 'reference_tracking_sampling', None) is not None:
+            self.command_sampling_tier = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        if self.reference_tracking and getattr(self.cfg.domain_rand, 'push_force_mixture', None) is not None:
+            self.push_event_tier = torch.full((self.num_envs,), -1, dtype=torch.long, device=self.device)
+            self.push_event_duration_steps = torch.zeros_like(self.push_event_tier)
+            self.push_event_impulse_ns = torch.zeros(self.num_envs, device=self.device)
         if self.reference_tracking:
             c = self.cfg.rewards.reference_pose
             self.reference_pose_scales = torch.tensor(
@@ -500,6 +582,33 @@ class Go2WEnv(Go2Env):
         )
         self.command_steps_left[env_ids] = torch.where(use_sustained, sustained, short)
 
+    def _sample_pushes(self):
+        mixture = getattr(self.cfg.domain_rand, 'push_force_mixture', None)
+        if not self.reference_tracking or mixture is None:
+            return super()._sample_pushes()
+        self.next_push_steps -= 1
+        ids = (self.next_push_steps <= 0).nonzero().flatten()
+        if not len(ids):
+            return
+        dr = self.cfg.domain_rand
+        force, tier = horizontal_push_force(torch.rand((len(ids), 3), device=self.device), mixture)
+        self.push_force[ids, 0] = force
+        self.push_torque[ids] = 0.
+        duration = self._sample_interval_steps(dr.push_duration_range_s, len(ids), self.cfg.sim.dt)
+        self.push_steps_left[ids] = duration
+        self.next_push_steps[ids] = self._sample_interval_steps(dr.push_interval_range_s, len(ids), self.dt)
+        self.push_event_tier[ids] = tier
+        self.push_event_duration_steps[ids] = duration
+        impulse = force.norm(dim=1) * duration * self.cfg.sim.dt
+        self.push_event_impulse_ns[ids] = impulse
+        diagnostics = getattr(self, 'training_diagnostics', None)
+        if diagnostics is not None:
+            # Event-weighted records, once per draw; never once per reapplication.
+            diagnostics.add('push_event_tier_fraction', torch.nn.functional.one_hot(tier, 3))
+            diagnostics.add('push_event_duration_physics_ticks', duration)
+            diagnostics.add('push_event_impulse_ns', impulse)
+        # The inherited physics-step loop reapplies this fixed wrench at link COM.
+
     def _resample_commands(self, env_ids):
         if self._apply_fixed_command(env_ids):
             return
@@ -512,43 +621,49 @@ class Go2WEnv(Go2Env):
             self.diagnostic_command_families[env_ids] = families
         elif getattr(self, "training_diagnostics", None) is not None:
             self.training_diagnostics.command_families[env_ids] = families
-        cmd = torch.rand((n, 3), device=self.device)
-        # Reuse the same uniform draw: balanced sign, independent uniform magnitude.
-        lateral_sample = 2 * cmd[:, 1] - 1
-        for axis, name in enumerate(("lin_vel_x", "lin_vel_y", "ang_vel_yaw")):
-            low, high = self.command_ranges[name]
-            cmd[:, axis] = low + (high - low) * cmd[:, axis]
-        low, high = self.cfg.commands.pure_lateral_magnitude_range
-        pure_lateral = (low + (high - low) * lateral_sample.abs()) * torch.where(
-            lateral_sample < 0, -1.0, 1.0
-        )
-        if self.event_step:
-            from .step_events import lateral_high
-            cfg = self.cfg.commands
-            # One uniform supplies independent sign and a mixture quantile.
-            u = lateral_sample.abs()
-            split = 1 - cfg.lateral_tail_probability
-            magnitude = torch.where(u < split, low + (high - low) * u / split,
-                                    high + (lateral_high(self.completed_updates, cfg) - high) * (u - split) / (1 - split))
-            pure_lateral = magnitude * torch.where(lateral_sample < 0, -1.0, 1.0)
-            lo, hi = cfg.mixed_lateral_range
-            cmd[:, 1] = lo + (hi - lo) * (lateral_sample + 1) / 2
-        cmd[:, 1] = torch.where(families == 5, pure_lateral, cmd[:, 1])
-        # Most commands use wheels and yaw. Lateral demand is explicit and uncommon.
-        cmd[:, 1] *= families >= 5
-        cmd[:, 2] *= (families != 1) & (families != 5)
-        cmd[:, 0] *= (families != 3) & (families != 5)
-        precision = families == 4
-        cmd[precision, 0] *= 0.18
-        cmd[precision, 2] *= 0.2
-        if self.phase_guided:
-            low, high = self.cfg.commands.pure_yaw_magnitude_range
-            u = torch.rand(n, device=self.device) * 2 - 1
-            cmd[:, 2] = torch.where(families == 3, (low + (high - low) * u.abs()) * torch.sign(u), cmd[:, 2])
-            mixed = families == 6
-            for axis, (low, high) in enumerate(self.cfg.commands.phase_mixed_ranges):
-                cmd[:, axis] = torch.where(mixed, low + (high - low) * torch.rand(n, device=self.device), cmd[:, axis])
-        cmd[families == 0] = 0
+        sampling = getattr(self.cfg.commands, 'reference_tracking_sampling', None)
+        if self.reference_tracking and sampling is not None:
+            cmd, tier = navigation_commands(families, self.command_ranges, self.cfg.commands)
+            if hasattr(self, 'command_sampling_tier'):
+                self.command_sampling_tier[env_ids] = tier
+        else:
+            cmd = torch.rand((n, 3), device=self.device)
+            # Reuse the same uniform draw: balanced sign, independent uniform magnitude.
+            lateral_sample = 2 * cmd[:, 1] - 1
+            for axis, name in enumerate(("lin_vel_x", "lin_vel_y", "ang_vel_yaw")):
+                low, high = self.command_ranges[name]
+                cmd[:, axis] = low + (high - low) * cmd[:, axis]
+            low, high = self.cfg.commands.pure_lateral_magnitude_range
+            pure_lateral = (low + (high - low) * lateral_sample.abs()) * torch.where(
+                lateral_sample < 0, -1.0, 1.0
+            )
+            if self.event_step:
+                from .step_events import lateral_high
+                cfg = self.cfg.commands
+                # One uniform supplies independent sign and a mixture quantile.
+                u = lateral_sample.abs()
+                split = 1 - cfg.lateral_tail_probability
+                magnitude = torch.where(u < split, low + (high - low) * u / split,
+                                        high + (lateral_high(self.completed_updates, cfg) - high) * (u - split) / (1 - split))
+                pure_lateral = magnitude * torch.where(lateral_sample < 0, -1.0, 1.0)
+                lo, hi = cfg.mixed_lateral_range
+                cmd[:, 1] = lo + (hi - lo) * (lateral_sample + 1) / 2
+            cmd[:, 1] = torch.where(families == 5, pure_lateral, cmd[:, 1])
+            # Most commands use wheels and yaw. Lateral demand is explicit and uncommon.
+            cmd[:, 1] *= families >= 5
+            cmd[:, 2] *= (families != 1) & (families != 5)
+            cmd[:, 0] *= (families != 3) & (families != 5)
+            precision = families == 4
+            cmd[precision, 0] *= 0.18
+            cmd[precision, 2] *= 0.2
+            if self.phase_guided:
+                low, high = self.cfg.commands.pure_yaw_magnitude_range
+                u = torch.rand(n, device=self.device) * 2 - 1
+                cmd[:, 2] = torch.where(families == 3, (low + (high - low) * u.abs()) * torch.sign(u), cmd[:, 2])
+                mixed = families == 6
+                for axis, (low, high) in enumerate(self.cfg.commands.phase_mixed_ranges):
+                    cmd[:, axis] = torch.where(mixed, low + (high - low) * torch.rand(n, device=self.device), cmd[:, axis])
+            cmd[families == 0] = 0
         cmd[:, :2] *= (
             torch.linalg.vector_norm(cmd[:, :2], dim=1)
             > self.cfg.commands.linear_deadzone

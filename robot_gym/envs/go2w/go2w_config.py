@@ -36,6 +36,7 @@ V3_SPAWN_CLEARANCE = 0.003  # Reset clearance, never added to the reward height.
 
 
 def v3_joint_reference():
+    """Canonical four-leg reference for newly resolved V3 tasks."""
     return {f"{side}_{joint}_joint": angle for side in ("FL", "FR", "RL", "RR")
             for joint, angle in V3_JOINT_REFERENCE.items()}
 
@@ -165,6 +166,12 @@ def prepare_fresh_rolling_control(env_cfg, train_cfg, args):
         if cfg is not None:
             update_class_from_dict(cfg, copy.deepcopy(saved[key]))
     if env_cfg is not None:
+        if reference_tracking:
+            if env_cfg.init_state.default_joint_angles != v3_joint_reference():
+                raise ValueError('reference_tracking_v1 requires the canonical four-leg V3 reference')
+            # Validate the authoritative YAML, then use the single authored source.
+            # Replay bypasses this fresh-entry path and keeps its saved values.
+            env_cfg.init_state.default_joint_angles = v3_joint_reference()
         env_cfg.refinement_parent = env_cfg.training_resume = None
         env_cfg.recipe_source = {"config": str(Path(args.go2w_fresh_recipe).resolve()),
                                  "use": "configuration only; no model ancestry"}
@@ -588,6 +595,9 @@ class GO2WCfg(GO2Cfg):
     sensor_smooth = None  # Opt-in refinement only; saved V3 remains unchanged.
     phase_observation_mode = "unconditional"  # Missing mode in older saved recipes keeps their contract.
     class init_state(GO2Cfg.init_state):
+        # Legacy fallback: event_step_v1/step_recovery_v1 still reconstruct from
+        # these values. New V3 uses v3_joint_reference() and measured-URDF FK;
+        # saved replay restores its own init_state without canonicalizing it.
         pos = (0.0, 0.0, 0.45)
         joint_position_noise = 0.03
         joint_velocity_noise = 0.05
@@ -970,6 +980,13 @@ def validate_fresh_transfer(args, train_cfg):
 def validate_training(args, env_cfg, train_cfg):
     validate_fresh_transfer(args, train_cfg)
     if getattr(env_cfg, 'go2w_recipe', None) == 'reference_tracking_v1':
+        if env_cfg.init_state.default_joint_angles != v3_joint_reference():
+            raise ValueError('reference_tracking_v1 requires the canonical four-leg V3 reference')
+        height, _ = v3_reference_geometry()
+        if (not math.isclose(env_cfg.rewards.base_height_target, height, abs_tol=1e-9, rel_tol=0.)
+                or not math.isclose(env_cfg.init_state.pos[2], height + V3_SPAWN_CLEARANCE,
+                                    abs_tol=1e-9, rel_tol=0.)):
+            raise ValueError('reference_tracking_v1 height/spawn must match the frozen V3 reference')
         # Also applies to saved full-state resumes; this recipe never adapts LR.
         if (train_cfg.algorithm.schedule != 'fixed' or train_cfg.algorithm.learning_rate != 3e-4
                 or train_cfg.algorithm.gamma != .995 or train_cfg.algorithm.lam != .95):
