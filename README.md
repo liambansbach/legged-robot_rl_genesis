@@ -118,20 +118,17 @@ conda activate genesis-gpu
 python -m robot_gym.scripts.train --task dodo --experiment_name dodo_walking_test --num_envs 4096 --max_iterations 1000
 ```
 
-Go2-W uses a flat plane, a bounded 16-action mixed P/V interface, and a 56-value
-proprioceptive observation. The tested stack is Python 3.11.14, PyTorch 2.9.0+cu130,
-Genesis 1.4.1, and RSL-RL 5.5.1. See [the migration and training guide](docs/go2w_migration.md)
-for the full physics, rewards, randomization, deployment contract, and validation results.
+Go2-W uses one current configuration in
+[go2w_config.py](robot_gym/envs/go2w/go2w_config.py): a flat plane, 16 mixed P/V
+actions and 58 observations including the demand-conditioned phase clock.
+Use the ordinary `--task go2w` command; each run saves its complete resolved
+`config.yaml`. See [current Go2-W training](docs/go2w_training.md) for the production
+command, saved-run compatibility and behavior-equivalence evidence.
 
-The selected [experimental Go2-W simulation policy](ressources/pretrained/go2w/README.md)
-includes real inference weights, its interface and a portable CPU check. It is not
-validated for hardware; Linux inference does not require the Genesis training stack.
-
-```powershell
-# Short GPU regression and PPO smoke; no W&B account needed
-conda run --no-capture-output -n genesis-gpu python -m robot_gym.scripts.smoke --task go2w --num_envs 8 --headless
-conda run --no-capture-output -n genesis-gpu python -m robot_gym.scripts.train --task go2w --num_envs 64 --max_iterations 2 --headless --logger tensorboard --experiment_name go2w_smoke
-```
+The historical [experimental Go2-W simulation policy](ressources/pretrained/go2w/README.md)
+retains its published weights, interface and portable CPU check. Its older interface
+is separate from the current task. Historical reports and artifacts remain available;
+source recipe selectors have been removed.
 
 Training pipeline:
 

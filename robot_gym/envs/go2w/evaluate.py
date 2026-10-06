@@ -334,8 +334,7 @@ def use_physics_diagnostics(args):
         return False
     if args.eval_mode == "closed_loop":
         return args.diagnostic_trace
-    return bool(args.diagnostic_trace or args.zero_command_brake or args.go2w_profile
-                or args.eval_mode != "nominal")
+    return True
 
 
 def evaluate(args):
@@ -374,39 +373,34 @@ def evaluate(args):
         cfg.noise.add_noise = original_cfg["noise"]["add_noise"]
         cfg.domain_rand.push_robots = original_cfg["domain_rand"]["push_robots"]
     if args.eval_mode in ("precision_screen", "precision_dr", "transfer_screen", "sensor_sustained"):
-        if args.eval_mode == "transfer_screen" and getattr(cfg, "go2w_profile", None) not in ("transfer_v1", "transfer_v2", "transfer_v3"):
-            raise ValueError("transfer_screen requires a saved transfer recipe")
         expected = 8 if args.eval_mode == "precision_dr" else 1
-        if cfg.env.num_envs != expected or args.seed != 1 or args.zero_command_brake or not getattr(cfg, "go2w_profile", None):
-            raise ValueError("Precision checks require the profile, explicit seed 1, matching batch and no brake")
+        if cfg.env.num_envs != expected or args.seed != 1:
+            raise ValueError("Precision checks require explicit seed 1 and the matching batch")
         cfg.env.episode_length_s = 30.0
         if args.eval_mode == "sensor_sustained":
-            if cfg.go2w_profile != "transfer_v3":
-                raise ValueError("sensor_sustained requires a saved V3 parent/interface")
             cfg.env.episode_length_s = max(60., args.episode_length_s or 60.)
         cfg.env.capture_closed_loop = cfg.env.capture_precision = True
         if args.eval_mode == "precision_dr":
             cfg.domain_rand.action_delay_steps_range = [0, 2]
             cfg.sim.batch_links_info = cfg.sim.batch_dofs_info = True
         from robot_gym.envs.go2w.diagnostic_bank import precision_schedule
-        from robot_gym.envs.go2w.go2w_config import uses_event_steps
         from robot_gym.envs.go2w.diagnostic_bank import transfer_schedule
         from robot_gym.envs.go2w.diagnostic_bank import sensor_schedule
-        schedule = (sensor_schedule() if args.eval_mode == "sensor_sustained" else transfer_schedule(cfg.go2w_profile) if args.eval_mode == "transfer_screen"
-                    else precision_schedule(args.eval_mode == "precision_dr", uses_event_steps(cfg)))
+        schedule = (sensor_schedule() if args.eval_mode == "sensor_sustained" else transfer_schedule() if args.eval_mode == "transfer_screen"
+                    else precision_schedule(args.eval_mode == "precision_dr"))
         print("Isolated rolling phase diagnostic; bounded schedule will be recorded in metrics.json"
               if rolling_phase_zero else "Saved-encoding phase transition; bounded schedule will be recorded in metrics.json"
               if phase_transition else "Direct schedule: " + json.dumps(schedule), flush=True)
     elif args.eval_mode == "closed_loop":
-        if cfg.env.num_envs != 1 or args.seed != 1 or args.zero_command_brake:
-            raise ValueError("Closed-loop evaluation requires one environment, explicit seed 1 and no brake")
+        if cfg.env.num_envs != 1 or args.seed != 1:
+            raise ValueError("Closed-loop evaluation requires one environment, explicit seed 1")
         cfg.env.episode_length_s = 30.0
         cfg.env.capture_closed_loop = True
         print("Closed-loop schedule: straight [0.5,0], left [0.5,0.1], right [0.5,-0.1]; "
               "each 2 s settle, 12 s trapezoidal path, 3 s endpoint feedback, 3 s exact zero", flush=True)
     elif args.eval_mode == "sustained":
-        if cfg.env.num_envs != 1 or args.zero_command_brake:
-            raise ValueError("Sustained evaluation requires one environment and no brake")
+        if cfg.env.num_envs != 1:
+            raise ValueError("Sustained evaluation requires one environment")
         cfg.env.episode_length_s = 40.0
         from robot_gym.envs.go2w.diagnostic_bank import sustained_schedule
         print("Sustained schedule (seconds): " + json.dumps(sustained_schedule()), flush=True)
@@ -414,8 +408,6 @@ def evaluate(args):
         cfg.sim.batch_links_info = cfg.sim.batch_dofs_info = True
         cfg.env.episode_length_s = 60.0
     env, _ = task_registry.make_env("go2w", args=args, env_cfg=cfg)
-    if args.zero_command_brake:
-        env.enable_zero_command_brake()
     env.command_resampling_enabled = False
     train_cfg.runner.resume = True
     runner, train_cfg = task_registry.make_alg_runner(
@@ -426,7 +418,7 @@ def evaluate(args):
     if use_physics_diagnostics(args):
         env.physics_diagnostics = PhysicsDiagnostics(env)
         if args.eval_mode == "transfer_screen":
-            from robot_gym.envs.go2w.native_reference import ReferenceCapture
+            from robot_gym.envs.go2w.diagnostics import ReferenceCapture
             env.physics_diagnostics = ReferenceCapture(env)
     cfg = env.cfg
     write_json(
@@ -440,8 +432,6 @@ def evaluate(args):
             {
                 "cli": vars(args),
                 "config_changes": config_differences(original_cfg, class_to_dict(cfg)),
-                "zero_command_brake": env.zero_command_brake.contract()
-                if args.zero_command_brake else None,
             },
             reference,
         ),
@@ -554,33 +544,28 @@ def evaluate(args):
                 }
                 for key, value in detail.items():
                     detail_history[key].append(value)
-                if args.diagnostic_trace or args.zero_command_brake or args.go2w_profile:
-                    for key in (
-                        "raw_actions",
-                        "applied_actions",
-                        "leg_position_targets",
-                        "wheel_velocity_targets",
-                        "control_torques",
-                        "control_torques_substep_max_abs",
-                        "summed_normal_ground_force",
-                        "legacy_force_support",
-                        "wheel_clearance",
-                        "base_quat_wxyz",
-                        "wheel_link_quat_wxyz",
-                        "base_heading",
-                        "base_position",
-                        "dof_position",
-                        "dof_velocity",
-                        "base_linear_velocity_body",
-                        "base_angular_velocity_body",
-                    ):
-                        detail_history.setdefault(key, []).append(state[key])
-                    if args.zero_command_brake:
-                        for key in ("issued_actions", "zero_command_brake_alpha"):
-                            detail_history.setdefault(key, []).append(state[key])
-                    if args.go2w_profile:
-                        for key in ("loaded_wheels", "wheel_reposition_velocity_body"):
-                            detail_history.setdefault(key, []).append(state[key])
+                for key in (
+                    "raw_actions",
+                    "applied_actions",
+                    "leg_position_targets",
+                    "wheel_velocity_targets",
+                    "control_torques",
+                    "control_torques_substep_max_abs",
+                    "summed_normal_ground_force",
+                    "legacy_force_support",
+                    "wheel_clearance",
+                    "base_quat_wxyz",
+                    "wheel_link_quat_wxyz",
+                    "base_heading",
+                    "base_position",
+                    "dof_position",
+                    "dof_velocity",
+                    "base_linear_velocity_body",
+                    "base_angular_velocity_body",
+                ):
+                    detail_history.setdefault(key, []).append(state[key])
+                for key in ("loaded_wheels", "wheel_reposition_velocity_body"):
+                    detail_history.setdefault(key, []).append(state[key])
                 record = torch.cat(
                     [
                         state["commands"],
@@ -680,20 +665,19 @@ def evaluate(args):
                 cfg.rewards.base_height_target,
                 hip_indices,
             )
-            if args.diagnostic_trace or args.zero_command_brake or args.go2w_profile:
-                from robot_gym.envs.go2w.diagnostic_bank import summarize
+            from robot_gym.envs.go2w.diagnostic_bank import summarize
 
-                metrics["physics_diagnostics_per_environment"] = summarize(
-                    detail,
-                    data[:, 0, :3],
-                    data[:, :, 9].astype(bool),
-                    env.dt,
-                    args.steps if before != after and after == (0, 0, 0) else None,
-                    env.leg_action_indices,
-                    env.torque_limits.cpu().numpy(),
-                    env.default_dof_pos[0].cpu().numpy(),
-                    env.action_scale.cpu().numpy().reshape(-1),
-                )
+            metrics["physics_diagnostics_per_environment"] = summarize(
+                detail,
+                data[:, 0, :3],
+                data[:, :, 9].astype(bool),
+                env.dt,
+                args.steps if before != after and after == (0, 0, 0) else None,
+                env.leg_action_indices,
+                env.torque_limits.cpu().numpy(),
+                env.default_dof_pos[0].cpu().numpy(),
+                env.action_scale.cpu().numpy().reshape(-1),
+            )
             if name in {"vy_-0.1", "vy_0.1", "vy_-0.25", "vy_0.25"}:
                 metrics["lateral"] = lateral_metrics(
                     data, detail, env.dt, cfg.asset.contact_height, initial_world_y
@@ -768,11 +752,10 @@ def evaluate(args):
         "world_y",
         "wheel_action_saturation",
     ]
-    if args.zero_command_brake or getattr(cfg, "go2w_profile", None):
-        from robot_gym.envs.go2w.diagnostic_bank import evaluate_restarts
+    from robot_gym.envs.go2w.diagnostic_bank import evaluate_restarts
 
-        prefix = "brake" if args.zero_command_brake else "hold"
-        report[f"{prefix}_restarts"] = evaluate_restarts(env, policy, out, prefix)
+    prefix = "hold"
+    report[f"{prefix}_restarts"] = evaluate_restarts(env, policy, out, prefix)
     (out / "metrics.json").write_text(json.dumps(report, indent=2, allow_nan=False))
     gs.destroy()
 

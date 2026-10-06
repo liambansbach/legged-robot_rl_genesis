@@ -1,4 +1,4 @@
-"""Sagittal reflection for legacy 56 inputs and V3's 58-input phase contract.
+"""Sagittal reflection for proprioception and the 58-input phase contract.
 
 RSL-RL receives raw (pre-normalization) TensorDict observations. Both actor and
 critic use the same `policy` group. Reflection is only mini-batch augmentation;

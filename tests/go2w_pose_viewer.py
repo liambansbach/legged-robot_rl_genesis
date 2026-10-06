@@ -16,14 +16,14 @@ import torch
 from scipy.spatial.transform import Rotation
 
 from robot_gym.envs.go2w.go2w_config import (
-    MEASURED_URDF, V3_SPAWN_CLEARANCE, v3_joint_reference,
+    MEASURED_URDF, SPAWN_CLEARANCE, joint_reference,
 )
 from robot_gym.utils.diagnostics import cylinder_clearance, rotate_wxyz, wheel_cylinders, write_json
 from robot_gym.utils.urdf_reader import URDFReader
 
 
 def inspect_pose(scene, robot, path, height_offset):
-    requested = v3_joint_reference()
+    requested = joint_reference()
     ids = [robot.get_joint(name).dofs_idx_local[0] for name in requested]
     target = torch.tensor(list(requested.values()), device=gs.device)
     # These are motor DOF indices, not floating-root qpos indices.
@@ -65,7 +65,7 @@ def inspect_pose(scene, robot, path, height_offset):
         "maximum_joint_error_rad": float((actual - target).abs().max()),
         "imposed_authored_base_quaternion_wxyz": quat,
         "imposed_readback_roll_pitch_deg": Rotation.from_quat(quat.cpu().numpy()[[1, 2, 3, 0]]).as_euler("xyz", degrees=True)[:2],
-        "h_ref_m": h_ref, "suggested_spawn_height_m": h_ref + V3_SPAWN_CLEARANCE,
+        "h_ref_m": h_ref, "suggested_spawn_height_m": h_ref + SPAWN_CLEARANCE,
         "display_height_offset_m": height_offset, "display_height_m": h_ref + height_offset,
         "nonwheel_collision_vertex_min_z_m": nonwheel_min,
         "self_contact": "not evaluated; no dynamics/contact solve",

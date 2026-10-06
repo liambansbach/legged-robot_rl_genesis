@@ -145,12 +145,10 @@ class TrainingDiagnostics:
         self.kl = []
         self.measured_kl = []
         self.ppo_clip = []
-        self.coverage = None
         self.term_totals = {}
         self.posture = {}
-        self.swings = None
         self.scrubbing = None
-        self.sensor_holds = None
+        self.command_holds = None
 
     def reward_term(self, name, raw, weighted):
         """Per-update scalar sums; no retained environment histories."""
@@ -208,40 +206,24 @@ class TrainingDiagnostics:
 
     def reward(self, raw, commands):
         # raw is the dt-scaled nonterminal reward sum, before only_positive_rewards.
-        if self.env.sensor_refinement:
-            value = torch.stack(((self.env.sensor_hold_kind == 1).sum(), (self.env.sensor_hold_kind == 2).sum()))
-            self.sensor_holds = value if self.sensor_holds is None else self.sensor_holds + value
-        if getattr(self.env, "transfer_v2", False) or getattr(self.env, "phase_guided", False):
-            from genesis.utils.geom import quat_to_xyz
-            angles = quat_to_xyz(self.env.base_quat, rpy=True)[:, :2]
-            valid = ~self.env.reset_buf.bool() & (self.env.nonfoot_contact_count == 0)
-            for i, name in enumerate(self.families):
-                mask = valid & (self.command_families == i)
-                samples = torch.where(mask[:, None], angles, 0)
-                value = torch.cat((mask.sum().reshape(1), samples.sum(0), samples.square().sum(0)))
-                self.posture[name] = self.posture.get(name, torch.zeros_like(value)) + value
-            if self.env.event_step:
-                events = self.env.step_events
-                complete = events.valid
-                value = torch.stack((complete.sum(0), (complete & (events.peak_actual >= .01)).sum(0),
-                                     (complete * events.peak_actual).sum(0), (complete * events.peak_use).sum(0)))
-                self.swings = value if self.swings is None else self.swings + value
-            from .step_events import step_demand
-            gate = step_demand(commands)
-            moving = valid & (gate > 0)
-            speed2 = self.env.wheel_center_lateral_speed.square() * self.env.loaded_wheels
-            scrub = torch.stack((moving.sum(), (moving & (raw < 0)).sum(),
-                                 (speed2.mean(1) * moving).sum(),
-                                 (speed2.mean(1) * gate * moving * (raw < 0)).sum()))
-            self.scrubbing = scrub if self.scrubbing is None else self.scrubbing + scrub
-        if hasattr(self.env, "diagnostic_long_moving_commands"):
-            mixed = self.command_families == 6
-            counts = torch.stack((
-                self.env.diagnostic_long_moving_commands.sum(),
-                mixed.sum(),
-                (mixed & (commands[:, 2] == 0)).sum(),
-            ))
-            self.coverage = counts if self.coverage is None else self.coverage + counts
+        value = torch.stack(((self.env.command_hold_kind == 1).sum(), (self.env.command_hold_kind == 2).sum()))
+        self.command_holds = value if self.command_holds is None else self.command_holds + value
+        from genesis.utils.geom import quat_to_xyz
+        angles = quat_to_xyz(self.env.base_quat, rpy=True)[:, :2]
+        valid = ~self.env.reset_buf.bool() & (self.env.nonfoot_contact_count == 0)
+        for i, name in enumerate(self.families):
+            mask = valid & (self.command_families == i)
+            samples = torch.where(mask[:, None], angles, 0)
+            value = torch.cat((mask.sum().reshape(1), samples.sum(0), samples.square().sum(0)))
+            self.posture[name] = self.posture.get(name, torch.zeros_like(value)) + value
+        from .phase import step_demand
+        gate = step_demand(commands)
+        moving = valid & (gate > 0)
+        speed2 = self.env.wheel_center_lateral_speed.square() * self.env.loaded_wheels
+        scrub = torch.stack((moving.sum(), (moving & (raw < 0)).sum(),
+                             (speed2.mean(1) * moving).sum(),
+                             (speed2.mean(1) * gate * moving * (raw < 0)).sum()))
+        self.scrubbing = scrub if self.scrubbing is None else self.scrubbing + scrub
         masks = {
             "all": torch.ones_like(raw, dtype=torch.bool),
             "unlabelled_initial": self.command_families == -1,
@@ -383,46 +365,22 @@ class TrainingDiagnostics:
             },
             "slew_definition": "Consecutive clipped/scaled targets on sampled rollout states, excluding reset boundaries; mean path is a counterfactual at those same states; no extra policy calls",
         }
-        if getattr(self.env, "transfer_v2", False) or getattr(self.env, "phase_guided", False):
-            row["body_posture_by_family"] = {
-                name: {"samples": int(v[0]), "signed_mean_roll_pitch_rad": (v[1:3]/v[0]).tolist(),
-                       "rms_roll_pitch_rad": (v[3:5]/v[0]).sqrt().tolist()}
-                for name, v in self.posture.items() if v[0] > 0}
-            row["posture_scope"] = "Valid rollout states by current command family, including command transients; base quaternion extrinsic xyz, not mesh tilt"
-            if self.swings is not None:
-                row["completed_steps_by_wheel"] = {
-                    name: {"qualified_count": int(self.swings[0, i]), "centimeter_count": int(self.swings[1, i]),
-                           "mean_actual_height_m": float(self.swings[2, i]/self.swings[0, i]) if self.swings[0, i] > 0 else None,
-                           "mean_event_usable_height_m": float(self.swings[3, i]/self.swings[0, i]) if self.swings[0, i] > 0 else None}
-                    for i, name in enumerate(self.env.cfg.asset.foot_link_names)}
-            if self.scrubbing is not None and self.scrubbing[0] > 0:
-                n, clipped, speed2, clipped_speed2 = self.scrubbing.tolist()
-                row["lateral_scrubbing"] = {"valid_demand_samples": int(n), "clipped_reward_fraction": clipped/n,
-                    "loaded_center_lateral_rms_m_s": (speed2/n)**.5,
-                    "weighted_scrub_on_clipped_samples_mean_per_valid_tick": self.env.reward_scales["lateral_wheel_scrub"]*clipped_speed2/n,
-                    "definition": "Loaded cylinder-center lateral velocity surrogate; all four wheels in the mean"}
-        if getattr(self.env, "event_step", False):
-            from robot_gym.envs.go2w.step_events import lateral_high
-            row["event_step_v1"] = {
-                "completed_updates": self.env.completed_updates,
-                "lateral_high": lateral_high(self.env.completed_updates, self.env.cfg.commands),
-                "cache_updates": self.env.step_events.update_count,
-                "censored_attempts_since_reset": self.env.step_events.censored_count.sum(),
-            }
-        if self.coverage is not None:
-            long_moving, mixed, mixed_zero_yaw = self.coverage.tolist()
-            row["coverage_time_exposure"] = {
-                "long_moving_environment_seconds": long_moving * self.env.dt,
-                "long_moving_fraction": long_moving / rewards["all"]["sample_count"],
-                "mixed_zero_yaw_environment_seconds": mixed_zero_yaw * self.env.dt,
-                "zero_yaw_fraction_of_mixed_time": mixed_zero_yaw / mixed if mixed else None,
-                "definition": "Observed environment steps, including truncated segments; not completed long holds or segment probabilities",
-            }
-        if self.sensor_holds is not None:
-            row["sensor_hold_time_exposure"] = {
-                "range_s": [self.env.cfg.sensor_smooth["long_hold_s"], self.env.cfg.sensor_smooth["extended_hold_s"]],
-                "environment_seconds": self.sensor_holds * self.env.dt,
-                "fraction": self.sensor_holds / rewards["all"]["sample_count"],
+        row["body_posture_by_family"] = {
+            name: {"samples": int(v[0]), "signed_mean_roll_pitch_rad": (v[1:3]/v[0]).tolist(),
+                   "rms_roll_pitch_rad": (v[3:5]/v[0]).sqrt().tolist()}
+            for name, v in self.posture.items() if v[0] > 0}
+        row["posture_scope"] = "Valid rollout states by current command family, including command transients; base quaternion extrinsic xyz, not mesh tilt"
+        if self.scrubbing is not None and self.scrubbing[0] > 0:
+            n, clipped, speed2, clipped_speed2 = self.scrubbing.tolist()
+            row["lateral_scrubbing"] = {"valid_demand_samples": int(n), "clipped_reward_fraction": clipped/n,
+                "loaded_center_lateral_rms_m_s": (speed2/n)**.5,
+                "weighted_scrub_on_clipped_samples_mean_per_valid_tick": self.env.reward_scales["lateral_wheel_scrub"]*clipped_speed2/n,
+                "definition": "Loaded cylinder-center lateral velocity surrogate; all four wheels in the mean"}
+        if self.command_holds is not None:
+            row["command_hold_time_exposure"] = {
+                "range_s": [self.env.cfg.commands.holds["long_hold_s"], self.env.cfg.commands.holds["extended_hold_s"]],
+                "environment_seconds": self.command_holds * self.env.dt,
+                "fraction": self.command_holds / rewards["all"]["sample_count"],
                 "definition": "Actual rollout ticks in selected long/extended holds, including episode truncation"}
         with self.path.open("a") as stream:
             stream.write(json.dumps(json_safe(row), allow_nan=False) + "\n")

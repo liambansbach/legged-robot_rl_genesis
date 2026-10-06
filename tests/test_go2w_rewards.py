@@ -1,4 +1,4 @@
-"""Focused CPU checks for the opt-in consolidated task; no simulator."""
+"""Focused CPU checks for the current Go2-W reward kernels; no simulator."""
 import copy
 from pathlib import Path
 import sys
@@ -15,13 +15,11 @@ from robot_gym.envs.go2w.go2w_config import validate_training
 from robot_gym.utils import task_registry, get_args
 from robot_gym.utils.helpers import class_to_dict, update_cfg_from_args
 
-RECIPE = Path(__file__).resolve().parents[1]/'docs/go2w_reference_tracking_v1.yaml'
 
 
 class ReferenceTracking(unittest.TestCase):
     def resolve(self, *extra):
-        with patch.object(sys, 'argv', ['train','--task','go2w','--go2w_profile','transfer_v3',
-                '--go2w_fresh_recipe',str(RECIPE),*extra]):
+        with patch.object(sys, 'argv', ['train','--task','go2w',*extra]):
             args = get_args()
         cfg, train = task_registry.get_cfgs('go2w')
         with patch('torch.load', side_effect=AssertionError('Fresh initialization must not read a model')):
@@ -36,8 +34,6 @@ class ReferenceTracking(unittest.TestCase):
         cfg,_,_=self.resolve()
         env=Go2WEnv.__new__(Go2WEnv)
         env.cfg,env.device,env.dt,env.num_envs=cfg,'cpu',.02,6
-        env.reference_tracking=env.phase_guided=True
-        env.event_step=False
         env.commands=torch.tensor([[.5,0,0],[0,.03,0],[0,-.03,0],[0,0,.4],[0,0,-.4],[.2,.1,-.3]])
         env.base_lin_vel=env.commands.clone();env.base_ang_vel=torch.zeros_like(env.commands)
         env.base_ang_vel[:,2]=env.commands[:,2]
@@ -102,15 +98,8 @@ class ReferenceTracking(unittest.TestCase):
         self.assertLess(float(a[1]),.30)
         torch.testing.assert_close(a[2:],torch.full((3,),.05))
 
-    def test_old_kernels_exact_and_new_dt_once(self):
+    def test_reward_dt_once(self):
         env=self.fixture();env.base_ang_vel[:,2]+=.06
-        env.reference_tracking=False
-        old=1-huber((env.commands[:,2]-env.base_ang_vel[:,2])/.35)
-        torch.testing.assert_close(env._reward_tracking_yaw(),old,rtol=0,atol=0)
-        env.cfg.rewards.phase_objective['rolling_yaw_scale']=.07
-        expected=old.clone();expected[0]=1-huber(torch.tensor(-.06/.07))
-        torch.testing.assert_close(env._reward_tracking_yaw(),expected)
-        env.reference_tracking=True
         env.reward_scales=dict(tracking_x=1.,tracking_y=1.,tracking_yaw=.8)
         raw=sum(w*env._tracking_axis(i) for i,w in enumerate([1.,1.,.8]))
         env.rew_buf=torch.zeros(6);env._prepare_reward_function();env.compute_reward()
@@ -144,13 +133,13 @@ class ReferenceTracking(unittest.TestCase):
         env.commands[:,1]=.02
         torch.testing.assert_close(env._reward_wheel_rate_zero(),torch.zeros(6))
 
-    def test_recipe_fresh_fixed_complete_and_rejects_loading(self):
+    def test_fresh_fixed_complete_and_rejects_loading(self):
         cfg,train,args=self.resolve()
-        self.assertIsNone(args.resolved_checkpoint)
+        self.assertIsNone(getattr(args, 'resolved_checkpoint', None))
         self.assertFalse(train.runner.resume)
         for key in ('resume_path','load_run','checkpoint','checkpoint_load_cfg'):
             self.assertIsNone(getattr(train.runner,key))
-        self.assertIsNone(cfg.training_resume);self.assertIsNone(cfg.refinement_parent)
+        self.assertIsNone(cfg.training_resume)
         self.assertEqual((cfg.env.num_envs,train.runner.num_steps_per_env,train.runner.max_iterations,train.runner.save_interval),(4096,64,2000,250))
         self.assertEqual((train.algorithm.schedule,train.algorithm.learning_rate,train.algorithm.gamma,train.algorithm.lam),('fixed',3e-4,.995,.95))
         self.assertEqual(train.actor.distribution_cfg['init_std'],.4)
@@ -159,20 +148,18 @@ class ReferenceTracking(unittest.TestCase):
         self.assertEqual(cfg.commands.linear_deadzone,.01)
         for flags in [('--resume',),('--load_run','old'),('--checkpoint','1499')]:
             with self.subTest(flags=flags),self.assertRaises(ValueError):self.resolve(*flags)
-        train.algorithm.schedule='adaptive'
-        with self.assertRaises(ValueError):validate_training(args,cfg,train)
 
-    def test_normal_full_state_resume_retains_new_recipe(self):
+    def test_resume_restores_complete_saved_config(self):
         cfg,train,_=self.resolve()
         with tempfile.TemporaryDirectory() as temp:
             folder=Path(temp)
             (folder/'config.yaml').write_text(yaml.safe_dump(dict(task='go2w',env_cfg=class_to_dict(cfg),train_cfg=class_to_dict(train))))
             torch.save({'iter':1},folder/'model_1.pt')
-            with patch.object(sys,'argv',['train','--task','go2w','--go2w_profile','transfer_v3','--resume','--load_run',temp,'--checkpoint','1','--max_iterations','2']):
+            with patch.object(sys,'argv',['train','--task','go2w','--resume','--load_run',temp,'--checkpoint','1','--max_iterations','2']):
                 args=get_args()
             resumed,training=task_registry.get_cfgs('go2w')
             update_cfg_from_args(resumed,training,args);validate_training(args,resumed,training)
-            self.assertEqual(resumed.go2w_recipe,'reference_tracking_v1')
+            self.assertEqual(resumed.config_version, 1)
             self.assertEqual(training.runner.checkpoint_load_cfg,dict(actor=True,critic=True,optimizer=True,iteration=True))
             self.assertEqual(class_to_dict(resumed.rewards),class_to_dict(cfg.rewards))
 

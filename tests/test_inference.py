@@ -204,7 +204,7 @@ class InferenceTests(unittest.TestCase):
             self.assertEqual(rollout.call_count, 1)
             env.reset.assert_called_once()
         args = SimpleNamespace(eval_mode='closed_loop', diagnostic_trace=False,
-                               go2w_profile='step_recovery_v1', zero_command_brake=False)
+                               task="go2w")
         self.assertFalse(use_physics_diagnostics(args))
         args.diagnostic_trace = True
         self.assertTrue(use_physics_diagnostics(args))

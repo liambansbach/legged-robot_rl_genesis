@@ -1,7 +1,7 @@
 """Train a registered robot through the shared environment and native PPO runner.
 
 Example: python -m robot_gym.scripts.train --task dodo --num_envs 4096 --headless
-Use --help for all arguments and robot documentation for opt-in recipes.
+Use --help for runtime arguments; each registered robot owns its training config.
 """
 
 import importlib.metadata
@@ -47,10 +47,6 @@ def train(args):
         write_json(output / "preparation.json", metadata)
     return runner
 
-
-# Minimal historical imports for existing diagnostic tools.
-from robot_gym.envs.go2w.diagnostics import prepare_go2w_continuation  # noqa: E402,F401
-from robot_gym.envs.go2w.go2w_config import validate_fresh_transfer  # noqa: E402,F401
 
 if __name__ == "__main__":
     train(get_args())

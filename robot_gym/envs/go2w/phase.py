@@ -1,4 +1,4 @@
-"""V3 observable diagonal phase targets and small dimensionless reward kernels."""
+"""Observable diagonal phase targets and small dimensionless reward kernels."""
 
 import torch
 
@@ -74,19 +74,18 @@ def corridor_error(dx, reference, desired_swing, stance_tolerance, swing_toleran
     return huber(torch.relu((dx - reference).abs() - tolerance) / length_scale).mean(dim=1)
 
 
-def rolling_command_mask(commands, zero_threshold):
-    """Pure longitudinal/stand command gate; independent of measured motion."""
-    return commands[:, 1:3].norm(dim=1) < zero_threshold
+def step_demand(commands):
+    """Unsmoothed demand for command-hold eligibility and diagnostic bins."""
+    lateral = ((commands[:, 1].abs() - 0.01) / 0.04).clamp(0, 1)
+    yaw = ((commands[:, 2].abs() - 0.10) / 0.15).clamp(0, 1)
+    return torch.maximum(lateral, yaw)
 
 
-def rolling_placement_error(centers, commands, reference, cfg, zero_threshold):
-    """Soft actual lateral placement cost, only for pure longitudinal/stand commands."""
-    y = centers[:, :, 1]
-    width = y[:, [0, 2]] - y[:, [1, 3]]
-    midpoint = (y[:, [0, 2]] + y[:, [1, 3]]) / 2
-    width_error = torch.relu((width - reference[0]).abs() - cfg["width_deadband_m"])
-    midpoint_error = torch.relu((midpoint - reference[1]).abs() - cfg["midpoint_deadband_m"])
-    cost = huber(width_error / cfg["width_scale_m"]) + huber(midpoint_error / cfg["midpoint_scale_m"])
-    # Even partial lateral/yaw requests are excluded; unloading never disables the cost.
-    rolling = rolling_command_mask(commands, zero_threshold)
-    return rolling * cost.mean(dim=1)
+def project_log_std(optimizer, distribution):
+    """Project only raw Gaussian parameters, retaining native Adam moments and LR."""
+    if distribution.std_type != "log":
+        raise ValueError("Go2-W requires log std")
+    def project(*_):
+        with torch.no_grad():
+            distribution.log_std_param.clamp_(*distribution.log_std_range)
+    return optimizer.register_step_post_hook(project)

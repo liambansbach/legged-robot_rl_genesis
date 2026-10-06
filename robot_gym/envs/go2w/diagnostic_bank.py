@@ -715,7 +715,7 @@ def evaluate_bank(env, runner, args, out):
             )
 
 
-def precision_schedule(dr=False, event_step=False):
+def precision_schedule(dr=False):
     zero = (0., 0., 0.)
     if dr:
         return {"dynamics": [(2, zero), (4, (.5, 0, 0)), (4, (0, 0, .4)),
@@ -727,10 +727,6 @@ def precision_schedule(dr=False, event_step=False):
                                 (4, (0, 0, sign*.4)), (4, (0, 0, sign*.75)), (3, zero)]
         cases[f"lateral_{name}"] = [(2, zero), (4, (0, sign*.1, 0)), (4, (0, sign*.2, 0)), (3, zero)]
     result = {name: cases[name] for name in ("rolling_reverse", "yaw_positive", "yaw_negative", "lateral_positive", "lateral_negative")}
-    if event_step:
-        for sign, name in ((1, "positive"), (-1, "negative")):
-            result[f"expanded_lateral_{name}"] = [(2, zero), (4, (0, sign*.05, 0)),
-                                                  (4, (0, sign*.4, 0)), (4, (0, sign*.5, 0)), (3, zero)]
     return result
 
 
@@ -786,8 +782,6 @@ def rollout_precision(env, policy, schedule, sensor=False, rolling_phase_zero=Fa
                     values["observations"] = recorded_observation
                 if hasattr(env, "active_push_force") and env.cfg.domain_rand.push_robots:
                     values["active_push_force_world_N"] = env.active_push_force.clone()
-                if getattr(env, "event_step", False):
-                    values.update({key: value for key, value in state.items() if key.startswith("event_")})
                 if getattr(env, "phase_guided", False):
                     values.update(gait_phase=state["phase"], desired_clearance=state["desired_clearance"],
                                   desired_swing=state["desired_swing"], wheel_thigh_dx=state["wheel_thigh_dx"],
@@ -837,7 +831,7 @@ def precision_metrics(data, schedule, dt, metadata, initial):
         inverse = torch.from_numpy(d["base_quat"]).clone(); inverse[:, 1:] *= -1
         feet = rotate_wxyz(inverse[:, None], torch.from_numpy(d["foot_pos"] - d["base_pos"][:, None])).numpy()
         if "wheel_center_body" in d:
-            feet = d["wheel_center_body"]  # V3 geometry already includes the collision-cylinder offset.
+            feet = d["wheel_center_body"]  # Already includes the collision-cylinder offset.
         axles = wheel_axles_body(torch.from_numpy(d["base_quat"]), torch.from_numpy(d["wheel_link_quat"]),
                                 torch.tensor(metadata["wheel_joint_axes"], dtype=torch.float32, device="cpu")).numpy()
         result = {"condition_index": index, "recorded_steps": n, "duration_s": n*dt,
@@ -941,7 +935,7 @@ def precision_metrics(data, schedule, dt, metadata, initial):
     return results
 
 
-def transfer_schedule(profile="transfer_v1"):
+def transfer_schedule():
     """Small direct command panel for checkpoints from the continuous fresh run."""
     zero = (0., 0., 0.)
     result = {"stand": [(10, zero)]}
@@ -950,10 +944,13 @@ def transfer_schedule(profile="transfer_v1"):
                           ("lateral_positive", (0, .1, 0)), ("lateral_negative", (0, -.1, 0)),
                           ("mixed", (.2, .1, .3))):
         result[name] = [(3, zero), (5, command), (6, zero)]
-    if profile in ("transfer_v2", "transfer_v3"):
-        from .go2w_config import TRANSFER_V2_REVIEW_COMMANDS
-        result.update({name: [(3, zero), (5, command), (6, zero)]
-                       for name, command in TRANSFER_V2_REVIEW_COMMANDS.items()})
+    review_commands = {
+        "forward_fast": (.5, 0, 0),
+        "lateral_strong_positive": (0, .3, 0), "lateral_strong_negative": (0, -.3, 0),
+        "yaw_strong_positive": (0, 0, .8), "yaw_strong_negative": (0, 0, -.8),
+    }
+    result.update({name: [(3, zero), (5, command), (6, zero)]
+                   for name, command in review_commands.items()})
     return result
 
 
@@ -961,7 +958,7 @@ def sensor_schedule():
     """Long holds, exact stops; no changes to command-conditioned phase dynamics."""
     names = ("forward", "forward_fast", "lateral_strong_positive", "lateral_strong_negative",
              "yaw_strong_positive", "yaw_strong_negative", "mixed")
-    short = transfer_schedule("transfer_v3")
+    short = transfer_schedule()
     return {"stand": [(30, (0., 0., 0.))],
             **{n: [(3, (0., 0., 0.)), (30, short[n][1][1]), (8, (0., 0., 0.))] for n in names}}
 
@@ -1070,7 +1067,7 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
                                     for pair in env.dof_pos_limits.cpu().tolist()],
                 "position_limits_semantics": "null denotes an unbounded continuous joint",
                 "wheel_target_limit": env.cfg.control.wheel_velocity_target_limit}
-    schedules = sensor_schedule() if sensor else transfer_schedule(env.cfg.go2w_profile) if transfer else precision_schedule(dr, getattr(env, "event_step", False))
+    schedules = sensor_schedule() if sensor else transfer_schedule() if transfer else precision_schedule(dr)
     if rolling_phase_zero:
         schedules = {name: schedules[name] for name in ("stand", "forward_fast")}
         schedules["phase_transition"] = [(3, (0., 0., 0.)), (6, (.5, 0., 0.)),
@@ -1095,7 +1092,7 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
               "swing_semantics": "6/10 N hysteresis, >=2 mm geometric peak, no dwell filter; completed and boundary-censored events separate",
               "wall_clock_s": {"rollout": 0., "postprocessing": 0.}}
     if rolling_phase_zero:
-        report["diagnostic_phase_observation"] = "Raw slots 56:58 zero at zero demand; unconditional clock restored at positive demand. Legacy checkpoint; no learned refinement. Latent clock/reward targets unchanged."
+        report["diagnostic_phase_observation"] = "Diagnostic override: raw slots 56:58 zero at zero demand, unconditional clock at positive demand. Latent clock and reward targets unchanged."
     nominal = loaded_properties(env) if dr else None
     if transfer:
         from robot_gym.utils.export import transfer_contract
@@ -1105,10 +1102,6 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
             "semantics": "Post-physics state and held targets; reset warmup excluded; first terminal physics rows retained. Control-force getter recomputes force, not an integration impulse.",
         }
         write_json(out / "applied_properties.json", loaded_properties(env))
-    if getattr(env, "event_step", False):
-        if not transfer:
-            report["expanded_envelope"] = "Additional +/-0.05/0.4/0.5 lateral checks; no matching A baseline assumed"
-        report["completed_training_updates"] = env.completed_updates
     for name, schedule in schedules.items():
         started = perf_counter()
         if sensor:
@@ -1118,7 +1111,7 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
             env.phase.add_(phase_offset).remainder_(1.)  # Explicit episode-initial phase comparison only.
             report["reset_phase_offset_cycles"] = phase_offset
             if high_rate and name in ("forward_fast", "lateral_strong_positive"):
-                from .native_reference import ReferenceCapture
+                from .diagnostics import ReferenceCapture
                 env.physics_diagnostics = ReferenceCapture(env)
         if transfer:
             torch.testing.assert_close(env.robot.get_dofs_armature(env.joint_dof_idx), env.armature_samples)
@@ -1183,7 +1176,7 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
                     "raw_action_rms_difference": ((other-original).square().mean(0).sqrt()).cpu().tolist(),
                     "clipped_action_rms_difference": ((other.clamp(-1,1)-original.clamp(-1,1)).square().mean(0).sqrt()).cpu().tolist()}
         if transfer:
-            from robot_gym.envs.go2w.native_reference import spectrum
+            from robot_gym.envs.go2w.diagnostics import spectrum
             for index, result in enumerate(report["tests"][name]):
                 for phase in result["phases"]:
                     if not phase["samples"]:

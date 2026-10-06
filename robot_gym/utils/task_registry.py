@@ -80,7 +80,7 @@ class TaskRegistry:
 
         defaults, training_defaults = self.get_cfgs(args.task)
         env_cfg, train_cfg = self.get_cfgs(args.task)
-        # Recipe selection here only supplies a legacy experiment-name default.
+        # Apply explicit runtime selection before locating the saved run.
         update_cfg_from_args(env_cfg, train_cfg, args)
         selected_run = args.load_run
         if selected_run is None and args.run_name is not None:
@@ -107,10 +107,14 @@ class TaskRegistry:
                 expected = self.get_task_class(args.task).replay_observation_dim(saved["env_cfg"], expected)
             if saved["env_cfg"].get("env", {}).get(key, expected) != expected:
                 raise ValueError(f"Saved {key} conflicts with the registered {args.task} interface")
-        # Start from unprofiled defaults. Missing optional physics fields retain import behavior.
-        env_cfg, train_cfg = defaults, training_defaults
-        update_class_from_dict(env_cfg, saved["env_cfg"])
-        update_class_from_dict(train_cfg, saved["train_cfg"])
+        restore = getattr(self.get_task_class(args.task), "restore_saved_config", None)
+        if restore is not None:
+            env_cfg, train_cfg = restore(saved)
+        else:
+            # Other robots retain their existing optional-field import behavior.
+            env_cfg, train_cfg = defaults, training_defaults
+            update_class_from_dict(env_cfg, saved["env_cfg"])
+            update_class_from_dict(train_cfg, saved["train_cfg"])
         args._replay_restored = True
         args.resolved_checkpoint = str(checkpoint)
         update_cfg_from_args(env_cfg, train_cfg, args)

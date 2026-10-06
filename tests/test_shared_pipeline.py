@@ -1,4 +1,4 @@
-"""Saved recipes and replay selectors, without constructing native physics."""
+"""Saved configurations and replay selectors, without constructing native physics."""
 
 from pathlib import Path
 import sys
@@ -21,7 +21,7 @@ def arguments(task, run, *extra):
 
 class ReplayTests(unittest.TestCase):
     def test_each_registered_task_restores_saved_values_and_latest_once(self):
-        for task in ("dodo", "go2", "go2w"):
+        for task in ("dodo", "go2"):
             with self.subTest(task=task), TemporaryDirectory() as directory:
                 path = Path(directory)
                 cfg, train = task_registry.get_cfgs(task)
@@ -52,22 +52,6 @@ class ReplayTests(unittest.TestCase):
                 args.load_run, args.run_name = None, str(path)
                 self.assertEqual(task_registry.resolve_replay(args)[2], checkpoint)
 
-    def test_real_transfer_run_does_not_need_profile_and_restores_original_reward(self):
-        run = Path("logs/go2w_transfer_v1/transfer_v1_seed1_20261002_090639_2026-10-02_09-09-17").resolve()
-        if not run.is_dir():
-            self.skipTest("Owner run is local evidence")
-        args = arguments("go2w", run, "--checkpoint", "300")
-        cfg, train, checkpoint = task_registry.resolve_replay(args)
-        self.assertEqual(checkpoint.name, "model_300.pt")
-        self.assertEqual(cfg.go2w_profile, "transfer_v1")
-        self.assertEqual(cfg.rewards.scales.orientation, -1.2)
-        self.assertEqual(cfg.rewards.tracking_sigma_x, .25)
-        self.assertEqual(cfg.env.num_observations, 56)
-        self.assertEqual(train.runner.obs_groups, {"actor": ["policy"], "critic": ["policy"]})
-        with self.assertRaisesRegex(ValueError, "conflicts"):
-            task_registry.resolve_replay(arguments("go2", run))
-        with self.assertRaisesRegex(ValueError, "conflicts"):
-            task_registry.resolve_replay(arguments("go2w", run, "--go2w_profile", "event_step_v1"))
 
     def test_export_default_and_explicit_selection(self):
         from robot_gym.scripts.play import should_export_policy

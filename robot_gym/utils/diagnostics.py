@@ -276,7 +276,7 @@ def joint_dynamics(robot, names):
 
 def __getattr__(name):
     # Preserve historical diagnostic imports without a second implementation.
-    if name in {"check_reference_contract", "check_training_continuation",
+    if name in {"check_reference_contract",
                 "check_continuation_output", "PhysicsDiagnostics", "loaded_properties"}:
         from robot_gym.envs.go2w import diagnostics
         return getattr(diagnostics, name)

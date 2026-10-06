@@ -8,20 +8,18 @@ import torch
 
 from robot_gym.envs.base.legged_robot import LeggedRobot
 from robot_gym.envs.go2w.go2w_config import (
-    apply_go2w_profile, validate_training, v3_joint_reference,
-    v3_reference_geometry, V3_SPAWN_CLEARANCE,
+    validate_training, joint_reference,
+    reference_geometry, SPAWN_CLEARANCE, restore_saved_config,
 )
 from robot_gym.envs.go2w.go2w_env import Go2WEnv, horizontal_push_force
 from robot_gym.utils import get_args, task_registry
 from robot_gym.utils.helpers import class_to_dict, update_cfg_from_args
 
-RECIPE = Path(__file__).resolve().parents[1] / 'docs/go2w_reference_tracking_v1.yaml'
 AXES = ('lin_vel_x', 'lin_vel_y', 'ang_vel_yaw')
 
 
 def resolved():
-    with patch.object(sys, 'argv', ['train', '--task', 'go2w', '--go2w_profile', 'transfer_v3',
-                                   '--go2w_fresh_recipe', str(RECIPE)]):
+    with patch.object(sys, 'argv', ['train', '--task', 'go2w']):
         args = get_args()
     cfg, train = task_registry.get_cfgs('go2w')
     with patch('torch.load', side_effect=AssertionError('No checkpoint loading')):
@@ -34,12 +32,10 @@ def sampler_fixture(n):
     cfg, _, _ = resolved()
     env = Go2WEnv.__new__(Go2WEnv)
     env.cfg, env.device, env.dt, env.num_envs = cfg, 'cpu', .02, n
-    env.reference_tracking = env.phase_guided = env.sensor_refinement = True
-    env.event_step = env.step_recovery = env.transfer_v2 = False
     env.fixed_command = None
     env.commands = torch.zeros(n, 3)
     env.command_steps_left = torch.zeros(n, dtype=torch.long)
-    env.sensor_hold_kind = torch.zeros_like(env.command_steps_left)
+    env.command_hold_kind = torch.zeros_like(env.command_steps_left)
     env.command_sampling_tier = torch.zeros_like(env.command_steps_left)
     env.diagnostic_command_families = torch.zeros_like(env.command_steps_left)
     env.command_ranges = class_to_dict(cfg.commands.ranges)
@@ -48,29 +44,79 @@ def sampler_fixture(n):
     return env
 
 
-class NavigationRecipe(unittest.TestCase):
-    def test_canonical_reference_height_and_legacy_fallback(self):
+class CurrentConfig(unittest.TestCase):
+    def test_current_reward_list_and_removed_training_selectors(self):
+        cfg, _, args = resolved()
+        active = class_to_dict(cfg.rewards.scales)
+        expected = {'tracking_x', 'tracking_y', 'tracking_yaw', 'reference_pose', 'reference_height',
+            'orientation', 'phase_clearance', 'phase_support', 'wheel_corridor', 'insufficient_support',
+            'sensor_vertical_velocity', 'ang_vel_xy', 'wheel_rate_zero', 'contact_safety',
+            'normalized_effort', 'leg_action_rate', 'wheel_action_rate', 'lateral_wheel_scrub',
+            'dof_pos_limits', 'torque_limits', 'termination'}
+        self.assertEqual(set(active), expected)
+        self.assertTrue(all(active.values()))
+        self.assertFalse(any(key.startswith('go2w_') for key in vars(args)))
+        self.assertNotIn('_control_dofs', Go2WEnv.__dict__)  # Shared P/V target contract.
+        self.assertNotIn('step', Go2WEnv.__dict__)  # No task-specific action override.
+
+    def test_config_copies_do_not_share_mutable_parameters(self):
+        first, training, _ = resolved()
+        second, other, _ = resolved()
+        first.init_state.default_joint_angles['FL_calf_joint'] = 0.
+        first.commands.sampling['tier_probabilities'][0] = 0.
+        training.actor.distribution_cfg['init_std'] = 1.
+        self.assertEqual(second.init_state.default_joint_angles, joint_reference())
+        self.assertEqual(second.commands.sampling['tier_probabilities'], [.8, .1, .1])
+        self.assertEqual(other.actor.distribution_cfg['init_std'], .4)
+
+    def test_saved_config_is_authoritative_and_missing_fields_fail(self):
+        import copy
+        cfg, train, _ = resolved()
+        saved = dict(env_cfg=class_to_dict(cfg), train_cfg=class_to_dict(train))
+        saved['env_cfg']['rewards']['scales']['orientation'] = -3.125
+        restored, training = restore_saved_config(saved)
+        self.assertEqual(class_to_dict(restored), saved['env_cfg'])
+        self.assertEqual(class_to_dict(training), saved['train_cfg'])
+        # The prepared config used identical mechanisms with older structural names.
+        prepared = copy.deepcopy(saved)
+        e = prepared['env_cfg']
+        del e['config_version']
+        e.update(go2w_recipe='reference_tracking_v1', go2w_profile='transfer_v3')
+        e['commands']['reference_tracking_sampling'] = e['commands'].pop('sampling')
+        e['sensor_smooth'] = e['commands'].pop('holds')
+        e['commands']['moving_long_duration_range'] = e['sensor_smooth']['long_hold_s'].copy()
+        restored, _ = restore_saved_config(prepared)
+        self.assertEqual(class_to_dict(restored), saved['env_cfg'])
+        e['commands']['moving_long_duration_range'][0] += 1.
+        with self.assertRaisesRegex(ValueError, 'command-duration contract'):
+            restore_saved_config(prepared)
+        incomplete = copy.deepcopy(saved)
+        del incomplete['env_cfg']['control']['armature']
+        with self.assertRaisesRegex(ValueError, 'missing env_cfg.control.armature'):
+            restore_saved_config(incomplete)
+        unsupported = copy.deepcopy(saved)
+        del unsupported['env_cfg']['config_version']
+        with self.assertRaisesRegex(ValueError, 'historical source checkout'):
+            restore_saved_config(unsupported)
+        with self.assertRaisesRegex(ValueError, 'reward/phase contract'):
+            unsupported = copy.deepcopy(saved)
+            unsupported['env_cfg']['rewards']['scales']['obsolete_objective'] = 1.
+            restore_saved_config(unsupported)
+
+    def test_canonical_reference_height(self):
         expected = {f'{leg}_{joint}_joint': value for leg in ('FL', 'FR', 'RL', 'RR')
                     for joint, value in zip(('hip', 'thigh', 'calf', 'foot'), (0., .7, -1.4, 0.))}
-        self.assertEqual(v3_joint_reference(), expected)
-        height, dx = v3_reference_geometry()
+        self.assertEqual(joint_reference(), expected)
+        height, dx = reference_geometry()
         self.assertAlmostEqual(height, .4277416561558192, places=12)
         cfg, train, args = resolved()
         self.assertEqual(cfg.init_state.default_joint_angles, expected)
-        self.assertAlmostEqual(cfg.init_state.pos[2], height + V3_SPAWN_CLEARANCE, places=12)
+        self.assertAlmostEqual(cfg.init_state.pos[2], height + SPAWN_CLEARANCE, places=12)
         self.assertEqual(cfg.rewards.base_height_target, height)
         self.assertEqual(cfg.rewards.phase_objective['wheel_thigh_dx_reference_m'], dx)
         cfg.init_state.default_joint_angles['RR_calf_joint'] = -1.31
         with self.assertRaisesRegex(ValueError, 'canonical'):
             validate_training(args, cfg, train)
-        for name in ('event_step_v1', 'step_recovery_v1'):
-            cfg, train = task_registry.get_cfgs('go2w')
-            apply_go2w_profile(cfg, train, name)
-            self.assertEqual(cfg.init_state.default_joint_angles['FL_calf_joint'], -1.33)
-            self.assertEqual(cfg.init_state.default_joint_angles['RR_thigh_joint'], .75)
-            self.assertEqual(cfg.init_state.default_joint_angles['RR_calf_joint'], -1.31)
-            self.assertFalse(hasattr(cfg.commands, 'reference_tracking_sampling'))
-            self.assertFalse(hasattr(cfg.domain_rand, 'push_force_mixture'))
 
     def test_clipped_delayed_fixed_reference_offsets_and_reset_observation(self):
         env = sampler_fixture(3)
@@ -137,7 +183,7 @@ class NavigationRecipe(unittest.TestCase):
         families = torch.arange(7).repeat_interleave(64)
         env = sampler_fixture(len(families))
         core = torch.tensor([env.command_ranges[n] for n in AXES])
-        reserve = torch.tensor([env.cfg.commands.reference_tracking_sampling['reserve_ranges'][n] for n in AXES])
+        reserve = torch.tensor([env.cfg.commands.sampling['reserve_ranges'][n] for n in AXES])
         self.assertEqual(core.tolist(), torch.tensor([[-.3, 1.], [-.3, .3], [-1., 1.]]).tolist())
         for kind in (0, 1, 2):
             torch.manual_seed(310 + kind)
@@ -239,25 +285,10 @@ class NavigationRecipe(unittest.TestCase):
         torch.testing.assert_close(env.push_force, original)
         self.assertEqual(env.cfg.domain_rand.push_interval_range_s, [5., 10.])
 
-    def test_absent_options_keep_historical_sampling_and_pushes(self):
-        env = sampler_fixture(128)
-        del env.cfg.commands.reference_tracking_sampling
-        del env.cfg.domain_rand.push_force_mixture
-        records = []
-        for flag in (False, True):
-            env.reference_tracking = flag
-            torch.manual_seed(987)
-            env._resample_commands(torch.arange(128))
-            records.append((env.commands.clone(), env.command_steps_left.clone(), torch.get_rng_state()))
-        for a, b in zip(*records):
-            torch.testing.assert_close(a, b, rtol=0, atol=0)
-        with patch.object(LeggedRobot, '_sample_pushes') as historical:
-            env._sample_pushes()
-            historical.assert_called_once_with()
 
     def test_fresh_state_and_unchanged_optimization_contract(self):
         cfg, train, args = resolved()
-        self.assertIsNone(args.resolved_checkpoint)
+        self.assertIsNone(getattr(args, 'resolved_checkpoint', None))
         self.assertFalse(train.runner.resume)
         for key in ('load_run', 'checkpoint', 'resume_path', 'checkpoint_load_cfg'):
             self.assertIsNone(getattr(train.runner, key))

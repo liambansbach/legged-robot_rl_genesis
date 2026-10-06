@@ -1,6 +1,6 @@
 """Go2-W reference checks and optional wheel/control measurements.
 
-Historical checks remain explicitly callable; ordinary replay restores saved recipes.
+Ordinary replay restores complete saved configurations before these measurements.
 """
 
 import json
@@ -11,11 +11,11 @@ import yaml
 
 from robot_gym.utils.diagnostics import (
     config_differences, sha256, wheel_cylinders, summed_normal_force,
-    cylinder_clearance, heading_wxyz,
+    cylinder_clearance, heading_wxyz, rotate_wxyz,
 )
 
 
-def check_reference_contract(config_path, env_cfg, train_cfg, finetune_continuation=False):
+def check_reference_contract(config_path, env_cfg, train_cfg):
     """Check the training contract BEFORE intentional evaluation overrides.
 
     Reward/command-exposure differences are reported, not treated as changed physics.
@@ -31,10 +31,6 @@ def check_reference_contract(config_path, env_cfg, train_cfg, finetune_continuat
         saved, {"env_cfg": env_cfg, "train_cfg": train_cfg}
     )
     important = (
-        "env_cfg.go2w_profile",
-        "train_cfg.go2w_profile",
-        "env_cfg.go2w_behavior",
-        "train_cfg.go2w_behavior",
         "env_cfg.control.",
         "env_cfg.normalization.",
         "env_cfg.sim.",
@@ -62,18 +58,6 @@ def check_reference_contract(config_path, env_cfg, train_cfg, finetune_continuat
         for k, v in differences.items()
         if k.startswith(important) and k not in execution
     }
-    # Historical audits compare the explicitly selected saved finetune design.
-    # Training checks its exact allowed transition separately below.
-    if not finetune_continuation:
-        for key in ("env_cfg.go2w_finetune", "train_cfg.go2w_finetune",
-                    "env_cfg.rewards.sagittal_stance_weight", "env_cfg.rewards.event_step.quality_profile"):
-            if key in differences:
-                mismatches[key] = differences[key]
-        if any(cfg.get("rewards", {}).get("event_step", {}).get("quality_profile")
-               for cfg in (env_cfg, saved["env_cfg"])):
-            mismatches.update({k: v for k, v in differences.items()
-                               if k.startswith("env_cfg.rewards.event_step.")
-                               or k == "env_cfg.rewards.scales.step_event"})
     if mismatches:
         raise ValueError(
             "Reference actuator/observation/physics contract mismatch:\n"
@@ -85,108 +69,6 @@ def check_reference_contract(config_path, env_cfg, train_cfg, finetune_continuat
         "differences": differences,
     }
 
-def check_training_continuation(
-    config_path, env_cfg, train_cfg, sigma_x=None, entropy_coef=None, finetune=None,
-    sagittal_stance_weight=None, event_quality_profile=None,
-):
-    """Go2-W continuation: every unexplained config difference is an error."""
-    reference = check_reference_contract(config_path, env_cfg, train_cfg, finetune_continuation=True)
-    allowed = {
-        "train_cfg.runner.run_name",
-        "train_cfg.runner.resume",
-        "train_cfg.runner.load_run",
-        "train_cfg.runner.checkpoint",
-        "train_cfg.runner.max_iterations",
-        "train_cfg.runner.logger",
-        "env_cfg.env.record_command_families",  # Read-only diagnostic labels.
-        "env_cfg.sim.batch_dofs_info",  # Populated during Genesis build for DR.
-        "env_cfg.sim.batch_links_info",
-    }
-    if finetune is not None:
-        from robot_gym.envs.go2w.go2w_config import FINETUNE_COMMANDS, FINETUNE_MOBILITY, FINETUNE_PRECISION
-
-        if finetune not in ("coverage", "coverage_mobility", "precision_clearance"):
-            raise ValueError(f"Unknown Go2-W finetune: {finetune}")
-        expected = {
-            "env_cfg.go2w_finetune": finetune,
-            "train_cfg.go2w_finetune": finetune,
-            **{f"env_cfg.commands.{key}": value for key, value in FINETUNE_COMMANDS.items()},
-        }
-        if finetune == "coverage_mobility":
-            expected.update({f"env_cfg.rewards.{key}": value for key, value in FINETUNE_MOBILITY.items()})
-        if finetune == "precision_clearance":
-            saved = yaml.safe_load(Path(config_path).read_text())
-            if any(saved[key].get("go2w_finetune") != "coverage" for key in ("env_cfg", "train_cfg")):
-                raise ValueError("precision_clearance requires the saved coverage A parent")
-            parent_values = {
-                "rewards.tracking_sigma_yaw": None,
-                "rewards.clearance_sigma": .02,
-                "rewards.clearance_activation_height": .01,
-                "rewards.scales.foot_swing_clearance": .12,
-                "domain_rand.kp_scale_range": [.9, 1.1],
-                "domain_rand.kd_scale_range": [.9, 1.1],
-                "domain_rand.action_delay_steps_range": [0, 1],
-            }
-            for path, value in parent_values.items():
-                actual = saved["env_cfg"]
-                for part in path.split("."):
-                    actual = actual.get(part)
-                if actual != value:
-                    raise ValueError(f"Coverage parent value mismatch: {path}")
-            expected.update({f"env_cfg.{key}": value for key, value in FINETUNE_PRECISION.items()})
-            # Coverage is already present in A: never permit a sampler migration here.
-            for key in FINETUNE_COMMANDS:
-                if saved["env_cfg"]["commands"].get(key) != FINETUNE_COMMANDS[key]:
-                    raise ValueError(f"Coverage parent sampler mismatch: {key}")
-        resolved = {"env_cfg": env_cfg, "train_cfg": train_cfg}
-        if any(cfg.get("go2w_profile") != "step_recovery_v1" for cfg in resolved.values()):
-            raise ValueError("Finetune continuation requires the step_recovery_v1 profile")
-        for key, value in expected.items():
-            current = resolved
-            for part in key.split("."):
-                current = current.get(part, {}) if isinstance(current, dict) else None
-            if current != value:
-                raise ValueError(f"Finetune override differs from explicit {finetune}: {key}")
-        allowed.update(expected)
-    if sigma_x is not None and env_cfg["rewards"]["tracking_sigma_x"] == sigma_x:
-        allowed.add("env_cfg.rewards.tracking_sigma_x")
-    if (
-        entropy_coef is not None
-        and train_cfg["algorithm"]["entropy_coef"] == entropy_coef
-    ):
-        allowed.add("train_cfg.algorithm.entropy_coef")
-    if finetune == "precision_clearance":
-        allowed.discard("env_cfg.rewards.tracking_sigma_x")
-        allowed.discard("train_cfg.algorithm.entropy_coef")
-    if sagittal_stance_weight is not None:
-        saved = yaml.safe_load(Path(config_path).read_text())
-        if (not np.isfinite(sagittal_stance_weight) or sagittal_stance_weight <= 0
-                or any(cfg.get("go2w_profile") != "event_step_v1"
-                       for cfg in (env_cfg, train_cfg, saved["env_cfg"], saved["train_cfg"]))
-                or env_cfg["rewards"].get("sagittal_stance_weight") != sagittal_stance_weight):
-            raise ValueError("Invalid declared event_step_v1 sagittal stance continuation")
-        allowed.add("env_cfg.rewards.sagittal_stance_weight")
-    if event_quality_profile is not None:
-        saved = yaml.safe_load(Path(config_path).read_text())
-        if (event_quality_profile != "sufficient_clearance"
-                or any(cfg.get("go2w_profile") != "event_step_v1"
-                       for cfg in (env_cfg, train_cfg, saved["env_cfg"], saved["train_cfg"]))
-                or env_cfg["rewards"]["event_step"].get("quality_profile") != event_quality_profile
-                or env_cfg["rewards"]["scales"]["step_event"] != 0.05):
-            raise ValueError("Invalid declared event quality continuation")
-        allowed.update(("env_cfg.rewards.event_step.quality_profile", "env_cfg.rewards.scales.step_event"))
-        # This continuation changes only event quality, even if a stance flag is supplied.
-        allowed.discard("env_cfg.rewards.sagittal_stance_weight")
-    # Only the agreed two-update smoke may reduce the source batch size.
-    if env_cfg["env"]["num_envs"] == 64 and train_cfg["runner"]["max_iterations"] == 2:
-        allowed.add("env_cfg.env.num_envs")
-    unexpected = {k: v for k, v in reference["differences"].items() if k not in allowed}
-    if unexpected:
-        raise ValueError(
-            "Unexplained continuation config differences:\n"
-            + json.dumps(unexpected, indent=2)
-        )
-    return reference
 
 def check_continuation_output(checkpoint, output):
     parent, output = Path(checkpoint).resolve().parent, Path(output).resolve()
@@ -255,13 +137,6 @@ class PhysicsDiagnostics:
             "base_linear_velocity_body": e.base_lin_vel.clone(),
             "base_angular_velocity_body": e.base_ang_vel.clone(),
         }
-        brake = getattr(e, "zero_command_brake", None)
-        if brake is not None:
-            result["issued_actions"] = e.actions.clone()
-            result["zero_command_brake_alpha"] = brake.alpha.clone()
-        if getattr(e, "step_recovery", False):
-            result["loaded_wheels"] = e.loaded_wheels.clone()
-            result["wheel_reposition_velocity_body"] = e.wheel_reposition_velocity_body.clone()
         return result
 
 def loaded_properties(env):
@@ -289,62 +164,54 @@ def loaded_properties(env):
     return result
 
 
-def prepare_go2w_continuation(args, env_cfg, train_cfg):
-    """Check the explicit saved parent before constructing the simulator."""
-    from pathlib import Path
-    from robot_gym import ROBOT_GYM_ROOT_DIR
-    from robot_gym.utils.helpers import get_load_path, class_to_dict
-    from robot_gym.utils.urdf_reader import URDFReader
-    from robot_gym.utils.diagnostics import check_training_continuation, sha256
 
-    if args.load_run in (None, "-1") or args.checkpoint is None or args.checkpoint < 0:
-        raise ValueError(
-            "Go2-W continuation requires explicit --load_run and --checkpoint"
-        )
-    if not args.run_name or any(c in args.run_name for c in "/\\"):
-        raise ValueError(
-            "Go2-W continuation requires a new --run_name (a folder name, not a path)"
-        )
-    root = Path(ROBOT_GYM_ROOT_DIR) / "logs" / train_cfg.runner.experiment_name
-    checkpoint = Path(get_load_path(root, args.load_run, args.checkpoint)).resolve()
-    config = checkpoint.with_name("config.yaml")
-    if args.reference_config and Path(args.reference_config).resolve() != config:
-        raise ValueError(
-            "Training continuation requires the saved config beside its checkpoint"
-        )
-    env_cfg.asset.joint_names = URDFReader(env_cfg.asset.robot_file).joint_names
-    reference = check_training_continuation(
-        config,
-        class_to_dict(env_cfg),
-        class_to_dict(train_cfg),
-        args.tracking_sigma_x,
-        args.entropy_coef,
-        getattr(args, "go2w_finetune", None),
-        getattr(args, "sagittal_stance_weight", None),
-        getattr(args, "event_quality_profile", None),
-    )
-    if (getattr(args, "sagittal_stance_weight", None) is not None
-            or getattr(args, "event_quality_profile", None) is not None):
-        import torch
-        state = torch.load(checkpoint, map_location="cpu", weights_only=False)
-        progress = (state.get("infos") or {}).get("event_step_v1", {})
-        count = progress.get("completed_updates")
-        if type(count) is not int or count < 0:
-            raise ValueError("Missing event_step_v1 completed-update state")
-        # Restore runtime progress before even the new scene's first command draw.
-        env_cfg._event_completed_updates = count
-    saved_git = checkpoint.parent / "git" / f"{Path(ROBOT_GYM_ROOT_DIR).name}.diff"
-    source_snapshot = None
-    if saved_git.is_file():
-        # Existing RSL-RL git snapshot includes the training HEAD and dirty patch.
-        source_snapshot = {
-            "path": str(saved_git),
-            "sha256": sha256(saved_git),
-            "head": saved_git.read_text().splitlines()[1],
+
+class ReferenceCapture(PhysicsDiagnostics):
+    """Read-only bounded 200 Hz capture through the existing substep hook."""
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.rows = []
+
+    def after_substep(self):
+        super().after_substep()
+        e, r = self.env, self.env.robot
+        quat = r.get_quat()
+        inverse = quat.clone()
+        inverse[..., 1:] *= -1
+        pos = r.get_links_pos(e.foot_link_indices_local)
+        wheel_quat = r.get_links_quat(e.foot_link_indices_local)
+        contacts = r.get_contacts(exclude_self_contact=True, with_entity=e.ground_floor_entity, is_padded=True)
+        links = torch.cat((contacts["link_a"], contacts["link_b"]), dim=1)
+        valid = torch.cat((contacts["valid_mask"], contacts["valid_mask"]), dim=1)
+        force = torch.cat((contacts["force_a"], contacts["force_b"]), dim=1)[..., 2].abs()
+        robot_side = (links >= r.link_start) & (links < r.link_end)
+        wheel_side = (links[..., None] == e.foot_link_indices).any(dim=-1)
+        targets = (e.applied_actions * e.action_scale).clone()
+        targets[:, e.leg_action_indices] += e.default_dof_pos[:, e.leg_action_indices]
+        values = {
+            "q": r.get_dofs_position(e.joint_dof_idx), "dq": r.get_dofs_velocity(e.joint_dof_idx),
+            "base_pos": r.get_pos(), "base_quat": quat,
+            "linear_body": rotate_wxyz(inverse, r.get_vel()),
+            "angular_body": rotate_wxyz(inverse, r.get_ang()),
+            "targets": targets, "control_force": self.substep_forces[-1],
+            "wheel_normal_force": summed_normal_force(contacts, e.foot_link_indices),
+            "clearance": cylinder_clearance(pos, wheel_quat, *self.geometry),
+            "nonwheel_normal_force": (force * (valid & robot_side & ~wheel_side)).sum(dim=1, keepdim=True),
         }
-    return {
-        "checkpoint": str(checkpoint),
-        "checkpoint_sha256": sha256(checkpoint),
-        "saved_config": reference,
-        "saved_source_snapshot": source_snapshot,
-    }
+        self.rows.append({k: v[0].detach().clone() for k, v in values.items()})
+
+
+def spectrum(values, frequency):
+    if len(values) < 4:
+        return None
+    values = np.asarray(values, dtype=float).reshape(len(values), -1)
+    values = values - values.mean(axis=0)
+    power = (np.abs(np.fft.rfft(values * np.hanning(len(values))[:, None], axis=0)) ** 2).sum(axis=1)
+    power[0] = 0
+    frequencies = np.fft.rfftfreq(len(values), 1 / frequency)
+    peak = int(np.argmax(power))
+    near = (frequencies >= 24) & (frequencies <= min(26, frequency / 2))
+    return {"peak_Hz": float(frequencies[peak]), "sample_Hz": frequency,
+            "resolution_Hz": frequency / len(values),
+            "near_25Hz_power_fraction": float(power[near].sum() / power.sum()) if power.sum() else 0}
