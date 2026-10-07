@@ -460,7 +460,12 @@ remain intact, including holding rotation and complete stopping windows.
 Small commands, reverse, arcs/mixed, the wider required/reserve envelope, pushes,
 DR and transfer remain **untested by this panel**, with no invented pass criteria.
 
-## Prepared yaw-weight continuation (2026-10-07; production unexecuted)
+## Historical yaw-weight preparation (2026-10-07; unexecuted at preparation time)
+
+The production command recorded in this section was subsequently run in
+`logs/go2w/go2w_2026-10-07_15-22-01/` and completed all 500 additional updates.
+The completed-continuation review below supersedes the preparation-time status;
+the preparation evidence itself is retained unchanged.
 
 The exact parent is `logs/go2w/go2w_2026-10-07_09-40-23/model_1999.pt`:
 native label 1999, **2000 completed updates**, Adam step 80000 and both normalizer
@@ -523,8 +528,8 @@ and [focused test output](../evaluation/go2w_yaw_continuation_preparation/focuse
 The [final validation summary](../evaluation/go2w_yaw_continuation_preparation/validation_summary.json)
 also confirms all 39 protected source-run/review files and `play.py` are unchanged.
 
-Run from the repository root with the existing `genesis-gpu` environment active.
-This exact **500-additional-update command has not been executed**:
+The following **500-additional-update command was unexecuted when prepared**;
+it records the invocation from the repository root with `genesis-gpu` active:
 
 ```powershell
 python -m robot_gym.scripts.train --task go2w --resume --resume_current_reward_scales --load_run (Resolve-Path ".\logs\go2w\go2w_2026-10-07_09-40-23").Path --checkpoint 1999 --num_envs 4096 --max_iterations 500 --seed 1 --logger tensorboard --training_diagnostics --headless --rl_device cuda:0
@@ -555,3 +560,159 @@ traces rescored under a common objective rather than total return. Partial
 improvement remains an intermediate candidate. Small/reverse/mixed/core-edge
 commands, DR and push recovery remain separate untested qualification items.
 There is no automatic further training if this bounded continuation is ineffective.
+
+## Completed yaw-weight continuation review (2026-10-07)
+
+**Decision D: retain CK1999 as the development baseline; do not promote final2498
+or continue unchanged.** Gains in pure yaw, direct lateral body-x bias and front
+clearance do not outweigh forward-path, lateral-stop and holding regressions.
+The intermediate is not a better overall candidate. The parent also remains
+**unqualified against the frozen targets**. Training defaults and saved replay
+semantics are unchanged by this checkpoint selection.
+
+Parent: `logs/go2w/go2w_2026-10-07_09-40-23/model_1999.pt` (2000 updates).
+Child: `logs/go2w/go2w_2026-10-07_15-22-01/model_2498.pt` (**500 additional,
+2500 lineage updates**). Saved ancestry/hashes, completed-run metadata, final
+label 2498, Adam step 100000 and both normalizer counts 655360000 agree. Recorded
+before-update state verification was not repeated. Sole functional delta:
+`tracking_yaw .8 -> 1.2`, runtime `.024` at dt `.02`; fixed LR `.0003` retained.
+Other differences are budget/resume/provenance bookkeeping. Preparation above
+is historical; the production run is complete.
+
+[Comparison JSON tables](go2w_yaw_continuation_review_2026-10-07.json) report all
+axes and first/full/late/stop windows, per-wheel distributions/censoring/unloading,
+clipping versus target error, geometry trends and both sensors. Detailed evidence:
+`evaluation/go2w_yaw_continuation_review/`. Parent traces were reused from
+`evaluation/go2w_20261007_review/final1999/` without replay.
+
+### Training after episode-accounting startup
+
+| Window | Mean KL | PPO clip fraction | Value loss | Yaw rate / weight | Episode yaw rate / weight |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Parent 1800-1999 | .01366 | .2383 | .01216 | .75038 | .74496 |
+| Child 2050-2199 | .01349 | .2356 | .01298 | .75900 | .75568 |
+| Child 2350-2498 | .01405 | .2396 | .01387 | .76464 | .76176 |
+
+Windows exclude the approximately 47-update startup. Diagnostic 2373 is missing
+(148 late records); TensorBoard includes it. Raw yaw `.60031 -> .91757` mostly
+reflects rescaling. Normalized scores are not accuracy or invertible RMSE.
+Actual LR remains `.0003`; per-joint mean std spans `.1063-.1522 -> .1002-.1441`.
+Late floor occupancy: FL/FR calf 8.8/6.1%, RL/RR thigh 27.0/28.4%; other joints zero.
+Rear-calf sampled clipping rises about 6.3 -> 6.9%, mean saturation 5.5 -> 6.1%.
+Pose cost worsens `.03412 -> .03887`; clearance/support costs modestly improve,
+sensor cost stays near `.007`. Contact raw mean rises `4.62e-6 -> 1.69e-5` per tick.
+Push summaries remain near 80/15/5, 30 physics ticks and 6.8 N s mean impulse.
+Termination counts/causes, command-tier occupancy and event-level associations
+are unavailable. Episode means are not failure probabilities; cost magnitudes
+are not gradients. Neither total return nor these aggregates select the policy.
+
+### Matched nominal panel
+
+One final-checkpoint invocation used actor mean, seed 1, one environment, nominal
+saved dynamics, no noise/DR/pushes or controller/action/phase override. Stand is
+30 s; moving cases are 3 s zero, 30 s command, 8 s zero. Each case starts with the
+same nominal reset and built-in zero-action warmup, zero added phase offset.
+Initial poses, commands, phase and desired targets match the parent exactly.
+Analysis is 50 Hz; existing 200 Hz capture covers only forward and lateral+.
+
+| Command | Achieved requested-axis mean, parent -> child | Axis RMSE | Heading change, deg | Max cross-track, m |
+| --- | --- | --- | --- | --- |
+| Forward .5 m/s | .49579 -> .49970 | .01622 -> .01622 | +4.24 -> -6.83 | .508 -> .972 |
+| Lateral +.3 m/s | .30049 -> .30294 | .01531 -> .01758 | -18.81 -> +21.73 | 1.618 -> 1.620 |
+| Lateral -.3 m/s | -.30088 -> -.30373 | .01441 -> .01759 | +18.18 -> -21.84 | 1.758 -> 1.826 |
+| Yaw +.8 rad/s | .79956 -> .79985 | .04100 -> .03000 | Commanded rotation | See JSON |
+| Yaw -.8 rad/s | -.80178 -> -.80221 | .03862 -> .02715 | Commanded rotation | See JSON |
+
+First-second forward speed is `.4667 -> .4656`, lateral `+.2786/-.2823 ->
++.2911/-.2867 m/s`. Travel is not slower. Child final-10-second heading changes
+remain forward `-1.87`, lateral `+8.11/-5.56 deg`: curvature persists beyond startup.
+Lateral body-x bias improves `+.00900/+.00972 -> -.00064/+.00033 m/s`; body-wz bias
+reverses and grows `-.00767/+.00829 -> +.01042/-.01079 rad/s`, despite lower wz RMSE
+(`.04571/.04349 -> .03962/.03892`). Pose heading is not integrated body angular-z.
+
+| Lateral initial-forward displacement components, m | Body-x | Rotated body-y | Body-z/tilt |
+| --- | ---: | ---: | ---: |
+| Parent + | +.2651 | +1.3496 | +.0049 |
+| Child + | -.0187 | -1.5942 | -.0066 |
+| Parent - | +.2859 | +1.4676 | +.0061 |
+| Child - | +.0104 | -1.8295 | -.0056 |
+
+Full-quaternion integration matches lateral pose displacement within 1.5 mm.
+Forward cross-track is similarly dominated by rotated forward velocity.
+Offline parent-weight rescoring improves lateral yaw scores
+`.6948/.7013 -> .7157/.7167` despite worse heading: these are rescored states,
+not new rollouts or evidence of better paths.
+
+Stand endpoint/path grows `.0981/.1269 -> .1594/.1686 m`; startup 0-5 s is
+`.0057/.0160 -> .0079/.0164 m`. Late XY RMS `.00439 -> .00667 m/s` worsens;
+wz RMS `.01117 -> .00457 rad/s` improves, but heading grows `+2.73 -> +7.71 deg`.
+Late child wheel targets (FL/FR/RL/RR) are `[-.482,.335,.162,.292] rad/s`, actual
+`[.046,.098,.069,.094]`. A deadband could remove the negative FL braking target.
+Any future stand mode is a separate integration option requiring braking/correction,
+stop/start, small-command and disturbance tests. Zero wheel target is not zero
+torque or a rigid lock. The raw policy was evaluated unchanged.
+
+| Full 8 s stop | Endpoint/path m, parent -> child | Final 2 s XY RMS m/s | Final 2 s wz RMS rad/s |
+| --- | --- | --- | --- |
+| Forward | .0575/.0667 -> .0533/.0597 | .00467 -> .00517 | .01725 -> .00416 |
+| Lateral+ | .0171/.0371 -> .0251/.0545 | .00188 -> .00609 | .00164 -> .00780 |
+| Lateral- | .0321/.0465 -> .0459/.0590 | .00401 -> .00377 | .00370 -> .00438 |
+| Yaw+ | .0112/.0287 -> .0103/.0248 | .00393 -> .00356 | .00797 -> .00550 |
+| Yaw- | .0442/.0649 -> .0534/.0597 | .00582 -> .00679 | .03192 -> .01073 |
+
+Opposing translation during forward/lateral+ grows `.75/3.41 -> .94/4.75 mm`;
+lateral- decreases, but stop rotation worsens `-1.55 -> -4.61 deg`. Negative-yaw
+opposing rotation falls `9.27 -> 3.98 deg`, with `+1.06 deg` still accumulating
+in the final 2 s. Endpoints alone hide movement.
+
+### Posture, steps and sensors
+
+Late stand/forward/lateral+/lateral- pose RMS is
+`.0542/.0884/.1473/.1474 -> .0535/.0927/.1529/.1536 rad`; child heights are
+`.4150/.4152/.4139/.4135 m`, with no demonstrated progressive deep crouch.
+The `.427742 m` reference target is unchanged. Wheelbase changes
+`.4145/.4790/.3432/.3424 -> .4184/.4884/.3156/.3165 m`, separately measured from
+front/rear widths and pair midpoints. JSON tables retain their first/full/late
+trends and signed roll/pitch bias/variation. Lateral roll variation decreases;
+child late roll/pitch-rate RMS remains `[.239,.299]` / `[.235,.304] rad/s`.
+
+| Case | Median physical peaks mm, FL/FR/RL/RR, parent -> child | Camera-body vz RMS full/late m/s, parent -> child |
+| --- | --- | --- |
+| Lateral+ | 10.9/10.8/8.2/15.9 -> 18.4/22.5/8.6/15.3 | .0912/.0910 -> .0906/.0898 |
+| Lateral- | 11.8/9.8/16.7/6.5 -> 22.5/19.0/14.8/7.9 | .0861/.0873 -> .0899/.0899 |
+| Yaw+ | 4.2/17.4/9.5/13.2 -> 14.7/11.6/15.0/4.8 | .0550/.0576 -> .0521/.0518 |
+| Yaw- | 18.1/4.6/11.5/7.6 -> 11.6/14.7/6.8/16.4 | .0548/.0534 -> .0548/.0532 |
+
+Apex remains 40 mm. Whole-swing/apex unloading, completed physical events and
+0-2 censored intervals are retained. Child lateral apex unloading is 97.4-99.5%,
+but yaw+ FR falls 96.2 -> 69.7%, yaw- FL 96.8 -> 66.3% (target >=32 mm).
+Low lift-off/touchdown clearance alone is not dragging. The 200 Hz trace confirms
+the front-clearance gain but splits short recontacts; event counts depend on rate.
+Loaded lateral-center RMS remains `.064-.095 m/s`, a sliding surrogate.
+Lateral RR/RL calf clipping falls `39.4/37.1 -> 33.9/34.6%`; actual-minus-applied
+rear-calf error remains `.29-.30 rad`. Issued/applied targets agree. No sampled
+self/non-wheel contacts, falls, resets or force-limit saturation occur; 200 Hz
+positive-lateral peak force is 67.3% of limit. Self-contact sampling is 50 Hz,
+not a continuous absence guarantee. Imager full/late data are retained separately;
+its lateral+ motion worsens while lateral- improves. Sensor motion is not image
+quality/jerk and cannot compensate for tracking/holding regressions.
+
+### Bounded decision
+
+The only intermediate, `logs/go2w/go2w_2026-10-07_15-22-01/model_2250.pt`
+(2252 lineage updates), was checked at 50 Hz on stand/forward/lateral+/lateral-.
+Forward cross-track/heading is `.585 m/-4.56 deg`; lateral deviation
+`2.007/1.675 m`, heading `-20.92/+19.77 deg`; late holding XY/wz RMS
+`.00836 m/s/.03464 rad/s`. Its pure-yaw cases were not tested. The checkpoint
+comparison does not support another unchanged continuation.
+
+**Keep CK1999 and close this experiment.** No refinement is proposed or executed.
+Frozen forward limits remain `.05 m` cross-track, `2 deg` heading, `.45-.55 m/s`
+mean and `.04 m/s` RMSE; late holding XY limit `.005 m/s` plus existing rotation
+comparisons (CK499 `.00670 rad/s`, full `-11.1 deg`; CK250 `.00030`). Preserve
+complete-stop requirements, including CK499 endpoint/path `.0311/.1051 m`.
+The [frozen record](../evaluation/consolidated_v3_preparation/frozen_targets.json)
+is unchanged. Reverse, small/mixed/core-edge commands, reserve extremes, pushes,
+DR, Sim2Sim and hardware remain unqualified. Only new path-analysis checks,
+matched protocols and 50/200 Hz pose consistency were validated; no training,
+optimizer smoke, full test suite or training-source changes were performed.
