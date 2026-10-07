@@ -271,7 +271,7 @@ def rollout_sequence(env, policy, schedule, stop_on_reset=False):
             start += count
             phases.append(phase)
             for _ in range(0 if stopped else count):
-                env.commands[:] = torch.tensor(command, device=env.device)
+                env.set_commands(command)
                 env.compute_observations()
                 _, _, done, _ = env.step(policy(env.get_observations()))
                 for key, value in env.transition_state.items():
@@ -350,7 +350,7 @@ def rollout_closed_loop(env, policy, nominal_velocity):
                 command.zero_()
                 request = torch.zeros_like(command)
                 correction = torch.zeros_like(correction)
-            env.commands[:] = command
+            env.set_commands(command)
             env.compute_observations()
             observations = env.get_observations()
             policy_observation = observations["policy"].clone()
@@ -667,7 +667,7 @@ def evaluate_bank(env, runner, args, out):
                         if step < hold
                         else (0, 0, 0)
                     )
-                env.commands[:] = torch.tensor(cmd, device=env.device)
+                env.set_commands(cmd)
                 env.compute_observations()
                 action = (
                     torch.zeros_like(env.actions)
@@ -756,7 +756,7 @@ def rollout_precision(env, policy, schedule, sensor=False, rolling_phase_zero=Fa
     with torch.no_grad():
         for phase, (seconds, command) in enumerate(schedule):
             for _ in range(round(seconds / env.dt)):
-                env.commands[:] = env.commands.new_tensor(command)
+                env.set_commands(command)
                 env.compute_observations()
                 observation = env.get_observations()
                 if rolling_phase_zero:
@@ -778,6 +778,7 @@ def rollout_precision(env, policy, schedule, sensor=False, rolling_phase_zero=Fa
                 for key in ('undesired_self_pair_count', 'nonfoot_ground_link_count'):
                     if key in state:
                         values[key] = state[key]
+                values.update({key: value for key, value in state.items() if key.startswith('straight_')})
                 if sensor:
                     values["observations"] = recorded_observation
                 if hasattr(env, "active_push_force") and env.cfg.domain_rand.push_robots:

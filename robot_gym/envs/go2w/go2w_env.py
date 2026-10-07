@@ -131,6 +131,12 @@ class Go2WEnv(Go2Env):
     wheel_geometry_enabled = True  # Shared ground-contact callback.
 
     @staticmethod
+    def replay_observation_dim(saved, default):
+        from .go2w_config import validate_schema
+        validate_schema(saved)
+        return default
+
+    @staticmethod
     def restore_saved_config(saved):
         from .go2w_config import restore_saved_config
         return restore_saved_config(saved)
@@ -195,6 +201,7 @@ class Go2WEnv(Go2Env):
 
     def training_metadata(self):
         from .deployment import transfer_contract
+        from .straight_motion import CRITIC_REFERENCE_FIELDS
         resume = self.cfg.training_resume
         return {
             "initialization": ("full native resume: actor/critic/normalizers/std/Adam/iteration" if resume
@@ -202,6 +209,16 @@ class Go2WEnv(Go2Env):
             "training_resume": resume,
             "resume_validation": getattr(self, "resume_validation", None),
             "parameter_source": "robot_gym/envs/go2w/go2w_config.py",
+            "config_version": self.cfg.config_version,
+            "geometric_supervision": {
+                "actor_inputs": self.num_obs, "critic_inputs": self.num_privileged_obs,
+                "critic_relative_fields": list(CRITIC_REFERENCE_FIELDS),
+                "parameters": dict(self.cfg.straight_motion),
+                "reference": "Fixed command-onset line/heading; any changed command (including speed) or episode reset relatches; identical values, pushes, getters and PPO boundaries do not",
+                "bootstrap": "Native RSL-RL 5.5.1 timeouts use pre-step transition values with the old reference; next observations use the reset reference; rollout-end values use the current reference",
+                "runtime_reward_scales": {k: self.reward_scales[k] for k in
+                                          ('tracking_yaw', 'straight_cross_track', 'straight_heading')},
+            },
             "phase_observation_mode": self.cfg.phase_observation_mode,
             "deployment_contract": transfer_contract(self),
             "runtime_armature_min_max_kg_m2": [float(self.armature_samples.min()), float(self.armature_samples.max())],
@@ -216,6 +233,9 @@ class Go2WEnv(Go2Env):
             metadata.update(transfer_contract(self))
         metadata["observation_order"] += ["phase_sin", "phase_cos"]
         metadata.update(
+            config_version=self.cfg.config_version,
+            actor_input_dim=self.num_obs,
+            privileged_inputs_exported=False,
             height_reference_m=self.cfg.rewards.base_height_target,
             reset_spawn_clearance_m=self.cfg.init_state.pos[2] - self.cfg.rewards.base_height_target,
             phase={**self.cfg.phase_guidance,
@@ -250,6 +270,11 @@ class Go2WEnv(Go2Env):
         return metadata
 
     def update_task_state(self):
+        self.straight_reference.advance(self.base_pos, self.base_quat, self.dt)
+        diagnostics = getattr(self, 'training_diagnostics', None)
+        if diagnostics is not None:
+            for key, value in self.straight_reference.diagnostics().items():
+                diagnostics.add(key, value)
         from .phase import targets
         c = self.cfg.phase_guidance
         self.desired_swing, self.desired_clearance = targets(
@@ -266,7 +291,7 @@ class Go2WEnv(Go2Env):
         self.phase.add_(self.dt / self.cfg.phase_guidance["period_s"]).remainder_(1.)
 
     def capture_task_state(self):
-        state = {}
+        state = self.straight_reference.diagnostics()
         if hasattr(self, 'push_event_duration_steps'):
             for name in ('push_event_tier', 'push_event_duration_steps', 'push_event_impulse_ns'):
                 state[name] = getattr(self, name).clone()
@@ -292,6 +317,11 @@ class Go2WEnv(Go2Env):
         if len(env_ids) == 0:
             return
         super().reset_idx(env_ids)
+        # Shared reset has changed simulator pose, but cached base buffers still
+        # describe the terminal state. Latch only these environments at their
+        # actual new pose, after the terminal reward/capture has completed.
+        self.straight_reference.set_command(
+            self.commands, self.robot.get_pos(), self.robot.get_quat(), env_ids, reset=True)
         self.phase[env_ids] = (torch.rand(len(env_ids), device=self.device)
                               if self.cfg.phase_guidance["randomize_reset"] else 0.)
         # Installed Genesis 1.4.1 Scene.reset restores state, retaining DOF info
@@ -340,6 +370,8 @@ class Go2WEnv(Go2Env):
 
     def _init_buffers(self):
         super()._init_buffers()
+        from .straight_motion import StraightMotionReference
+        self.straight_reference = StraightMotionReference(self.num_envs, self.device, self.cfg.straight_motion)
         self.command_sampling_tier = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
         self.push_event_tier = torch.full((self.num_envs,), -1, dtype=torch.long, device=self.device)
         self.push_event_duration_steps = torch.zeros_like(self.push_event_tier)
@@ -548,7 +580,10 @@ class Go2WEnv(Go2Env):
             cfg.discovery_segment_duration_range, len(selected), self.dt)
         c = self.cfg.commands.holds
         self.command_hold_kind[env_ids] = 0
-        eligible = families <= 2  # Stand, straight and arc only; stepping families keep their draws.
+        family_names = ('stand', 'straight', 'arc', 'yaw', 'precision', 'lateral', 'mixed')
+        eligible_ids = torch.tensor([family_names.index(name) for name in c['eligible_families']],
+                                    device=self.device)
+        eligible = torch.isin(families, eligible_ids)
         draw = torch.rand(n, device=self.device)
         p = c["long_hold_probability"]
         for kind, mask, duration in (
@@ -558,6 +593,29 @@ class Go2WEnv(Go2Env):
             selected = env_ids[mask]
             self.command_steps_left[selected] = self._sample_interval_steps(duration, len(selected), self.dt)
             self.command_hold_kind[selected] = kind
+        self.straight_reference.set_command(self.commands, self.base_pos, self.base_quat, env_ids)
+
+    def _apply_fixed_command(self, env_ids=None):
+        applied = super()._apply_fixed_command(env_ids)
+        if applied:
+            ids = self.all_env_ids if env_ids is None else env_ids
+            self.straight_reference.set_command(self.commands, self.base_pos, self.base_quat, ids)
+        return applied
+
+    def set_commands(self, commands):
+        """Diagnostic command batches; use the same boundary latch as sampling.
+
+        Call before recomputing observations/action selection. Identical values
+        do nothing to the reference. This setter never corrects a command.
+        """
+        self.commands[:] = torch.as_tensor(commands, dtype=self.commands.dtype, device=self.device)
+        self.straight_reference.set_command(self.commands, self.base_pos, self.base_quat, self.all_env_ids)
+
+    def set_fixed_command(self, command):
+        super().set_fixed_command(command)
+        if command is None:
+            # Unpinning changes the critic's remaining-time convention, not the anchor.
+            self.compute_observations()
 
     def _step_demand(self):
         from .phase import demand
@@ -585,6 +643,8 @@ class Go2WEnv(Go2Env):
             self.obs_buf += (
                 2 * torch.rand_like(self.obs_buf) - 1
             ) * self.noise_scale_vec
+        self.privileged_obs_buf = torch.cat((self.obs_buf, self.straight_reference.critic_features(
+            self.command_steps_left, self.command_resampling_enabled, self.dt)), dim=-1)
 
     def _get_noise_scale_vec(self, cfg):
         self.add_noise = cfg.noise.add_noise
@@ -611,6 +671,12 @@ class Go2WEnv(Go2Env):
         return super()._compute_fallen_mask() | self.base_contact
 
     # Reward functions
+
+    def _reward_straight_cross_track(self):
+        return self.straight_reference.cross_track_cost()
+
+    def _reward_straight_heading(self):
+        return self.straight_reference.heading_cost()
 
     def _reward_tracking_x(self):
         return self._tracking_axis(0)

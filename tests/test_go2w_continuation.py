@@ -25,7 +25,7 @@ class RewardScaleContinuation(unittest.TestCase):
         self.run = Path(self.temp.name)
         cfg, train = task_registry.get_cfgs('go2w')
         self.saved = dict(task='go2w', env_cfg=class_to_dict(cfg), train_cfg=class_to_dict(train))
-        self.saved['env_cfg']['rewards']['scales']['tracking_yaw'] = .8
+        self.saved['env_cfg']['rewards']['scales']['tracking_yaw'] = 1.2
         self.config = self.run / 'config.yaml'
         self.config.write_text(yaml.safe_dump(self.saved))
         # Config resolution only needs an existing checkpoint; native state is checked by the smoke.
@@ -55,8 +55,8 @@ class RewardScaleContinuation(unittest.TestCase):
 
     def test_ordinary_resume_and_replay_retain_saved_scales(self):
         cfg, train, _ = self.resolve()
-        self.assertEqual(cfg.rewards.scales.tracking_yaw, .8)
-        self.assertEqual(self.registered(cfg).reward_scales['tracking_yaw'], .016)
+        self.assertEqual(cfg.rewards.scales.tracking_yaw, 1.2)
+        self.assertEqual(self.registered(cfg).reward_scales['tracking_yaw'], .024)
         self.assertEqual(class_to_dict(cfg.rewards), self.saved['env_cfg']['rewards'])
         self.assertEqual(train.runner.checkpoint_load_cfg,
                          dict(actor=True, critic=True, optimizer=True, iteration=True))
@@ -67,10 +67,10 @@ class RewardScaleContinuation(unittest.TestCase):
     def test_opted_in_diff_is_only_yaw_and_configuration_is_idempotent(self):
         cfg, train, args = self.resolve(True)
         diff = cfg.training_resume['reward_scale_override']['diff']
-        self.assertEqual(diff, {'tracking_yaw': {'old': .8, 'new': 1.2}})
+        self.assertEqual(diff, {'tracking_yaw': {'old': 1.2, 'new': .8}})
         actual = class_to_dict(cfg)
         actual['training_resume'] = None
-        actual['rewards']['scales']['tracking_yaw'] = .8
+        actual['rewards']['scales']['tracking_yaw'] = 1.2
         self.assertEqual(actual, self.saved['env_cfg'])
         for section in ('actor', 'critic', 'algorithm'):
             self.assertEqual(class_to_dict(getattr(train, section)), self.saved['train_cfg'][section])
@@ -78,8 +78,8 @@ class RewardScaleContinuation(unittest.TestCase):
         update_cfg_from_args(cfg, train, args)
         self.assertEqual(class_to_dict(cfg), before)
         env = self.registered(cfg)
-        self.assertEqual(env.reward_scales['tracking_yaw'], .024)
-        self.assertEqual(env.cfg.rewards.scales.tracking_yaw, 1.2)
+        self.assertEqual(env.reward_scales['tracking_yaw'], .016)
+        self.assertEqual(env.cfg.rewards.scales.tracking_yaw, .8)
         self.assertEqual(env.reward_scales['termination'], -5.)
         self.assertEqual(hashlib.sha256(self.config.read_bytes()).hexdigest(), self.digest)
 
@@ -116,12 +116,12 @@ class RewardScaleContinuation(unittest.TestCase):
             env.finalize_runner_loading(runner, train, args)
             verify.assert_called_once_with(runner, runner.checkpoint_path)
             self.assertEqual(env.reward_scales, before)
-            self.assertEqual(env.resume_validation['runtime_reward_scales']['tracking_yaw'], .024)
+            self.assertEqual(env.resume_validation['runtime_reward_scales']['tracking_yaw'], .016)
             env.reward_scales['tracking_yaw'] *= env.dt
             with self.assertRaisesRegex(ValueError, 'dt exactly once'):
                 env.finalize_runner_loading(runner, train, args)
             env.reward_scales = before
-            env.cfg.rewards.scales.tracking_yaw = .8
+            env.cfg.rewards.scales.tracking_yaw = 1.2
             with self.assertRaisesRegex(ValueError, 'overwritten'):
                 env.finalize_runner_loading(runner, train, args)
 

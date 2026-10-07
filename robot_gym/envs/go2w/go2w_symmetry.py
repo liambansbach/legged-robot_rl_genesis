@@ -1,7 +1,7 @@
 """Sagittal reflection for proprioception and the 58-input phase contract.
 
-RSL-RL receives raw (pre-normalization) TensorDict observations. Both actor and
-critic use the same `policy` group. Reflection is only mini-batch augmentation;
+RSL-RL receives raw (pre-normalization) TensorDict observations. The critic adds
+relative reference state to the policy inputs. Reflection is mini-batch augmentation;
 it does not alter rollout states, command sampling, or inference actions.
 """
 
@@ -70,10 +70,11 @@ def _env_maps(env, device):
 
 
 def mirror_observations(env, obs):
-    """Return a new TensorDict with the reflected policy observation."""
-    if not isinstance(obs, TensorDictBase) or set(obs.keys()) != {"policy"}:
+    """Reflect body inputs and signed geometry, never absolute world coordinates."""
+    from .straight_motion import CRITIC_REFERENCE_FIELDS
+    if not isinstance(obs, TensorDictBase) or set(obs.keys()) not in ({"policy"}, {"policy", "critic"}):
         raise ValueError(
-            "Go2-W symmetry expects only the TensorDict 'policy' observation group"
+            "Go2-W symmetry expects policy and optional relative-state critic groups"
         )
     policy = obs["policy"]
     if policy.ndim != 2 or policy.shape[-1] != env.num_obs:
@@ -83,6 +84,17 @@ def mirror_observations(env, obs):
     mirrored["policy"] = policy.index_select(-1, perm) * sign
     if env.num_obs == 58:
         mirrored["policy"] = torch.cat((mirrored["policy"], -policy[:, 56:58]), dim=-1)
+    if "critic" in obs:
+        critic = obs['critic']
+        if critic.ndim != 2 or critic.shape[-1] != env.num_obs + len(CRITIC_REFERENCE_FIELDS):
+            raise ValueError("Go2-W critic must contain policy inputs and seven relative features")
+        body = critic[:, :env.num_obs]
+        body = torch.cat((body.index_select(-1, perm) * sign, -body[:, 56:58]), dim=-1)
+        # Reflection reverses the oriented line normal and heading error for
+        # forward, reverse, lateral and diagonal commands alike.
+        relative = critic[:, env.num_obs:].clone()
+        relative[:, :2] *= -1  # Signed cross-track and heading sine only.
+        mirrored['critic'] = torch.cat((body, relative), dim=-1)
     return mirrored
 
 

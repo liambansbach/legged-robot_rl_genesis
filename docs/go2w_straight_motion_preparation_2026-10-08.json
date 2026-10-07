@@ -1,0 +1,1641 @@
+{
+  "date": "2026-10-08",
+  "status": "prepared; production unstarted",
+  "parameter_source": "robot_gym/envs/go2w/go2w_config.py",
+  "prechange_source_commit": "b47458a266a3d4b616ac780bdb58961886dbf2f6",
+  "baseline": "logs/go2w/go2w_2026-10-07_09-40-23/model_1999.pt",
+  "historical_comparator": "logs/go2w/go2w_2026-10-07_15-22-01/model_2498.pt",
+  "initialization": "fresh actor, critic, empirical normalizers, std=.40, Adam and iteration zero; no checkpoint load",
+  "resolved_config": "evaluation/go2w_straight_motion_preparation/resolved_production.generated.yaml",
+  "config_version": 2,
+  "actor_dim": 58,
+  "critic_dim": 65,
+  "actor_only_export": true,
+  "critic_reference_fields": [
+    "cross_track_over_scale",
+    "heading_sin",
+    "heading_cos",
+    "reference_valid",
+    "activation",
+    "reference_age_over_time_scale",
+    "command_remaining_over_time_scale"
+  ],
+  "task_definition": {
+    "scope": "Issued translation speed > .01 m/s and |requested yaw| <= 1e-6 rad/s",
+    "anchor": "p0, projected body-forward heading psi0, d=Rz(psi0)*command_xy/|command_xy|, n=(-dy,dx)",
+    "errors": "e_cross=n dot (p_xy-p0); e_heading=atan2(sin(psi-psi0),cos(psi-psi0))",
+    "costs": "a*[.1*Huber(relu(|e_cross|-.005)/.10) + .1*Huber(e_heading/.10)], with a=valid*smoothstep(clip(age/.5,0,1))",
+    "latch": "Any numerical command change, including speed-only, or episode reset. Identical messages, pushes, getters, rollouts and PPO updates do not relatch.",
+    "ordering": "Score/capture old command/reference after physics, then resample/reset before next observation.",
+    "limitation": "An unchanged actor cannot select opposite recovery actions from identical observations at opposite hidden offsets."
+  },
+  "parameters": {
+    "min_speed_m_s": 0.01,
+    "yaw_zero_rad_s": 1e-06,
+    "heading_projection_min": 1e-06,
+    "cross_tolerance_m": 0.005,
+    "cross_scale_m": 0.1,
+    "heading_scale_rad": 0.1,
+    "ramp_s": 0.5,
+    "critic_time_scale_s": 30.0
+  },
+  "reward_weights": {
+    "tracking_yaw": 0.8,
+    "straight_cross_track": -0.1,
+    "straight_heading": -0.1
+  },
+  "source_diff": [
+    {
+      "field": "env_cfg.commands.holds.eligible_families",
+      "old": null,
+      "new": [
+        "stand",
+        "straight",
+        "arc",
+        "lateral"
+      ]
+    },
+    {
+      "field": "env_cfg.config_version",
+      "old": 1,
+      "new": 2
+    },
+    {
+      "field": "env_cfg.env.num_privileged_obs",
+      "old": null,
+      "new": 65
+    },
+    {
+      "field": "env_cfg.rewards.scales.straight_cross_track",
+      "old": null,
+      "new": -0.1
+    },
+    {
+      "field": "env_cfg.rewards.scales.straight_heading",
+      "old": null,
+      "new": -0.1
+    },
+    {
+      "field": "env_cfg.rewards.scales.tracking_yaw",
+      "old": 1.2,
+      "new": 0.8
+    },
+    {
+      "field": "env_cfg.straight_motion",
+      "old": null,
+      "new": {
+        "min_speed_m_s": 0.01,
+        "yaw_zero_rad_s": 1e-06,
+        "heading_projection_min": 1e-06,
+        "cross_tolerance_m": 0.005,
+        "cross_scale_m": 0.1,
+        "heading_scale_rad": 0.1,
+        "ramp_s": 0.5,
+        "critic_time_scale_s": 30.0
+      }
+    },
+    {
+      "field": "train_cfg.runner.obs_groups.critic",
+      "old": [
+        "policy"
+      ],
+      "new": [
+        "critic"
+      ]
+    }
+  ],
+  "parent_diff": [
+    {
+      "field": "env_cfg.commands.holds.eligible_families",
+      "old": null,
+      "new": [
+        "stand",
+        "straight",
+        "arc",
+        "lateral"
+      ]
+    },
+    {
+      "field": "env_cfg.config_version",
+      "old": 1,
+      "new": 2
+    },
+    {
+      "field": "env_cfg.env.num_privileged_obs",
+      "old": null,
+      "new": 65
+    },
+    {
+      "field": "env_cfg.rewards.scales.straight_cross_track",
+      "old": null,
+      "new": -0.1
+    },
+    {
+      "field": "env_cfg.rewards.scales.straight_heading",
+      "old": null,
+      "new": -0.1
+    },
+    {
+      "field": "env_cfg.straight_motion",
+      "old": null,
+      "new": {
+        "min_speed_m_s": 0.01,
+        "yaw_zero_rad_s": 1e-06,
+        "heading_projection_min": 1e-06,
+        "cross_tolerance_m": 0.005,
+        "cross_scale_m": 0.1,
+        "heading_scale_rad": 0.1,
+        "ramp_s": 0.5,
+        "critic_time_scale_s": 30.0
+      }
+    },
+    {
+      "field": "train_cfg.runner.obs_groups.critic",
+      "old": [
+        "policy"
+      ],
+      "new": [
+        "critic"
+      ]
+    }
+  ],
+  "trace_calibration": {
+    "CK1999": {
+      "forward_fast": {
+        "first_second": {
+          "cross_m_end": 0.001803199527785182,
+          "heading_rad_end": 0.008598443120718002,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 0.00010980810434832939,
+          "auxiliary_cost_mean": 0.00010980810434832939,
+          "auxiliary_cost_max": 0.0003696661209687591,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.8992916269447244,
+            "tracking_y": 0.9998510440514093,
+            "tracking_yaw": 0.7900726619898312,
+            "reference_pose": -0.0459498714232124,
+            "reference_height": 0.0,
+            "orientation": -0.00028753958458820343,
+            "phase_clearance": -2.5269228417483507e-05,
+            "phase_support": -0.0005000000000000001,
+            "sensor_vertical_velocity": -0.00022572363421853023,
+            "ang_vel_xy": -9.165420939250301e-05
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.6407775778541684,
+          "recorded_term_subtotal_after_auxiliary_min": 1.4229841080171124
+        },
+        "seconds_2_to_4": {
+          "cross_m_end": 0.022511037066578865,
+          "heading_rad_end": 0.009186893701553345,
+          "cross_cost_mean": 0.0007416213861433787,
+          "heading_cost_mean": 0.0005013966956175864,
+          "auxiliary_cost_mean": 0.0012430180817609654,
+          "auxiliary_cost_max": 0.0019551768433302644,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9986172428506943,
+            "tracking_y": 0.9996765040000004,
+            "tracking_yaw": 0.7997665659121764,
+            "reference_pose": -0.1244442168726763,
+            "reference_height": 0.0,
+            "orientation": -0.0005755880004779012,
+            "phase_clearance": -2.219085524488573e-05,
+            "phase_support": 0.0,
+            "sensor_vertical_velocity": -3.779894713252067e-08,
+            "ang_vel_xy": -4.874372370849166e-07
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.671355990276483,
+          "recorded_term_subtotal_after_auxiliary_min": 2.667621688674584
+        },
+        "full_30s": {
+          "cross_m_end": 0.5082942247390747,
+          "heading_rad_end": 0.07403890043497086,
+          "cross_cost_mean": 0.12472370021511076,
+          "heading_cost_mean": 0.007883320486149844,
+          "auxiliary_cost_mean": 0.13260702070126057,
+          "auxiliary_cost_max": 0.48070302307605745,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9951851027258799,
+            "tracking_y": 0.9999334823130094,
+            "tracking_yaw": 0.7989193271133648,
+            "reference_pose": -0.1492089445718226,
+            "reference_height": 0.0,
+            "orientation": -0.0009362040446771959,
+            "phase_clearance": -2.235260221013937e-05,
+            "phase_support": -1.666666666666667e-05,
+            "sensor_vertical_velocity": -7.753707725977135e-06,
+            "ang_vel_xy": -3.151687303209632e-06
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.510680679364912,
+          "recorded_term_subtotal_after_auxiliary_min": 1.4229841080171124
+        },
+        "late_20_to_30": {
+          "cross_m_end": 0.5082942247390747,
+          "heading_rad_end": 0.07403890043497086,
+          "cross_cost_mean": 0.2950764756679536,
+          "heading_cost_mean": 0.0178780572488904,
+          "auxiliary_cost_mean": 0.3129545329168439,
+          "auxiliary_cost_max": 0.48070302307605745,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9984654198048647,
+            "tracking_y": 0.9999967061116408,
+            "tracking_yaw": 0.7989791623018792,
+            "reference_pose": -0.1658145757584598,
+            "reference_height": 0.0,
+            "orientation": -0.0010483489867295459,
+            "phase_clearance": -2.2334394359139372e-05,
+            "phase_support": 0.0,
+            "sensor_vertical_velocity": -3.2130204405004034e-11,
+            "ang_vel_xy": -4.3392349390338644e-10
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.317020363915237,
+          "recorded_term_subtotal_after_auxiliary_min": 2.1475273886119313
+        }
+      },
+      "lateral_strong_positive": {
+        "first_second": {
+          "cross_m_end": -0.00533890537917614,
+          "heading_rad_end": -0.013567212037742138,
+          "cross_cost_mean": 1.4324619996841648e-08,
+          "heading_cost_mean": 0.0008029349232294295,
+          "auxiliary_cost_mean": 0.0008029492478494262,
+          "auxiliary_cost_max": 0.0028741111978888515,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9796991864601476,
+            "tracking_y": 0.8896022037254044,
+            "tracking_yaw": 0.6534915276525947,
+            "reference_pose": -0.020432547356488875,
+            "reference_height": -0.009889098121800383,
+            "orientation": -0.006483577194786367,
+            "phase_clearance": -0.06846499227828057,
+            "phase_support": -0.08145680420956447,
+            "sensor_vertical_velocity": -0.018286193484173457,
+            "ang_vel_xy": -0.013947597406578787
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.2934555882097545,
+          "recorded_term_subtotal_after_auxiliary_min": 1.145960164816109
+        },
+        "seconds_2_to_4": {
+          "cross_m_end": -0.05191442370414734,
+          "heading_rad_end": -0.04051823541522026,
+          "cross_cost_mean": 0.0050758324209600695,
+          "heading_cost_mean": 0.0049051205478608615,
+          "auxiliary_cost_mean": 0.009980952968820931,
+          "auxiliary_cost_max": 0.01921345368027687,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9849922906579432,
+            "tracking_y": 0.9722153701408532,
+            "tracking_yaw": 0.6878676490478187,
+            "reference_pose": -0.018690035802373956,
+            "reference_height": -0.001124438660658646,
+            "orientation": -0.011559898833132777,
+            "phase_clearance": -0.03960118836029028,
+            "phase_support": -0.023222942750727033,
+            "sensor_vertical_velocity": -0.010910914480081513,
+            "ang_vel_xy": -0.013693173092379315
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.5096479825181497,
+          "recorded_term_subtotal_after_auxiliary_min": 2.154360132359877
+        },
+        "full_30s": {
+          "cross_m_end": -1.618427038192749,
+          "heading_rad_end": -0.3283524811267853,
+          "cross_cost_mean": 0.5188394322746667,
+          "heading_cost_mean": 0.1047518430794596,
+          "auxiliary_cost_mean": 0.6235912753541263,
+          "auxiliary_cost_max": 1.8417794466018678,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9780411889356432,
+            "tracking_y": 0.971191834422589,
+            "tracking_yaw": 0.694805171106717,
+            "reference_pose": -0.01867958104057201,
+            "reference_height": -0.0015244146401138282,
+            "orientation": -0.011155788832757734,
+            "phase_clearance": -0.04370516780218073,
+            "phase_support": -0.026522651723866402,
+            "sensor_vertical_velocity": -0.009529667748425605,
+            "ang_vel_xy": -0.013057859240295556
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 1.8891376197053542,
+          "recorded_term_subtotal_after_auxiliary_min": 0.3980511741762036
+        },
+        "late_20_to_30": {
+          "cross_m_end": -1.618427038192749,
+          "heading_rad_end": -0.3283524811267853,
+          "cross_cost_mean": 1.097582062149048,
+          "heading_cost_mean": 0.2058162536144257,
+          "auxiliary_cost_mean": 1.3033983157634734,
+          "auxiliary_cost_max": 1.8417794466018678,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9760027564311342,
+            "tracking_y": 0.9742867716984512,
+            "tracking_yaw": 0.6989171289018966,
+            "reference_pose": -0.01853947694705286,
+            "reference_height": -0.0012759915226209975,
+            "orientation": -0.011015885213405373,
+            "phase_clearance": -0.0430282765078433,
+            "phase_support": -0.022690061744892614,
+            "sensor_vertical_velocity": -0.009453685463167374,
+            "ang_vel_xy": -0.012344809665453723
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 1.2201060798701082,
+          "recorded_term_subtotal_after_auxiliary_min": 0.3980511741762036
+        }
+      },
+      "lateral_strong_negative": {
+        "first_second": {
+          "cross_m_end": 0.012785462662577629,
+          "heading_rad_end": 0.01977868564426899,
+          "cross_cost_mean": 8.07930021567529e-05,
+          "heading_cost_mean": 0.0006820877683632176,
+          "auxiliary_cost_mean": 0.0007628807705199707,
+          "auxiliary_cost_max": 0.002259049052372575,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9759248250444333,
+            "tracking_y": 0.9115778195390912,
+            "tracking_yaw": 0.7074805866331889,
+            "reference_pose": -0.017710551367446318,
+            "reference_height": -0.002381480964737842,
+            "orientation": -0.012941040616878854,
+            "phase_clearance": -0.052451978249733,
+            "phase_support": -0.03448052778550456,
+            "sensor_vertical_velocity": -0.008730107771114793,
+            "ang_vel_xy": -0.014937119856333884
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.444019426238875,
+          "recorded_term_subtotal_after_auxiliary_min": 1.3067898046823108
+        },
+        "seconds_2_to_4": {
+          "cross_m_end": 0.06687911599874496,
+          "heading_rad_end": 0.03321482986211777,
+          "cross_cost_mean": 0.009964591171592476,
+          "heading_cost_mean": 0.004286283299326897,
+          "auxiliary_cost_mean": 0.01425087447091937,
+          "auxiliary_cost_max": 0.024661249294877053,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9744015263744591,
+            "tracking_y": 0.9778646414843675,
+            "tracking_yaw": 0.7117187967764939,
+            "reference_pose": -0.0188054657667625,
+            "reference_height": -0.0011380702287251245,
+            "orientation": -0.00959172352440056,
+            "phase_clearance": -0.04470556712720485,
+            "phase_support": -0.027586692349872422,
+            "sensor_vertical_velocity": -0.0077043661807102235,
+            "ang_vel_xy": -0.01163945988833736
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.5206858165965356,
+          "recorded_term_subtotal_after_auxiliary_min": 1.9053612127273876
+        },
+        "full_30s": {
+          "cross_m_end": 1.7582635879516602,
+          "heading_rad_end": 0.31723442673683167,
+          "cross_cost_mean": 0.5893329209146246,
+          "heading_cost_mean": 0.11839888718080181,
+          "auxiliary_cost_mean": 0.7077318080954265,
+          "auxiliary_cost_max": 1.9704978942871096,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9771352989361836,
+            "tracking_y": 0.973975759753978,
+            "tracking_yaw": 0.7012577667328814,
+            "reference_pose": -0.018435716223974833,
+            "reference_height": -0.0013040845985766024,
+            "orientation": -0.010464871518351276,
+            "phase_clearance": -0.04336685893348056,
+            "phase_support": -0.026461391756755707,
+            "sensor_vertical_velocity": -0.008507555085250909,
+            "ang_vel_xy": -0.012119966848253162
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 1.816211360654399,
+          "recorded_term_subtotal_after_auxiliary_min": 0.18085506327874623
+        },
+        "late_20_to_30": {
+          "cross_m_end": 1.7582635879516602,
+          "heading_rad_end": 0.31723442673683167,
+          "cross_cost_mean": 1.2333006267547608,
+          "heading_cost_mean": 0.21658619346618654,
+          "auxiliary_cost_mean": 1.4498868202209474,
+          "auxiliary_cost_max": 1.9704978942871096,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9772658050979085,
+            "tracking_y": 0.9756248810370068,
+            "tracking_yaw": 0.7020656065678885,
+            "reference_pose": -0.018512707869339843,
+            "reference_height": -0.0013178953795226927,
+            "orientation": -0.009956989817236896,
+            "phase_clearance": -0.04200871605770644,
+            "phase_support": -0.026177433914256622,
+            "sensor_vertical_velocity": -0.008690470072644991,
+            "ang_vel_xy": -0.011803608083723773
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 1.0786363862039638,
+          "recorded_term_subtotal_after_auxiliary_min": 0.18085506327874623
+        }
+      },
+      "stand": {
+        "first_second": {
+          "cross_m_end": 0.0,
+          "heading_rad_end": 0.0,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 0.0,
+          "auxiliary_cost_mean": 0.0,
+          "auxiliary_cost_max": 0.0,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9944076240578547,
+            "tracking_y": 0.9999780531898577,
+            "tracking_yaw": 0.799520242560912,
+            "reference_pose": -0.016185070564856973,
+            "reference_height": 0.0,
+            "orientation": -4.236195995568486e-05,
+            "phase_clearance": -1.9347015768833735e-05,
+            "phase_support": 0.0,
+            "sensor_vertical_velocity": -0.0010373625989630064,
+            "ang_vel_xy": -3.775554335714267e-05
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.7760085031759627,
+          "recorded_term_subtotal_after_auxiliary_min": 2.7394441119821775
+        },
+        "seconds_2_to_4": {
+          "cross_m_end": 0.0,
+          "heading_rad_end": 0.0,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 0.0,
+          "auxiliary_cost_mean": 0.0,
+          "auxiliary_cost_max": 0.0,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9996984780473351,
+            "tracking_y": 0.9992014559163306,
+            "tracking_yaw": 0.7966460386586948,
+            "reference_pose": -0.03170803151134726,
+            "reference_height": 0.0,
+            "orientation": -0.0002924712928582942,
+            "phase_clearance": -2.2872225228682835e-05,
+            "phase_support": 0.0,
+            "sensor_vertical_velocity": -2.319725456378012e-07,
+            "ang_vel_xy": -1.8166493647210199e-06
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.763160849031994,
+          "recorded_term_subtotal_after_auxiliary_min": 2.752287400808218
+        },
+        "full_30s": {
+          "cross_m_end": 0.0,
+          "heading_rad_end": 0.0,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 0.0,
+          "auxiliary_cost_mean": 0.0,
+          "auxiliary_cost_max": 0.0,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9978920124856123,
+            "tracking_y": 0.9992461313631482,
+            "tracking_yaw": 0.7813782231798022,
+            "reference_pose": -0.06734782719785448,
+            "reference_height": 0.0,
+            "orientation": -0.0004885256511310931,
+            "phase_clearance": -2.2890005817598057e-05,
+            "phase_support": 0.0,
+            "sensor_vertical_velocity": -3.540617843025123e-05,
+            "ang_vel_xy": -4.967557149385759e-06
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.7100897746518657,
+          "recorded_term_subtotal_after_auxiliary_min": 2.6576646864574225
+        },
+        "late_20_to_30": {
+          "cross_m_end": 0.0,
+          "heading_rad_end": 0.0,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 0.0,
+          "auxiliary_cost_mean": 0.0,
+          "auxiliary_cost_max": 0.0,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9973957075550791,
+            "tracking_y": 0.9997715016795021,
+            "tracking_yaw": 0.7864782876134352,
+            "reference_pose": -0.08454970793181218,
+            "reference_height": 0.0,
+            "orientation": -0.00047254051666971566,
+            "phase_clearance": -2.2900502174014256e-05,
+            "phase_support": 0.0,
+            "sensor_vertical_velocity": -1.1603415912617186e-07,
+            "ang_vel_xy": -1.927603631786693e-06
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.6980203277030994,
+          "recorded_term_subtotal_after_auxiliary_min": 2.6740997953452235
+        }
+      },
+      "yaw_strong_positive": {
+        "first_second": {
+          "cross_m_end": 0.0,
+          "heading_rad_end": 0.0,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 0.0,
+          "auxiliary_cost_mean": 0.0,
+          "auxiliary_cost_max": 0.0,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9965373526899584,
+            "tracking_y": 0.9831975563231243,
+            "tracking_yaw": 0.6789038074212496,
+            "reference_pose": -0.00847820874801501,
+            "reference_height": -0.0007762155533955718,
+            "orientation": -0.001170512323750059,
+            "phase_clearance": -0.05991579536977423,
+            "phase_support": -0.016883198121886024,
+            "sensor_vertical_velocity": -0.0025041601986892335,
+            "ang_vel_xy": -0.001891376996809481
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.563798036053344,
+          "recorded_term_subtotal_after_auxiliary_min": 1.9596558341123678
+        },
+        "seconds_2_to_4": {
+          "cross_m_end": 0.0,
+          "heading_rad_end": -0.0,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 0.0,
+          "auxiliary_cost_mean": 0.0,
+          "auxiliary_cost_max": 0.0,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9949753282620375,
+            "tracking_y": 0.9891180125854815,
+            "tracking_yaw": 0.7149444691763246,
+            "reference_pose": -0.009476535818093663,
+            "reference_height": -0.0016981223224464806,
+            "orientation": -0.0018040853868146328,
+            "phase_clearance": -0.04129495259627533,
+            "phase_support": -0.01512303606422289,
+            "sensor_vertical_velocity": -0.0030163934127585145,
+            "ang_vel_xy": -0.0017744356226130562
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.6221428674299845,
+          "recorded_term_subtotal_after_auxiliary_min": 2.3854982009458574
+        },
+        "full_30s": {
+          "cross_m_end": 0.0,
+          "heading_rad_end": -0.0,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 0.0,
+          "auxiliary_cost_mean": 0.0,
+          "auxiliary_cost_max": 0.0,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9941476786378204,
+            "tracking_y": 0.985070602919096,
+            "tracking_yaw": 0.7165798480572139,
+            "reference_pose": -0.009754072438353512,
+            "reference_height": -0.001983552983161417,
+            "orientation": -0.002222714165919634,
+            "phase_clearance": -0.04288572043899693,
+            "phase_support": -0.017752089471206715,
+            "sensor_vertical_velocity": -0.0032164210699515794,
+            "ang_vel_xy": -0.002082422658050774
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.61297825657961,
+          "recorded_term_subtotal_after_auxiliary_min": 1.9596558341123678
+        },
+        "late_20_to_30": {
+          "cross_m_end": 0.0,
+          "heading_rad_end": -0.0,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 0.0,
+          "auxiliary_cost_mean": 0.0,
+          "auxiliary_cost_max": 0.0,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9933829134244924,
+            "tracking_y": 0.9841172999195883,
+            "tracking_yaw": 0.722380102445741,
+            "reference_pose": -0.009872842294484648,
+            "reference_height": -0.002125792019665835,
+            "orientation": -0.0023965390095865517,
+            "phase_clearance": -0.042295987306775314,
+            "phase_support": -0.01929526335941982,
+            "sensor_vertical_velocity": -0.00352830579091721,
+            "ang_vel_xy": -0.002213732185526626
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.6152108213821603,
+          "recorded_term_subtotal_after_auxiliary_min": 2.2107950940363783
+        }
+      }
+    },
+    "CK2498": {
+      "forward_fast": {
+        "first_second": {
+          "cross_m_end": -0.001372851082123816,
+          "heading_rad_end": -0.004282996524125338,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 4.061515437331664e-05,
+          "auxiliary_cost_mean": 4.061515437331664e-05,
+          "auxiliary_cost_max": 9.172029094770551e-05,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.8988198727161694,
+            "tracking_y": 0.9997635797384217,
+            "tracking_yaw": 0.7933141650747007,
+            "reference_pose": -0.06654348772696016,
+            "reference_height": 0.0,
+            "orientation": -0.000249052765492249,
+            "phase_clearance": -2.3481830622434563e-05,
+            "phase_support": -0.0006000000000000002,
+            "sensor_vertical_velocity": -0.00021056058707954496,
+            "ang_vel_xy": -8.901640554047047e-05
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.622837283865593,
+          "recorded_term_subtotal_after_auxiliary_min": 1.384512883779103
+        },
+        "seconds_2_to_4": {
+          "cross_m_end": -0.0252260509878397,
+          "heading_rad_end": -0.025913678109645844,
+          "cross_cost_mean": 0.0005621375656538703,
+          "heading_cost_mean": 0.002505425180308521,
+          "auxiliary_cost_mean": 0.0030675627459623906,
+          "auxiliary_cost_max": 0.005403058789670468,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9997045836896042,
+            "tracking_y": 0.9997812757616761,
+            "tracking_yaw": 0.7953621996344592,
+            "reference_pose": -0.13708918121526092,
+            "reference_height": 0.0,
+            "orientation": -0.0009086704765458441,
+            "phase_clearance": -2.205557029786361e-05,
+            "phase_support": 0.0,
+            "sensor_vertical_velocity": -3.772897379771571e-08,
+            "ang_vel_xy": -2.6842898396358706e-07
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.653129388331377,
+          "recorded_term_subtotal_after_auxiliary_min": 2.6140290611311094
+        },
+        "full_30s": {
+          "cross_m_end": -0.9716050028800964,
+          "heading_rad_end": -0.11926887184381485,
+          "cross_cost_mean": 0.29594851943981426,
+          "heading_cost_mean": 0.026231376262015008,
+          "auxiliary_cost_mean": 0.32217989570182926,
+          "auxiliary_cost_max": 0.9858738660812378,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9964945659455161,
+            "tracking_y": 0.9999187211362492,
+            "tracking_yaw": 0.797491054809454,
+            "reference_pose": -0.13405786582312518,
+            "reference_height": 0.0,
+            "orientation": -0.0008370820414816221,
+            "phase_clearance": -2.1944739577863997e-05,
+            "phase_support": -2.0000000000000005e-05,
+            "sensor_vertical_velocity": -7.082367989640581e-06,
+            "ang_vel_xy": -3.0534457937854823e-06
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.3361431094988676,
+          "recorded_term_subtotal_after_auxiliary_min": 1.384512883779103
+        },
+        "late_20_to_30": {
+          "cross_m_end": -0.9716050028800964,
+          "heading_rad_end": -0.11926887184381485,
+          "cross_cost_mean": 0.6454778512001038,
+          "heading_cost_mean": 0.0534665229856968,
+          "auxiliary_cost_mean": 0.6989443741858006,
+          "auxiliary_cost_max": 0.9858738660812378,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9998204829586688,
+            "tracking_y": 0.9999997963989908,
+            "tracking_yaw": 0.7987636739424744,
+            "reference_pose": -0.1353964390384296,
+            "reference_height": 0.0,
+            "orientation": -0.0008031858073237769,
+            "phase_clearance": -2.1556363517075042e-05,
+            "phase_support": 0.0,
+            "sensor_vertical_velocity": -9.14152171104251e-10,
+            "ang_vel_xy": -5.032726361964831e-10
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 1.962817345938018,
+          "recorded_term_subtotal_after_auxiliary_min": 1.6759341065884257
+        }
+      },
+      "lateral_strong_positive": {
+        "first_second": {
+          "cross_m_end": 0.001696797669865191,
+          "heading_rad_end": 0.01730991154909134,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 0.0003700586185822346,
+          "auxiliary_cost_mean": 0.0003700586185822346,
+          "auxiliary_cost_max": 0.0014981651678681374,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9680457520443423,
+            "tracking_y": 0.9150882224672736,
+            "tracking_yaw": 0.6572853608288203,
+            "reference_pose": -0.020345023850815474,
+            "reference_height": -0.00802339828333944,
+            "orientation": -0.006314954798049861,
+            "phase_clearance": -0.06573480703952979,
+            "phase_support": -0.08484739245126262,
+            "sensor_vertical_velocity": -0.01389051277956368,
+            "ang_vel_xy": -0.011329359341540765
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.316501341385207,
+          "recorded_term_subtotal_after_auxiliary_min": 1.1039828592949428
+        },
+        "seconds_2_to_4": {
+          "cross_m_end": 0.026213059201836586,
+          "heading_rad_end": 0.031743988394737244,
+          "cross_cost_mean": 0.000886278426842182,
+          "heading_cost_mean": 0.004285938272252679,
+          "auxiliary_cost_mean": 0.0051722166990948604,
+          "auxiliary_cost_max": 0.007889694720506669,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9873742146612835,
+            "tracking_y": 0.9624799890974312,
+            "tracking_yaw": 0.7235873292808259,
+            "reference_pose": -0.01893397037440684,
+            "reference_height": -0.0010267036468863025,
+            "orientation": -0.008560793716633123,
+            "phase_clearance": -0.03322892795739905,
+            "phase_support": -0.01635500460480239,
+            "sensor_vertical_velocity": -0.009000897340026917,
+            "ang_vel_xy": -0.010582680187621176
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.551820569003881,
+          "recorded_term_subtotal_after_auxiliary_min": 1.8729474912684112
+        },
+        "full_30s": {
+          "cross_m_end": 1.6199216842651367,
+          "heading_rad_end": 0.3793013393878937,
+          "cross_cost_mean": 0.46598858531848214,
+          "heading_cost_mean": 0.13341306727833124,
+          "auxiliary_cost_mean": 0.5994016525968134,
+          "auxiliary_cost_max": 1.8942229032516482,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9840399235102167,
+            "tracking_y": 0.960749214314189,
+            "tracking_yaw": 0.7156874611499449,
+            "reference_pose": -0.019347837311057145,
+            "reference_height": -0.0013951756449190596,
+            "orientation": -0.008333805676541841,
+            "phase_clearance": -0.033368097366483246,
+            "phase_support": -0.023087407172170733,
+            "sensor_vertical_velocity": -0.009196917957232946,
+            "ang_vel_xy": -0.011020095040182705
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 1.9399515587226772,
+          "recorded_term_subtotal_after_auxiliary_min": 0.34589138817346843
+        },
+        "late_20_to_30": {
+          "cross_m_end": 1.6199216842651367,
+          "heading_rad_end": 0.3793013393878937,
+          "cross_cost_mean": 1.0581476812362671,
+          "heading_cost_mean": 0.2647147134304047,
+          "auxiliary_cost_mean": 1.322862394666672,
+          "auxiliary_cost_max": 1.8942229032516482,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9833981141747377,
+            "tracking_y": 0.9610554896956336,
+            "tracking_yaw": 0.7165307227079117,
+            "reference_pose": -0.01950608496154571,
+            "reference_height": -0.0011713525466057301,
+            "orientation": -0.008144524644719915,
+            "phase_clearance": -0.03248596343523672,
+            "phase_support": -0.021066584710471348,
+            "sensor_vertical_velocity": -0.00901916408737486,
+            "ang_vel_xy": -0.011007011853955034
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 1.2199324615871914,
+          "recorded_term_subtotal_after_auxiliary_min": 0.34589138817346843
+        }
+      },
+      "lateral_strong_negative": {
+        "first_second": {
+          "cross_m_end": 0.004302454646676779,
+          "heading_rad_end": -0.010478729382157326,
+          "cross_cost_mean": 2.5250177196767255e-06,
+          "heading_cost_mean": 0.00025571456731366733,
+          "auxiliary_cost_mean": 0.0002582395850333441,
+          "auxiliary_cost_max": 0.0008995754644274712,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9741467122230628,
+            "tracking_y": 0.9272951959312288,
+            "tracking_yaw": 0.723268089254374,
+            "reference_pose": -0.01827817392710577,
+            "reference_height": -0.0012165488418455035,
+            "orientation": -0.008312379175253364,
+            "phase_clearance": -0.06100607351725624,
+            "phase_support": -0.047106581546264764,
+            "sensor_vertical_velocity": -0.006172921365530123,
+            "ang_vel_xy": -0.011882435595990178
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.4614086856325343,
+          "recorded_term_subtotal_after_auxiliary_min": 1.2200373526762873
+        },
+        "seconds_2_to_4": {
+          "cross_m_end": -0.027317184954881668,
+          "heading_rad_end": -0.05025576800107956,
+          "cross_cost_mean": 0.0006124085099511376,
+          "heading_cost_mean": 0.008888530526310204,
+          "auxiliary_cost_mean": 0.009500939036261345,
+          "auxiliary_cost_max": 0.01529432274401188,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9815025001472819,
+            "tracking_y": 0.9605250694688121,
+            "tracking_yaw": 0.7189499404642667,
+            "reference_pose": -0.02026152829303509,
+            "reference_height": -0.001282834863802784,
+            "orientation": -0.009042144967917954,
+            "phase_clearance": -0.03353812985348585,
+            "phase_support": -0.01965237988246019,
+            "sensor_vertical_velocity": -0.01053982992612777,
+            "ang_vel_xy": -0.011139704726430904
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.5226215975270136,
+          "recorded_term_subtotal_after_auxiliary_min": 1.6635962681722092
+        },
+        "full_30s": {
+          "cross_m_end": -1.8262193202972412,
+          "heading_rad_end": -0.3811393976211548,
+          "cross_cost_mean": 0.5642653704646401,
+          "heading_cost_mean": 0.15750232962211377,
+          "auxiliary_cost_mean": 0.7217677000867538,
+          "auxiliary_cost_max": 2.102358651161194,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.982815091364524,
+            "tracking_y": 0.9608924317101858,
+            "tracking_yaw": 0.7166574035763729,
+            "reference_pose": -0.019566425746021947,
+            "reference_height": -0.0012893403473017817,
+            "orientation": -0.008652142442086806,
+            "phase_clearance": -0.03317286268308215,
+            "phase_support": -0.021000393297350956,
+            "sensor_vertical_velocity": -0.009087418351629614,
+            "ang_vel_xy": -0.011235062860492112
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 1.8187493734622437,
+          "recorded_term_subtotal_after_auxiliary_min": 0.24495760131549948
+        },
+        "late_20_to_30": {
+          "cross_m_end": -1.8262193202972412,
+          "heading_rad_end": -0.3811393976211548,
+          "cross_cost_mean": 1.2476710372924806,
+          "heading_cost_mean": 0.2811204951286316,
+          "auxiliary_cost_mean": 1.528791532421112,
+          "auxiliary_cost_max": 2.102358651161194,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9827306536173991,
+            "tracking_y": 0.9603571395848445,
+            "tracking_yaw": 0.7200039546388607,
+            "reference_pose": -0.019593024915948328,
+            "reference_height": -0.0012999213147043306,
+            "orientation": -0.008729608373883323,
+            "phase_clearance": -0.03250014317268789,
+            "phase_support": -0.0198787515836775,
+            "sensor_vertical_velocity": -0.00908698963362707,
+            "ang_vel_xy": -0.011062705115116166
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 1.016430024733688,
+          "recorded_term_subtotal_after_auxiliary_min": 0.24495760131549948
+        }
+      },
+      "stand": {
+        "first_second": {
+          "cross_m_end": 0.0,
+          "heading_rad_end": 0.0,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 0.0,
+          "auxiliary_cost_mean": 0.0,
+          "auxiliary_cost_max": 0.0,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9946372931466136,
+            "tracking_y": 0.9999938578823755,
+            "tracking_yaw": 0.7999748638287807,
+            "reference_pose": -0.023844433408268077,
+            "reference_height": 0.0,
+            "orientation": -0.0002771450706719069,
+            "phase_clearance": -1.8073214050019542e-05,
+            "phase_support": 0.0,
+            "sensor_vertical_velocity": -0.0012741837085738462,
+            "ang_vel_xy": -4.012494963791681e-05
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.7686470873478357,
+          "recorded_term_subtotal_after_auxiliary_min": 2.737837069069201
+        },
+        "seconds_2_to_4": {
+          "cross_m_end": 0.0,
+          "heading_rad_end": 0.0,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 0.0,
+          "auxiliary_cost_mean": 0.0,
+          "auxiliary_cost_max": 0.0,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9986355553156723,
+            "tracking_y": 0.9994815999960671,
+            "tracking_yaw": 0.7931360652203959,
+            "reference_pose": -0.03519217502244318,
+            "reference_height": 0.0,
+            "orientation": -0.00010165517352643732,
+            "phase_clearance": -2.2590060195578217e-05,
+            "phase_support": 0.0,
+            "sensor_vertical_velocity": -6.343060042943584e-08,
+            "ang_vel_xy": -8.543330796158735e-07
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.755539604889516,
+          "recorded_term_subtotal_after_auxiliary_min": 2.7402002414235933
+        },
+        "full_30s": {
+          "cross_m_end": 0.0,
+          "heading_rad_end": 0.0,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 0.0,
+          "auxiliary_cost_mean": 0.0,
+          "auxiliary_cost_max": 0.0,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9951008063203957,
+            "tracking_y": 0.9999508614166974,
+            "tracking_yaw": 0.7974287853020717,
+            "reference_pose": -0.055040161054422596,
+            "reference_height": 0.0,
+            "orientation": -0.0003669655782056449,
+            "phase_clearance": -2.181258577957353e-05,
+            "phase_support": 0.0,
+            "sensor_vertical_velocity": -4.2488860967554714e-05,
+            "ang_vel_xy": -1.4401977895296062e-06
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.7364810401177473,
+          "recorded_term_subtotal_after_auxiliary_min": 2.724609886004034
+        },
+        "late_20_to_30": {
+          "cross_m_end": 0.0,
+          "heading_rad_end": 0.0,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 0.0,
+          "auxiliary_cost_mean": 0.0,
+          "auxiliary_cost_max": 0.0,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9935554696470136,
+            "tracking_y": 0.9999846592826944,
+            "tracking_yaw": 0.7976265682499516,
+            "reference_pose": -0.06460561070971403,
+            "reference_height": 0.0,
+            "orientation": -0.00044211443275418775,
+            "phase_clearance": -2.1896185094405594e-05,
+            "phase_support": 0.0,
+            "sensor_vertical_velocity": -9.931102622051008e-12,
+            "ang_vel_xy": -2.9919408069811465e-10
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.7255254016020536,
+          "recorded_term_subtotal_after_auxiliary_min": 2.724609886004034
+        }
+      },
+      "yaw_strong_positive": {
+        "first_second": {
+          "cross_m_end": 0.0,
+          "heading_rad_end": 0.0,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 0.0,
+          "auxiliary_cost_mean": 0.0,
+          "auxiliary_cost_max": 0.0,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9812043894048554,
+            "tracking_y": 0.9894138190372811,
+            "tracking_yaw": 0.7094682864866645,
+            "reference_pose": -0.011979766981178593,
+            "reference_height": -0.002040959615666138,
+            "orientation": -0.002233208583467667,
+            "phase_clearance": -0.05547226968555713,
+            "phase_support": -0.024263427771291524,
+            "sensor_vertical_velocity": -0.00258939591114975,
+            "ang_vel_xy": -0.0029010740547003346
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.5677167167368844,
+          "recorded_term_subtotal_after_auxiliary_min": 2.0634303230350293
+        },
+        "seconds_2_to_4": {
+          "cross_m_end": 0.0,
+          "heading_rad_end": -0.0,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 0.0,
+          "auxiliary_cost_mean": 0.0,
+          "auxiliary_cost_max": 0.0,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9925644766955135,
+            "tracking_y": 0.9930021088411646,
+            "tracking_yaw": 0.7427846771429186,
+            "reference_pose": -0.012330990941110825,
+            "reference_height": -0.0026694764299093707,
+            "orientation": -0.0035469987361397585,
+            "phase_clearance": -0.044767758444419485,
+            "phase_support": -0.012536106118058984,
+            "sensor_vertical_velocity": -0.0031854027456064892,
+            "ang_vel_xy": -0.0036377283890897372
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.6349468491507797,
+          "recorded_term_subtotal_after_auxiliary_min": 2.4732286726516834
+        },
+        "full_30s": {
+          "cross_m_end": 0.0,
+          "heading_rad_end": -0.0,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 0.0,
+          "auxiliary_cost_mean": 0.0,
+          "auxiliary_cost_max": 0.0,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9926886308530479,
+            "tracking_y": 0.9940701547038793,
+            "tracking_yaw": 0.7399798414144998,
+            "reference_pose": -0.012598217176302735,
+            "reference_height": -0.003353617936379737,
+            "orientation": -0.003282102292536359,
+            "phase_clearance": -0.044116723454766846,
+            "phase_support": -0.02054883445995294,
+            "sensor_vertical_velocity": -0.0028337306486472197,
+            "ang_vel_xy": -0.003262099203931121
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.6258605612628636,
+          "recorded_term_subtotal_after_auxiliary_min": 1.974959227977428
+        },
+        "late_20_to_30": {
+          "cross_m_end": 0.0,
+          "heading_rad_end": -0.0,
+          "cross_cost_mean": 0.0,
+          "heading_cost_mean": 0.0,
+          "auxiliary_cost_mean": 0.0,
+          "auxiliary_cost_max": 0.0,
+          "retained_rates_parent_objective": {
+            "tracking_x": 0.9931653680264099,
+            "tracking_y": 0.994888183024093,
+            "tracking_yaw": 0.7403084163182034,
+            "reference_pose": -0.012567946382924315,
+            "reference_height": -0.003423527459624187,
+            "orientation": -0.0031868713641027275,
+            "phase_clearance": -0.044136958914037766,
+            "phase_support": -0.020329353697204414,
+            "sensor_vertical_velocity": -0.0027972264190098193,
+            "ang_vel_xy": -0.003163075217364208
+          },
+          "recorded_term_subtotal_after_auxiliary_mean": 2.6282328398876333,
+          "recorded_term_subtotal_after_auxiliary_min": 1.974959227977428
+        }
+      }
+    }
+  },
+  "synthetic_calibration": {
+    "ideal": {
+      "first_second": {
+        "cross_m_end": 0.0,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.0,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.0,
+        "auxiliary_cost_max": 0.0,
+        "tracking_rate_mean": 2.8000000000000007
+      },
+      "seconds_2_to_4": {
+        "cross_m_end": 0.0,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.0,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.0,
+        "auxiliary_cost_max": 0.0,
+        "tracking_rate_mean": 2.8000000000000007
+      },
+      "full_30s": {
+        "cross_m_end": 0.0,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.0,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.0,
+        "auxiliary_cost_max": 0.0,
+        "tracking_rate_mean": 2.8
+      },
+      "late_20_to_30": {
+        "cross_m_end": 0.0,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.0,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.0,
+        "auxiliary_cost_max": 0.0,
+        "tracking_rate_mean": 2.8
+      }
+    },
+    "stopped_on_line": {
+      "first_second": {
+        "cross_m_end": 0.0,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.0,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.0,
+        "auxiliary_cost_max": 0.0,
+        "tracking_rate_mean": 1.0499999999999998
+      },
+      "seconds_2_to_4": {
+        "cross_m_end": 0.0,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.0,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.0,
+        "auxiliary_cost_max": 0.0,
+        "tracking_rate_mean": 1.05
+      },
+      "full_30s": {
+        "cross_m_end": 0.0,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.0,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.0,
+        "auxiliary_cost_max": 0.0,
+        "tracking_rate_mean": 1.0500000000000003
+      },
+      "late_20_to_30": {
+        "cross_m_end": 0.0,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.0,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.0,
+        "auxiliary_cost_max": 0.0,
+        "tracking_rate_mean": 1.0500000000000003
+      }
+    },
+    "lagged_on_line": {
+      "first_second": {
+        "cross_m_end": 0.0,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.0,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.0,
+        "auxiliary_cost_max": 0.0,
+        "tracking_rate_mean": 1.75
+      },
+      "seconds_2_to_4": {
+        "cross_m_end": 0.0,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.0,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.0,
+        "auxiliary_cost_max": 0.0,
+        "tracking_rate_mean": 2.8000000000000007
+      },
+      "full_30s": {
+        "cross_m_end": 0.0,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.0,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.0,
+        "auxiliary_cost_max": 0.0,
+        "tracking_rate_mean": 2.765
+      },
+      "late_20_to_30": {
+        "cross_m_end": 0.0,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.0,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.0,
+        "auxiliary_cost_max": 0.0,
+        "tracking_rate_mean": 2.8
+      }
+    },
+    "backwards_on_line": {
+      "first_second": {
+        "cross_m_end": 0.0,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.0,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.0,
+        "auxiliary_cost_max": 0.0,
+        "tracking_rate_mean": -0.9500000000000002
+      },
+      "seconds_2_to_4": {
+        "cross_m_end": 0.0,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.0,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.0,
+        "auxiliary_cost_max": 0.0,
+        "tracking_rate_mean": -0.95
+      },
+      "full_30s": {
+        "cross_m_end": 0.0,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.0,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.0,
+        "auxiliary_cost_max": 0.0,
+        "tracking_rate_mean": -0.95
+      },
+      "late_20_to_30": {
+        "cross_m_end": 0.0,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.0,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.0,
+        "auxiliary_cost_max": 0.0,
+        "tracking_rate_mean": -0.9499999999999997
+      }
+    },
+    "yaw_bias_01": {
+      "first_second": {
+        "cross_m_end": 0.0024999792221933603,
+        "heading_rad_end": 0.010000000707805157,
+        "cross_cost_mean": 0.0,
+        "heading_cost_mean": 0.00016753334965146396,
+        "auxiliary_cost_mean": 0.00016753334965146396,
+        "auxiliary_cost_max": 0.0005000000819563866,
+        "tracking_rate_mean": 2.788865363169109
+      },
+      "seconds_2_to_4": {
+        "cross_m_end": 0.03999466821551323,
+        "heading_rad_end": 0.03999999910593033,
+        "cross_cost_mean": 0.002087931038928218,
+        "heading_cost_mean": 0.0046966996975243095,
+        "auxiliary_cost_mean": 0.006784630736452528,
+        "auxiliary_cost_max": 0.014123132824897766,
+        "tracking_rate_mean": 2.788865363169109
+      },
+      "full_30s": {
+        "cross_m_end": 2.23317551612854,
+        "heading_rad_end": 0.29999998211860657,
+        "cross_cost_mean": 0.698706892246638,
+        "heading_cost_mean": 0.10563875944854802,
+        "auxiliary_cost_mean": 0.804345651695186,
+        "auxiliary_cost_max": 2.4281753301620483,
+        "tracking_rate_mean": 2.7888653631691085
+      },
+      "late_20_to_30": {
+        "cross_m_end": 2.23317551612854,
+        "heading_rad_end": 0.29999998211860657,
+        "cross_cost_mean": 1.5207986961364748,
+        "heading_cost_mean": 0.20009999699592593,
+        "auxiliary_cost_mean": 1.7208986931324004,
+        "auxiliary_cost_max": 2.4281753301620483,
+        "tracking_rate_mean": 2.7888653631691085
+      }
+    },
+    "cross_bias_01": {
+      "first_second": {
+        "cross_m_end": 0.009999999776482582,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 2.21000006677059e-05,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 2.21000006677059e-05,
+        "auxiliary_cost_max": 0.0001249999855645001,
+        "tracking_rate_mean": 2.7842676450044688
+      },
+      "seconds_2_to_4": {
+        "cross_m_end": 0.03999999910593033,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.003316700110211968,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.003316700110211968,
+        "auxiliary_cost_max": 0.00612499974668026,
+        "tracking_rate_mean": 2.78426764500447
+      },
+      "full_30s": {
+        "cross_m_end": 0.30000001192092896,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.10151223381760927,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.10151223381760927,
+        "auxiliary_cost_max": 0.24500000476837158,
+        "tracking_rate_mean": 2.784267645004469
+      },
+      "late_20_to_30": {
+        "cross_m_end": 0.30000001192092896,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.19510000128746036,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.19510000128746036,
+        "auxiliary_cost_max": 0.24500000476837158,
+        "tracking_rate_mean": 2.784267645004469
+      }
+    },
+    "lateral_switch_transient": {
+      "first_second": {
+        "cross_m_end": -0.12271054834127426,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.041622514956478875,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.041622514956478875,
+        "auxiliary_cost_max": 0.06771054267883302,
+        "tracking_rate_mean": 2.072215548095978
+      },
+      "seconds_2_to_4": {
+        "cross_m_end": -0.1249999850988388,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.06999496209621428,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.06999496209621428,
+        "auxiliary_cost_max": 0.06999998092651367,
+        "tracking_rate_mean": 2.799999667785356
+      },
+      "full_30s": {
+        "cross_m_end": -0.125,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.06903575144586578,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.06903575144586578,
+        "auxiliary_cost_max": 0.06999999284744263,
+        "tracking_rate_mean": 2.7756750340004244
+      },
+      "late_20_to_30": {
+        "cross_m_end": -0.125,
+        "heading_rad_end": 0.0,
+        "cross_cost_mean": 0.06999999284744263,
+        "heading_cost_mean": 0.0,
+        "auxiliary_cost_mean": 0.06999999284744263,
+        "auxiliary_cost_max": 0.06999999284744263,
+        "tracking_rate_mean": 2.8
+      }
+    }
+  },
+  "error_landmarks": [
+    {
+      "cross_m": 0,
+      "heading_rad": 0,
+      "auxiliary_rate": 0.0,
+      "per_tick_cost": 0.0,
+      "infinite_discounted_cost_at_fixed_error": 0.0
+    },
+    {
+      "cross_m": 0.005,
+      "heading_rad": 0,
+      "auxiliary_rate": 0.0,
+      "per_tick_cost": 0.0,
+      "infinite_discounted_cost_at_fixed_error": 0.0
+    },
+    {
+      "cross_m": 0.05,
+      "heading_rad": 0.03490658503988659,
+      "auxiliary_rate": 0.016217347680478437,
+      "per_tick_cost": 0.00032434695360956874,
+      "infinite_discounted_cost_at_fixed_error": 0.0648693907219137
+    },
+    {
+      "cross_m": 0.1,
+      "heading_rad": 0.1,
+      "auxiliary_rate": 0.09512499868869782,
+      "per_tick_cost": 0.0019024999737739564,
+      "infinite_discounted_cost_at_fixed_error": 0.38049999475479096
+    },
+    {
+      "cross_m": 0.5,
+      "heading_rad": 0.1,
+      "auxiliary_rate": 0.4949999809265137,
+      "per_tick_cost": 0.009899999618530273,
+      "infinite_discounted_cost_at_fixed_error": 1.979999923706053
+    },
+    {
+      "cross_m": 1.8,
+      "heading_rad": 0.38,
+      "auxiliary_rate": 2.075000071525574,
+      "per_tick_cost": 0.04150000143051148,
+      "infinite_discounted_cost_at_fixed_error": 8.30000028610229
+    },
+    {
+      "cross_m": 3.0,
+      "heading_rad": 1.0,
+      "auxiliary_rate": 3.895000076293946,
+      "per_tick_cost": 0.07790000152587892,
+      "infinite_discounted_cost_at_fixed_error": 15.580000305175771
+    },
+    {
+      "cross_m": 5.0,
+      "heading_rad": 3.141592653589793,
+      "auxiliary_rate": 8.036592674255372,
+      "per_tick_cost": 0.16073185348510743,
+      "infinite_discounted_cost_at_fixed_error": 32.14637069702146
+    }
+  ],
+  "termination_comparison": {
+    "discrete_penalty": -5.0,
+    "discount_effective_seconds": 3.9999999999999964,
+    "caveat": "Unbounded Huber costs remain sensitive at large errors. Very large excursions can outweigh the -5 terminal cost over time; falling also loses positive tracking reward and incurs other costs. Neither a magnitudes comparison nor retained-state rescoring predicts reset seeking or learning gradients."
+  },
+  "prospective_sampling": {
+    "samples": 50000,
+    "seed": 20261008,
+    "kind": "Prospective independent segment sampling; no simulator, episode interruption, or historical occupancy",
+    "families": {
+      "stand": {
+        "count": 7599,
+        "segment_share": 0.15197999775409698,
+        "time_share": 0.17101642489433289,
+        "duration_mean_s": 2.7442479133605957,
+        "long_count": 303,
+        "extended_count": 115
+      },
+      "straight": {
+        "count": 9870,
+        "segment_share": 0.19740000367164612,
+        "time_share": 0.15957477688789368,
+        "duration_mean_s": 1.971464991569519,
+        "long_count": 406,
+        "extended_count": 146
+      },
+      "arc": {
+        "count": 3595,
+        "segment_share": 0.07190000265836716,
+        "time_share": 0.055683013051748276,
+        "duration_mean_s": 1.8887121677398682,
+        "long_count": 115,
+        "extended_count": 55
+      },
+      "yaw": {
+        "count": 9796,
+        "segment_share": 0.19592000544071198,
+        "time_share": 0.205942302942276,
+        "duration_mean_s": 2.5635318756103516,
+        "long_count": 0,
+        "extended_count": 0
+      },
+      "precision": {
+        "count": 5124,
+        "segment_share": 0.10248000174760818,
+        "time_share": 0.04991191253066063,
+        "duration_mean_s": 1.187782883644104,
+        "long_count": 0,
+        "extended_count": 0
+      },
+      "lateral": {
+        "count": 9924,
+        "segment_share": 0.19847999513149261,
+        "time_share": 0.2701309025287628,
+        "duration_mean_s": 3.319169759750366,
+        "long_count": 379,
+        "extended_count": 150
+      },
+      "mixed": {
+        "count": 4092,
+        "segment_share": 0.08184000104665756,
+        "time_share": 0.08774072676897049,
+        "duration_mean_s": 2.6146137714385986,
+        "long_count": 0,
+        "extended_count": 0
+      }
+    },
+    "lateral_signs": {
+      "positive": {
+        "count": 4972,
+        "short_le1s": 662,
+        "long_8_15s": 193,
+        "extended_20_30s": 87,
+        "small_02_05": 445,
+        "duration_p10_p50_p90_p99": [
+          0.8799999952316284,
+          2.8399999141693115,
+          3.8999998569488525,
+          24.577402114868164
+        ]
+      },
+      "negative": {
+        "count": 4952,
+        "short_le1s": 664,
+        "long_8_15s": 186,
+        "extended_20_30s": 63,
+        "small_02_05": 422,
+        "duration_p10_p50_p90_p99": [
+          0.8799999952316284,
+          2.879999876022339,
+          3.879999876022339,
+          21.737655639648438
+        ]
+      }
+    },
+    "tier_segment_share": [
+      0.8509399890899658,
+      0.07509999722242355,
+      0.07395999878644943
+    ],
+    "tier_time_share": [
+      0.8415771722793579,
+      0.07682179659605026,
+      0.0816010907292366
+    ]
+  },
+  "limitations": [
+    "Offline rescoring of old states, never a new rollout or improvement claim.",
+    "Only one chosen parameter set. Long-hold line supervision cannot supply hidden path offset to the actor.",
+    "Straight scope uses the issued command after existing sampler deadzones; fixed/replay intentional nonzero yaw is not broadened into a straight segment.",
+    "Forward/lateral retained traces calibrate costs; reverse/diagonal are synthetic geometry only."
+  ],
+  "validation": {
+    "focused_test_count": 28,
+    "result": "PASS",
+    "native_smoke_count": 1,
+    "smoke": {
+      "kind": "Execution only, not locomotion qualification",
+      "reset_events": 2272,
+      "partial_reset_calls": 121,
+      "timeout_events": 147,
+      "checked_policy_ticks": 128,
+      "updates": [
+        {
+          "loss": {
+            "value": 0.9587572127580642,
+            "surrogate": 0.16476817503571511,
+            "entropy": 8.094236350059509,
+            "symmetry": 0.011588326911441982
+          },
+          "normalizer_counts": {
+            "actor": 262144,
+            "critic": 262144
+          }
+        },
+        {
+          "loss": {
+            "value": 1.2968976348638535,
+            "surrogate": 0.07882342394441366,
+            "entropy": 8.172114753723145,
+            "symmetry": 0.002613324856793042
+          },
+          "normalizer_counts": {
+            "actor": 524288,
+            "critic": 524288
+          }
+        }
+      ],
+      "before": {
+        "checkpoint": null,
+        "iteration": 0,
+        "optimizer_states": 0,
+        "normalizer_counts": {
+          "actor": 0,
+          "critic": 0
+        },
+        "actor_input": 58,
+        "critic_input": 65,
+        "std": 0.4,
+        "saved_config_effective": true,
+        "actor_and_export_isolation": true,
+        "runtime_scales": {
+          "ang_vel_xy": -0.0015,
+          "contact_safety": -0.04,
+          "dof_pos_limits": -0.04,
+          "insufficient_support": -0.01,
+          "lateral_wheel_scrub": -0.004,
+          "leg_action_rate": -0.0002,
+          "normalized_effort": -0.0006,
+          "orientation": -0.08,
+          "phase_clearance": -0.02,
+          "phase_support": -0.01,
+          "reference_height": -0.02,
+          "reference_pose": -0.01,
+          "sensor_vertical_velocity": -0.02,
+          "straight_cross_track": -0.002,
+          "straight_heading": -0.002,
+          "termination": -5.0,
+          "torque_limits": -0.01,
+          "tracking_x": 0.02,
+          "tracking_y": 0.02,
+          "tracking_yaw": 0.016,
+          "wheel_action_rate": -0.0001,
+          "wheel_corridor": -0.01,
+          "wheel_rate_zero": -0.002
+        }
+      },
+      "after": {
+        "iteration_label": 1,
+        "completed_updates": 2,
+        "normalizer_counts": {
+          "actor": 524288,
+          "critic": 524288
+        },
+        "adam_steps": [
+          80
+        ],
+        "learning_rate": 0.0003,
+        "critic_reference_column_max_change": 0.019428681582212448,
+        "model_tensors_finite": true,
+        "actor_normalizer_dim": 58,
+        "critic_normalizer_dim": 65,
+        "runtime_scales": {
+          "tracking_yaw": 0.016,
+          "straight_cross_track": -0.002,
+          "straight_heading": -0.002
+        }
+      },
+      "output": "logs/go2w/straight_motion_smoke_2026-10-08_00-45-43",
+      "native_final_saved": true
+    },
+    "protected_file_count": 25,
+    "protected_files_unchanged": true,
+    "git_diff_check": "PASS"
+  },
+  "changed_files": [
+    "robot_gym/envs/go2w/go2w_config.py",
+    "robot_gym/envs/go2w/go2w_env.py",
+    "robot_gym/envs/go2w/straight_motion.py",
+    "robot_gym/envs/go2w/go2w_symmetry.py",
+    "robot_gym/envs/go2w/evaluate.py",
+    "robot_gym/envs/go2w/diagnostic_bank.py",
+    "tests/test_go2w_current_config.py",
+    "tests/test_go2w_continuation.py",
+    "tests/test_go2w_straight_motion.py",
+    "docs/go2w_training.md",
+    "docs/go2w_straight_motion_preparation_2026-10-08.json"
+  ],
+  "next_evaluation": {
+    "actor_only": true,
+    "raw_baselines_reused": true,
+    "nominal_panel": "stand 30 s; forward .5, lateral +/- .3, yaw +/- .8: 3 s zero, 30 s command, 8 s zero",
+    "priorities": [
+      "all-axis velocity tracking and responsiveness without reducing travel speed",
+      "pose-derived heading/path and full-quaternion drift decomposition",
+      "stand displacement/path and full stopping/reversals/residual motion",
+      "contact/saturation, physical clearance/unloading and posture/geometry",
+      "camera-body/imager motion as secondary metrics"
+    ],
+    "report_both": [
+      "nominal drift generation",
+      "recovery information unavailable to unchanged actor"
+    ],
+    "frozen_targets": "evaluation/consolidated_v3_preparation/frozen_targets.json",
+    "no_automatic_training_or_tuning": true
+  },
+  "unexecuted_production_command": "& 'C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\python.exe' -m robot_gym.scripts.train --task go2w --num_envs 4096 --max_iterations 2000 --seed 1 --logger tensorboard --training_diagnostics --headless --rl_device cuda:0"
+}

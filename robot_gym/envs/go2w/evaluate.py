@@ -490,7 +490,7 @@ def evaluate(args):
     with torch.no_grad():
         for name, before, after, push in cases():
             env.reset()
-            env.commands[:] = torch.tensor(before, device=env.device)
+            env.set_commands(before)
             env.compute_observations()
             obs = env.get_observations()
             initial_world_y = env.base_pos[:, 1].cpu().numpy().copy()
@@ -511,7 +511,7 @@ def evaluate(args):
             previous_velocity = env.dof_vel.clone()
             for step in range(2 * args.steps):
                 cmd = before if step < args.steps else after
-                env.commands[:] = torch.tensor(cmd, device=env.device)
+                env.set_commands(cmd)
                 env.compute_observations()
                 obs = env.get_observations()
                 if push and step == args.steps:

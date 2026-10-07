@@ -12,6 +12,7 @@ from types import SimpleNamespace
 import numpy as np
 
 from robot_gym.envs.base.base_config import BaseConfig
+from .straight_motion import CRITIC_REFERENCE_FIELDS
 
 
 SIDES = ("FL", "FR", "RL", "RR")
@@ -143,6 +144,7 @@ class GO2WCfg(BaseConfig):
             'precision_ranges': [[-0.063, 0.108], [0.0, 0.0], [-0.16, 0.16]],
         }
         holds = {
+            'eligible_families': ['stand', 'straight', 'arc', 'lateral'],
             'long_hold_probability': 0.04,
             'extended_hold_probability': 0.015,
             'long_hold_s': [8.0, 15.0],
@@ -199,7 +201,7 @@ class GO2WCfg(BaseConfig):
         num_actions = 16
         num_envs = 4096
         num_observations = 58
-        num_privileged_obs = None
+        num_privileged_obs = num_observations + len(CRITIC_REFERENCE_FIELDS)
         play_mode = False
         record_command_families = True
         send_timeouts = True
@@ -246,6 +248,18 @@ class GO2WCfg(BaseConfig):
         'randomize_reset': True,
     }
     phase_observation_mode = 'command_demand'
+    # Training supervision only. Any changed command, including speed-only,
+    # starts a segment; repeated identical values never move the reference.
+    straight_motion = {
+        'min_speed_m_s': 0.01,
+        'yaw_zero_rad_s': 1e-6,  # Numerical zero, not a small-yaw command deadzone.
+        'heading_projection_min': 1e-6,
+        'cross_tolerance_m': 0.005,
+        'cross_scale_m': 0.10,
+        'heading_scale_rad': 0.10,
+        'ramp_s': 0.5,
+        'critic_time_scale_s': 30.0,
+    }
     class rewards:
         # Reward rates; the shared accumulator applies policy dt exactly once.
         # Termination is the sole discrete event penalty.
@@ -287,11 +301,13 @@ class GO2WCfg(BaseConfig):
             reference_height = -1.0
             reference_pose = -0.5
             sensor_vertical_velocity = -1.0
+            straight_cross_track = -0.1
+            straight_heading = -0.1
             termination = -5.0
             torque_limits = -0.5
             tracking_x = 1.0
             tracking_y = 1.0
-            tracking_yaw = 1.2
+            tracking_yaw = 0.8
             wheel_action_rate = -0.005
             wheel_corridor = -0.5
             wheel_rate_zero = -0.1
@@ -395,7 +411,7 @@ class GO2WCfg(BaseConfig):
         visualize_foot_contacts = False
         visualize_velocity_arrows = False
 
-    config_version = 1
+    config_version = 2  # Relative geometric rewards and 58+7 asymmetric critic.
 
 
 class GO2WCfgPPO(BaseConfig):
@@ -455,7 +471,7 @@ class GO2WCfgPPO(BaseConfig):
         logger = 'tensorboard'
         max_iterations = 2000
         num_steps_per_env = 64
-        obs_groups = {'actor': ['policy'], 'critic': ['policy']}
+        obs_groups = {'actor': ['policy'], 'critic': ['critic']}
         resume = False
         resume_path = None
         run_name = ''
@@ -490,26 +506,14 @@ def add_arguments(parser):
 def restore_saved_config(saved):
     """Restore complete supported settings, never fill missing physics with defaults.
 
-    The former prepared reference-tracking snapshots use the same mechanisms.
-    Only their structural names are translated; no historical numeric presets live here.
-    Earlier reward/sampler contracts require their historical source checkout.
+    Schema 2 deliberately changes training rewards and critic inputs. Old models
+    require their source checkout; retained raw traces remain comparison evidence.
     """
     from robot_gym.utils.helpers import class_to_dict
 
     data = copy.deepcopy(saved)
     env = data["env_cfg"]
-    if env.get("config_version") != 1:
-        if (env.get("go2w_recipe") != "reference_tracking_v1"
-                or env.get("go2w_profile") != "transfer_v3"
-                or "reference_tracking_sampling" not in env.get("commands", {})
-                or "push_force_mixture" not in env.get("domain_rand", {})):
-            raise ValueError("Unsupported historical Go2-W configuration: use its historical source checkout; current defaults will not be substituted")
-        if (env["commands"]["moving_long_duration_range"][0]
-                != env["sensor_smooth"]["long_hold_s"][0]):
-            raise ValueError("Unsupported saved command-duration contract; use its historical source checkout")
-        env["config_version"] = 1
-        env["commands"]["sampling"] = env["commands"]["reference_tracking_sampling"]
-        env["commands"]["holds"] = {k: v for k, v in env["sensor_smooth"].items() if k != "hip_weight"}
+    validate_schema(env)
     active = {k for k, v in env["rewards"]["scales"].items() if v}
     expected = set(class_to_dict(GO2WCfg().rewards.scales))
     if active != expected or env.get("phase_observation_mode") != "command_demand":
@@ -522,6 +526,8 @@ def restore_saved_config(saved):
             if key not in values:
                 raise ValueError(f"Incomplete saved Go2-W config: missing {path}.{key}")
             value = values[key]
+            if isinstance(shape, dict) and isinstance(value, dict) and not shape.keys() <= value.keys():
+                raise ValueError(f"Incomplete saved Go2-W config: missing fields in {path}.{key}")
             if hasattr(shape, "__dict__"):
                 value = restore(shape, value, path + "." + key)
             setattr(result, key, copy.deepcopy(value))
@@ -529,6 +535,11 @@ def restore_saved_config(saved):
 
     return (restore(GO2WCfg(), env, "env_cfg"),
             restore(GO2WCfgPPO(), data["train_cfg"], "train_cfg"))
+
+
+def validate_schema(saved):
+    if saved.get('config_version') != GO2WCfg.config_version:
+        raise ValueError("Go2-W training schema changed: use the checkpoint's historical source checkout; old rewards/critic inputs will not be replaced by current defaults")
 
 
 def configure(env_cfg, train_cfg, args):
@@ -604,6 +615,19 @@ def validate_training(args, env_cfg, train_cfg):
     if (env_cfg.phase_observation_mode != "command_demand"
             or env_cfg.env.num_observations != 58 or env_cfg.env.num_actions != 16):
         raise ValueError("Go2-W requires the demand-conditioned 58/16 interface")
+    if (env_cfg.env.num_privileged_obs != env_cfg.env.num_observations + len(CRITIC_REFERENCE_FIELDS)
+            or train_cfg.runner.obs_groups != {'actor': ['policy'], 'critic': ['critic']}):
+        raise ValueError("Go2-W requires an isolated 58-input actor and 65-input relative-state critic")
+    c = env_cfg.straight_motion
+    if (not all(math.isfinite(v) for v in c.values())
+            or any(c[k] <= 0 for k in ('min_speed_m_s', 'heading_projection_min', 'cross_scale_m',
+                                      'heading_scale_rad', 'ramp_s', 'critic_time_scale_s'))
+            or not 0 <= c['yaw_zero_rad_s'] < env_cfg.commands.yaw_deadzone
+            or not 0 <= c['cross_tolerance_m'] < c['cross_scale_m']):
+        raise ValueError("Invalid straight-motion physical scales or numerical-zero thresholds")
+    families = {'stand', 'straight', 'arc', 'yaw', 'precision', 'lateral', 'mixed'}
+    if not set(env_cfg.commands.holds['eligible_families']) <= families:
+        raise ValueError("Unknown long-hold command family")
     if any(getattr(args, flag, False) for flag in ("eval_rolling_phase_zero", "eval_phase_transition", "eval_noise_pushes")):
         raise ValueError("Evaluation diagnostics are inference only")
     if any(getattr(args, flag, None) is not None for flag in ("transfer_armature", "transfer_delay")):

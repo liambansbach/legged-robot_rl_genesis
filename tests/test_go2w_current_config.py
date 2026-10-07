@@ -12,6 +12,7 @@ from robot_gym.envs.go2w.go2w_config import (
     reference_geometry, SPAWN_CLEARANCE, restore_saved_config,
 )
 from robot_gym.envs.go2w.go2w_env import Go2WEnv, horizontal_push_force
+from robot_gym.envs.go2w.straight_motion import StraightMotionReference
 from robot_gym.utils import get_args, task_registry
 from robot_gym.utils.helpers import class_to_dict, update_cfg_from_args
 
@@ -39,6 +40,11 @@ def sampler_fixture(n):
     env.command_sampling_tier = torch.zeros_like(env.command_steps_left)
     env.diagnostic_command_families = torch.zeros_like(env.command_steps_left)
     env.command_ranges = class_to_dict(cfg.commands.ranges)
+    env.all_env_ids = torch.arange(n)
+    env.base_pos = torch.zeros(n, 3)
+    env.base_quat = torch.tensor([[1., 0, 0, 0]]).repeat(n, 1)
+    env.command_resampling_enabled = True
+    env.straight_reference = StraightMotionReference(n, 'cpu', cfg.straight_motion)
     env.command_mixture = torch.tensor([cfg.commands.stand_command_probability,
                                       *cfg.commands.moving_mixture_probabilities])
     return env
@@ -52,7 +58,7 @@ class CurrentConfig(unittest.TestCase):
             'orientation', 'phase_clearance', 'phase_support', 'wheel_corridor', 'insufficient_support',
             'sensor_vertical_velocity', 'ang_vel_xy', 'wheel_rate_zero', 'contact_safety',
             'normalized_effort', 'leg_action_rate', 'wheel_action_rate', 'lateral_wheel_scrub',
-            'dof_pos_limits', 'torque_limits', 'termination'}
+            'dof_pos_limits', 'torque_limits', 'termination', 'straight_cross_track', 'straight_heading'}
         self.assertEqual(set(active), expected)
         self.assertTrue(all(active.values()))
         self.assertFalse(any(key.startswith('go2w_') for key in vars(args)))
@@ -77,19 +83,10 @@ class CurrentConfig(unittest.TestCase):
         restored, training = restore_saved_config(saved)
         self.assertEqual(class_to_dict(restored), saved['env_cfg'])
         self.assertEqual(class_to_dict(training), saved['train_cfg'])
-        # The prepared config used identical mechanisms with older structural names.
-        prepared = copy.deepcopy(saved)
-        e = prepared['env_cfg']
-        del e['config_version']
-        e.update(go2w_recipe='reference_tracking_v1', go2w_profile='transfer_v3')
-        e['commands']['reference_tracking_sampling'] = e['commands'].pop('sampling')
-        e['sensor_smooth'] = e['commands'].pop('holds')
-        e['commands']['moving_long_duration_range'] = e['sensor_smooth']['long_hold_s'].copy()
-        restored, _ = restore_saved_config(prepared)
-        self.assertEqual(class_to_dict(restored), saved['env_cfg'])
-        e['commands']['moving_long_duration_range'][0] += 1.
-        with self.assertRaisesRegex(ValueError, 'command-duration contract'):
-            restore_saved_config(prepared)
+        old = copy.deepcopy(saved)
+        old['env_cfg']['config_version'] = 1
+        with self.assertRaisesRegex(ValueError, 'historical source checkout'):
+            restore_saved_config(old)
         incomplete = copy.deepcopy(saved)
         del incomplete['env_cfg']['control']['armature']
         with self.assertRaisesRegex(ValueError, 'missing env_cfg.control.armature'):

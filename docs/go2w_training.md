@@ -6,6 +6,11 @@ parameter source. Edit that file for the next experiment. Training resolves the
 registered task and writes the complete `config.yaml` into its run directory.
 No documentation YAML, historical profile, or fine-tune selector supplies parameters.
 
+**Current preparation, 2026-10-08:** training schema 2 adds straight-motion geometric
+supervision and a 65-input asymmetric critic; the deployed actor remains 58 inputs.
+Yaw tracking is restored to `.8`. See the [task definition and validation below](#geometric-straight-motion-preparation-2026-10-08).
+CK1999 remains the development baseline; this new run starts entirely fresh.
+
 The old path was inherited Go2 defaults → Go2-W defaults → profile deltas →
 fine-tune deltas → a manually maintained recipe YAML → runtime. The current path is
 **Go2-W config → runtime → saved run config**. Go2-W configuration no longer inherits
@@ -31,7 +36,7 @@ directory, never inside the parent run. No optimizer, std, or normalizer reset i
 performed on resume. Changes to the current source defaults do not replace saved
 numeric values. Missing required saved settings fail instead of inheriting defaults.
 
-## Canonical reference and unchanged behavior
+## Canonical reference and initial cleanup record
 
 `JOINT_REFERENCE` is the one numeric runtime source for hip 0, thigh 0.70, calf
 −1.40 and foot 0 rad. `joint_reference()` expands it identically to FL, FR, RL and RR.
@@ -40,6 +45,8 @@ reset nominal positions and cached measured-URDF FK all use that reference.
 Reference height is derived from the measured wheel cylinders and FK:
 0.4277416561558192 m. Adding the 0.003 m reset clearance gives spawn z
 0.4307416561558192 m. This is reference geometry, not a loaded equilibrium claim.
+The following equivalence table records the earlier single-config cleanup. The
+schema-2 changes are listed separately below; its critic and active reward count differ.
 
 | Behavior field group | Comparison with the frozen prepared production config |
 | --- | --- |
@@ -85,11 +92,12 @@ The high-rate diagnostic recorder and spectrum helper moved into `diagnostics.py
 Obsolete event training, inference braking and published-policy preparation
 launchers were removed. Shared control and physics files were not edited.
 
-Complete saved current configs are authoritative. A small structural adapter also
-accepts the final prepared `reference_tracking_v1` configs with the same sampler,
-push and reward mechanisms: it renames sampling/hold fields and carries their
-saved numbers. It contains no historical numeric definitions. Incompatible or
-incomplete saved configs fail explicitly.
+Complete saved current-schema configs are authoritative. Schema 2 rejects older
+training/replay schemas before checkpoint loading instead of substituting new
+reward or critic semantics. The former structural adapter for prepared
+`reference_tracking_v1` snapshots is superseded by this explicit schema boundary.
+Use the corresponding historical source checkout for those checkpoints; retain
+their raw traces for comparisons. Incomplete current saved configs also fail.
 
 **Intentional limitation:** earlier Go2-W checkpoints requiring the removed
 samplers or rewards, including ORIGINAL1499 and final998, need the pre-cleanup
@@ -716,3 +724,264 @@ is unchanged. Reverse, small/mixed/core-edge commands, reserve extremes, pushes,
 DR, Sim2Sim and hardware remain unqualified. Only new path-analysis checks,
 matched protocols and 50/200 Hz pose consistency were validated; no training,
 optimizer smoke, full test suite or training-source changes were performed.
+
+## Geometric straight-motion preparation (2026-10-08)
+
+This is **training a velocity-conditioned policy with privileged geometric
+supervision**, not deploying a position controller or heading-hold command
+adapter. Production remains unstarted. The selected development baseline is
+`logs/go2w/go2w_2026-10-07_09-40-23/model_1999.pt` (2000 updates); neither it nor
+historical CK2498 initializes this run. Their checkpoint/config/raw comparisons
+are preserved. Current yaw tracking returns from 1.2 to the baseline's .8.
+
+### Task and timing
+
+For an issued command `u=(vx,vy,wz)` with `norm(u_xy) > .01 m/s` and
+`abs(wz) <= 1e-6 rad/s`, latch horizontal authored-base position `p0` and heading
+`psi0` from the quaternion's projected body-forward axis. A projection norm
+above `1e-6` is required at latching. Set
+
+```text
+d = Rz(psi0) u_xy / norm(u_xy),    n = [-d_y, d_x]
+e_cross = n dot (p_xy - p0)
+e_heading = atan2(sin(psi-psi0), cos(psi-psi0))
+H(z) = .5*z^2 for |z|<=1, otherwise |z|-.5
+s = clip(reference_age / .5 s, 0, 1),   a = valid * s^2*(3-2*s)
+r_line = -.1*a*H(max(|e_cross|-.005 m,0)/.10 m)
+r_heading = -.1*a*H(e_heading/.10 rad)
+```
+
+The heading reference is the initial **body** heading, including reverse and
+lateral motion; it is not the direction of translation. Full quaternion pose
+projection supplies heading, not body angular-z integration. No along-line lag,
+`p0+v*t` target, error-based termination, contact gate or action correction is added.
+Existing x/y/yaw velocity objectives remain essential: the line cost alone is
+zero for ideal, stopped, delayed or backward motion along the same line.
+
+Forward, reverse, lateral and zero-yaw diagonal translation are eligible. Stand,
+pure yaw and intentional nonzero-yaw arcs retain their existing objectives. A
+fixed `.00001 rad/s` yaw request is already ineligible; the threshold is numerical
+zero, not an enlarged yaw deadzone. The sampler's existing deadzones are unchanged;
+this task sees the final issued command. It is not a general path-tracking task.
+A future nonzero-yaw extension would need distance to a geometric arc/path, not
+to a time-synchronized reference point.
+
+Every actual numerical command change, **including speed-only changes**, starts
+a new segment at the current boundary. Repeated identical values keep the anchor
+and age, even when their sampled hold timer renews. Sampling, fixed-command replay
+and evaluation command batches follow this same rule. Pushes, observation getters,
+rollout boundaries and PPO updates never relatch or move the anchor.
+
+Physics executes the old command/phase; the task then advances reference age,
+scores its ending pose and captures diagnostics. Only afterward does command
+resampling install a new anchor, followed by independent episode resets and next
+observations. A reset latches the simulator's new pose, not stale terminal base
+buffers. Other environments retain their references. The phase/action timing is
+unchanged. Native RSL-RL 5.5.1 timeout correction uses the pre-step transition value
+with its old reference; reset observations contain the new reference. Nonterminal
+rollout-end bootstrapping uses the current reference. No PPO fork or bootstrap
+algorithm change was introduced.
+
+### Actor and critic
+
+```text
+58 existing noisy/scaled policy inputs -> actor normalizer -> actor -> 16 actions
+                       same 58 inputs + 7 relative features
+                                      -> critic normalizer -> critic -> value
+simulation pose + fixed segment anchor -> geometric rewards and diagnostics
+```
+
+The actor's input order, scales, noise, normalizer dimension and P-leg/V-wheel
+offset contract are unchanged. The native TensorDict contains `policy: [N,58]`
+and `critic: [N,65]`, with `obs_groups={'actor':['policy'],'critic':['critic']}`.
+The critic prefix is the same policy observation, including the same noise draw.
+Its seven appended features, in order, are:
+
+| Index | Feature before empirical normalization | Units / convention |
+| --- | --- | --- |
+| 58 | `e_cross / .10 m` | Signed, dimensionless; zero when invalid |
+| 59 | `sin(e_heading)` | Signed, dimensionless |
+| 60 | `cos(e_heading)` | Dimensionless; one when invalid |
+| 61 | Reference valid | 0 or 1 |
+| 62 | Smooth activation `a` | 0 to 1 |
+| 63 | Reference age / 30 s | Zero when invalid; no early saturation |
+| 64 | Remaining command time / 30 s | Policy ticks times dt; -1 for pinned/non-resampled commands |
+
+Both groups retain the existing final observation clip of +/-100. No raw world
+coordinates, absolute heading or environment origin enters either network.
+Sagittal reflection negates cross-track and heading sine; cosine, validity,
+activation and times are unchanged. Existing joint/action reflection and phase
+half-cycle signs are retained. Geometry-based tests cover forward, reverse,
+both lateral signs and diagonal commands. Only the 58-input actor and its own
+normalizer are exported, using the native export wrappers.
+
+The actor remains partially observable: identical policy inputs at opposite
+unobserved path offsets produce identical actions. Geometric supervision and a
+better-informed value estimate may reduce systematic drift generation; they do
+not give the actor arbitrary offset-recovery feedback or guarantee convergence.
+
+### One calibrated parameter set
+
+| Current field | Value | Purpose |
+| --- | --- | --- |
+| `straight_motion.min_speed_m_s` | .01 m/s | Exclude stand/numerically tiny translation |
+| `straight_motion.yaw_zero_rad_s` | 1e-6 rad/s | Exclude intentional yaw |
+| `straight_motion.heading_projection_min` | 1e-6 | Finite horizontal heading definition |
+| `straight_motion.cross_tolerance_m` | .005 m | Small sway allowance, one tenth of the frozen .05 m path limit |
+| `straight_motion.cross_scale_m` | .10 m | Huber quadratic-to-linear transition |
+| `straight_motion.heading_scale_rad` | .10 rad | Huber heading transition |
+| `straight_motion.ramp_s` | .5 s | One smooth command-change activation ramp |
+| `straight_motion.critic_time_scale_s` | 30 s | Relative time normalization only |
+| `rewards.scales.straight_cross_track` | -.1 | Cross-track reward-rate coefficient |
+| `rewards.scales.straight_heading` | -.1 | Heading reward-rate coefficient |
+| `rewards.scales.tracking_yaw` | .8 | Restore selected baseline coefficient |
+
+All runtime numeric choices live in `go2w_config.py`. The helper has formulas and
+state transitions, not another parameter preset. Shared reward registration
+applies dt exactly once: at .02 s, both new runtime scales are `-.002` and yaw is
+`.016`. The termination event remains `-5`, without dt scaling.
+
+[Calibration evidence](../evaluation/go2w_straight_motion_preparation/calibration.json)
+uses the existing 50 Hz CK1999/CK2498 raw states and synthetic geometry, with no
+new policy rollout. The table shows **positive added cost per second**, summed
+across the two new terms; existing states are not claimed to improve.
+
+| Policy / case | First second | Seconds 2-4 | Full 30 s | Late 20-30 s |
+| --- | ---: | ---: | ---: | ---: |
+| CK1999 forward | .000110 | .00124 | .13261 | .31295 |
+| CK2498 forward | .000041 | .00307 | .32218 | .69894 |
+| CK1999 lateral+ | .000803 | .00998 | .62359 | 1.30340 |
+| CK2498 lateral+ | .000370 | .00517 | .59940 | 1.32286 |
+| CK1999 lateral- | .000763 | .01425 | .70773 | 1.44989 |
+| CK2498 lateral- | .000258 | .00950 | .72177 | 1.52879 |
+
+For context, seconds 2-4 tracking reward rates sum to 2.65-2.80; pose costs are
+about .019 lateral and .124-.137 forward; lateral clearance/support costs are
+.033-.045/.016-.028. Thus the new objective starts small but accumulates a
+substantial cost on persistent geometric error. Late lateral added cost is
+1.30-1.53 against tracking rates near 2.65-2.66. Recorded/reconstructed term
+subtotals remain positive on these traces, but are not a complete return.
+Cost magnitudes are not gradients, causal conflict evidence or predicted learning.
+
+Synthetic stopped/lagged/ideal/backward on-line paths all have zero geometric
+cost. At a .5 m/s command their steady three-axis tracking reward sums are
+1.05/2.8/2.8/-.95 respectively (lag has an acquisition transient). A constant
+`.01 rad/s` yaw bias at .5 m/s costs `.000168/.00679/.80435` over first/2-4/full
+windows; a `.01 m/s` cross-axis bias costs `.000022/.00332/.10151`. A forward-to-
+lateral switch with .25 s exponential decay of residual .5 m/s forward velocity
+costs .0416 in its first second, then .070: its accumulated .125 m offset is
+retained, not erased. This is a synthetic transient, not a measured recovery.
+Stand and pure-yaw traces receive exactly zero new cost.
+
+At .05 m cross-track plus 2 degrees heading error, fully active auxiliary cost
+is .0162/s. At .5 m/.1 rad it is .495/s; at 1.8 m/.38 rad it is 2.075/s. Huber's
+linear tail still distinguishes larger errors: 3 m/1 rad costs 3.895/s, and
+5 m/pi costs 8.037/s. For fixed errors, dt/(1-gamma)=4 s gives discounted costs
+8.30, 15.58 and 32.15 in the last three examples, versus the unchanged -5 terminal
+event. Very large error could therefore create reset-seeking pressure, although
+termination also loses tracking reward and incurs other costs. No cap, path
+termination or relatch masks this limitation; retained-state arithmetic cannot
+predict that behavior. This preparation uses one parameter set, not a sweep.
+
+### Long lateral exposure and unchanged decisions
+
+The existing rare holds now admit `['stand','straight','arc','lateral']` through
+`commands.holds.eligible_families`. Probabilities remain .04 for 8-15 s and .015
+for 20-30 s; other durations, short exposure, family probabilities, command
+ranges/tiers and pushes are unchanged. A deterministic **prospective** 50,000-
+segment check (seed 20261008, no simulator or episode truncation) gives:
+
+| Family | Segment share | Duration-weighted share |
+| --- | ---: | ---: |
+| Stand | 15.20% | 17.10% |
+| Straight | 19.74% | 15.96% |
+| Arc | 7.19% | 5.57% |
+| Pure yaw | 19.59% | 20.59% |
+| Precision | 10.25% | 4.99% |
+| Pure lateral | 19.85% | 27.01% |
+| Mixed | 8.18% | 8.77% |
+
+Lateral positive/negative counts are 4972/4952. They include 662/664 holds <=1 s,
+193/186 holds at 8-15 s, 87/63 holds at 20-30 s, and 445/422 commands at
+.02-.05 m/s. All commands remain inside reserve bounds, with at most one axis
+outside core. Tier segment shares are 85.09/7.51/7.40% overall because stand and
+precision remain core-only; ordinary moving draws still use 80/10/10%. These are
+prospective complete-hold statistics, not historical occupancy or actual future
+episode exposure. Longer lateral holds intentionally increase lateral time share.
+
+The generated [fully resolved production configuration](../evaluation/go2w_straight_motion_preparation/resolved_production.generated.yaml)
+is evidence/output, **never an input**. Its complete diff against CK1999 contains
+only the new task parameters/two reward scales, critic dimension/group, hold
+eligibility and schema version. Against the previous checked-in source it also
+contains yaw 1.2 -> .8. All other task/PPO values match: canonical reference and
+measured geometry, gains/limits/delay, 4 cm apex/.8 s phase/.65 stance, sensor/
+pose/support/safety costs, command envelopes, push mixture, noise/DR, hidden
+layers, LR3e-4, gamma.995, lambda.95, entropy.003, std.40 with [.10,.70] bounds,
+4096x64, 2000 updates and save interval250.
+
+### Validation and the next comparison
+
+The focused CPU checks cover ideal/lagged lines, error response, translation and
+rotation invariance, all-direction reflection, tiny commands/angle wrapping,
+reference persistence, speed changes, fixed/evaluation command consistency,
+partial resets and native timeout-value semantics, dt weighting, actor/normalizer/
+JIT/ONNX isolation, sampler bounds/small commands, the strong push branch,
+canonical actions, fresh initialization and saved-schema guards. No full suite
+or baseline evaluation campaign was run. All **28 focused tests passed**.
+
+The single native fresh **4096 x 64, two-update smoke passed**, saved separately at
+`logs/go2w/straight_motion_smoke_2026-10-08_00-45-43/model_1.pt`. Its
+[effective saved config](../logs/go2w/straight_motion_smoke_2026-10-08_00-45-43/config.yaml)
+matches the generated production config except for the two-update budget and
+smoke output name. [Smoke assertions](../evaluation/go2w_straight_motion_preparation/smoke_validation.json)
+verify no checkpoint load, empty initial Adam, initial normalizer counts zero,
+std .40 and iteration zero. Both counts advance to 524288, Adam to step80,
+and LR remains .0003. The critic consumes 65 inputs and its seven new input
+columns change by up to .01943; actor/critic normalizers remain 58/65 dimensions.
+All 128 policy boundaries have finite observations/rewards, and final model
+tensors/losses are finite. The 121 partial-reset calls (2272 reset events,
+including 147 timeouts) keep unreset environments' anchors/ages unchanged and
+set reset anchors to the new simulator pose. These are execution observations
+from a fresh random policy, not locomotion success or estimated failure rates.
+No second smoke or production run was launched.
+
+The [compact preparation record](go2w_straight_motion_preparation_2026-10-08.json)
+contains the exact configuration diff, calibration/sampling summaries and smoke
+proof. Twenty-five protected checkpoint/config/trace files, including `play.py`,
+are hash-unchanged. `git diff --check` passes. Changed source files are
+`go2w_config.py`, `go2w_env.py`, new `straight_motion.py`, `go2w_symmetry.py`,
+`evaluate.py`, and `diagnostic_bank.py`, all under `robot_gym/envs/go2w/`.
+Changed tests are `test_go2w_current_config.py`, `test_go2w_continuation.py` and
+new `test_go2w_straight_motion.py`; documentation changes are this guide and the
+preparation JSON. No Dodo/Go2/shared runtime, control/physics or `play.py` edits.
+
+Schema 2 is a deliberate training change. Old schema-1 CK1999/CK2498 checkpoints
+are rejected explicitly before model loading; their historical checkout and raw
+baselines remain authoritative. The pre-change source is commit
+`b47458a266a3d4b616ac780bdb58961886dbf2f6` (provenance, not a runtime allowlist).
+No legacy parameter reconstruction is added.
+Ordinary resume of a new schema-2 run still restores its complete saved task and
+learning state. The new production run loads **no** checkpoint, normalizer, std
+or Adam state and starts at iteration zero. Saves retain native labels: a fresh
+2000-update run ends at `model_1999.pt` (2000 completed updates), in its own
+`logs/go2w/go2w_<timestamp>/` directory.
+
+The next physical comparison uses the final new policy with unchanged actor-only
+observations. Reuse CK1999/CK2498 raw nominal baselines: stand30s; forward .5,
+lateral +/-.3 and yaw +/-.8 with 3s zero,30s command,8s zero. Separate first-second,
+full/late movement, holding and complete stops. Retain velocity bias/RMSE on all
+axes, achieved travel speed, quaternion heading and anchored path/decomposition,
+endpoint/path/reversals/residual motion, contacts and saturation, actual physical
+clearance/unloading, reference pose/height/geometry and camera-body/imager motion.
+Report both reduced nominal drift generation and the recovery limitation caused
+by hidden offsets; no arbitrary path-recovery claim follows from a lower reward.
+Reverse and diagonal geometry tests here are not physical qualification; small,
+mixed/nonzero-yaw, boundary/reserve, pushes/DR and transfer remain separate.
+
+Frozen targets remain unchanged: forward cross-track <=.05 m and heading <=2 deg
+at .5 m/s for30s, with mean .45-.55 m/s and RMSE <=.04 m/s; late stand XY RMS
+<=.005 m/s plus the recorded rotation comparisons; complete-stop endpoint/path,
+reversal and residual requirements stay in the [frozen record](../evaluation/consolidated_v3_preparation/frozen_targets.json).
+Do not accept straighter travel by slowing down or quieter sensors at the expense
+of tracking/support/stopping. No automatic tuning or further training is authorized
+by this preparation, and the geometric reward does not guarantee convergence.
