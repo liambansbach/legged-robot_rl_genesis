@@ -203,3 +203,259 @@ it excludes the new ignored local validation evidence and smoke run.
 | Modified | `tests/test_fixed_command.py` |
 | Modified | `tests/test_inference.py` |
 | Modified | `tests/test_shared_pipeline.py` |
+
+## Production policy review, 2026-10-07
+
+**Preserve the final candidate; it is not yet qualified against the frozen
+path/heading/holding requirements.** Rolling posture, forward speed and stopping
+have improved, but sustained lateral commands still curve substantially. The
+single recommended next refinement is described below; this review changed no
+training code or settings and launched no training.
+
+The production run is `logs/go2w/go2w_2026-10-07_09-40-23`, initialized fresh and
+completed with **2,000 updates**, not 200. Its exact final checkpoint is
+`model_1999.pt` (SHA-256
+`f1196ee51431ee430f3ed91f2ec0dba9bae1672f9bd3dae93e04677266dfbe58`).
+Saved budget and completion record both say 2,000; checkpoint metadata says label
+1999, Adam has 80,000 steps, and each normalizer has 524,288,000 samples.
+Retained labels are 0, 250, 500, 750, 1000, 1250, 1500, 1750 and 1999. Thus the
+earlier preparation command above was subsequently run by the user.
+
+The saved YAML loads through the current strict replay path. It confirms four
+identical `0/.70/-1.40/0` leg references, reference/spawn heights
+`.4277416561558192/.4307416561558192 m`, fixed-reference P offsets and V-wheel
+targets, scales `.30/.35/.40/18`, clipping ±1, 58 observations and 16 actions.
+Tracking remains three independent requested-minus-actual body-axis kernels:
+`w[1-Huber(e/b)-beta(1-exp(-.5(e/p)^2))]`, with
+`w=[1,1,.8]`, `b=[.25,.15,.35]`, `p=[.03,.03,.03]`, `beta=[.25,.25,.25]`.
+The actual 12-joint pose objective, demand-conditioned clock, .8 s diagonal
+phase/.65 stance/.04 m apex and clearance/support guidance are present. Saved
+core/edge/reserve sampling and 80/15/5 push-force tiers match the current design.
+Native LR is fixed at `3e-4`; learned std bounds remain `[.10,.70]`. This was a
+saved-run inspection, not another source configuration-equivalence audit.
+
+### Retained training diagnostics
+
+| Updates | Measured KL mean / p95 | PPO ratio clipping | Value loss | Tracking x / y / yaw rates |
+| --- | ---: | ---: | ---: | --- |
+| 1000–1199 | .01331 / .01849 | 24.69% | .01343 | .8996 / .9038 / .5882 |
+| 1800–1999 | .01366 / .02032 | 23.83% | .01216 | .9052 / .9138 / .6003 |
+
+Each window has 200 diagnostic records; the first has 199 retained TensorBoard
+scalars. Six earlier JSONL labels are missing. All 16 joints have **zero std-floor
+occupancy** in both windows; final std is .1054–.1519. Per-joint std, floor
+occupancy and sampled/deterministic saturation are in the comparison JSON.
+Rear-calf deterministic-mean saturation rises from about 3.76% to 5.50%; most
+other joints decrease. Phase-clearance, support, pose and sensor cost rates
+improve modestly; this does not establish their causal effects on the policy.
+
+Command-family time shares are similar: late stand/straight/arc/yaw/precision/
+lateral/mixed = 17.59/16.51/5.86/22.49/5.30/23.11/9.14%. Long and extended holds
+occupy 7.98% and 5.85% of rollout time. Mean per-update push-tier shares are
+80.34/14.74/4.93%, duration 30.03 physics ticks (~.150 s), impulse 6.80 N·s.
+These are retained event summaries, not pooled event counts. Realized command-tier
+time and failure-to-push/reserve associations were not recorded.
+The contact-safety raw count averages .00000372 → .00000462 per environment tick.
+Termination TensorBoard rates are −.00138 → −.00114, normalized by the configured
+60 s episode length and averaged over resetting environments; they are not
+failure counts or probabilities. Broad/precision training components were not
+logged separately. In particular, yaw's .8 reward ceiling makes .6003 neither
+percentage accuracy nor an invertible RMSE.
+
+### Bounded nominal panel
+
+One invocation evaluated final1999 at deterministic policy mean, nominal measured
+dynamics, seed 1, no observation noise, pushes or DR, and unchanged saved phase
+semantics. Stand is 30 s. Every moving case is **3 s zero + 30 s command + 8 s
+zero**, with commands below. Existing 200 Hz capture was enabled only for forward
+and positive lateral; comparisons otherwise use 50 Hz. An initial sandbox DLL
+import failure occurred before simulation; the native retry completed all cases.
+
+| Case / command | Full mean [vx, vy, body wz] | Full RMSE [vx, vy, body wz] | Full stop endpoint / path, m | Last 2 s stop XY / wz RMS |
+| --- | --- | --- | --- | --- |
+| Stand [0,0,0] | [.00326,.00005,.00159] | [.00380,.00217,.01337] | — | — |
+| Forward [.5,0,0] | [.49579,.00014,.00251] | [.01622,.00064,.00309] | .05749 / .06672 | .00467 / .01725 |
+| Lateral+ [0,.3,0] | [.00900,.30049,−.00767] | [.01306,.01531,.04571] | .01707 / .03714 | .00188 / .00164 |
+| Lateral− [0,−.3,0] | [.00972,−.30088,.00829] | [.01332,.01441,.04349] | .03208 / .04648 | .00401 / .00370 |
+| Yaw+ [0,0,.8] | [.00522,−.00308,.79956] | [.00639,.00991,.04100] | .01125 / .02869 | .00393 / .00797 |
+| Yaw− [0,0,−.8] | [.00599,.00373,−.80178] | [.00727,.00976,.03862] | .04422 / .06486 | .00582 / .03192 |
+
+Units are m/s for linear velocity and rad/s for body angular-z. All first-second,
+full, late, complete-stop and final-two-second vectors, biases and RMSEs are saved
+in [the compact comparison JSON](go2w_policy_review_2026-10-07.json).
+No case fell, reset or recorded undesired self/non-wheel contact at 50 Hz. The two
+200 Hz captures also have no non-wheel contact above 8 N. This is sampled evidence,
+not qualification of the expanded envelope.
+
+Forward meets the retained .45–.55 mean / ≤.04 RMSE speed band, but its
+**.50829 m cross-track / 4.242° heading deviation** miss the unchanged
+**.05 m / 2°** requirements. ORIGINAL1499 gives .12865 m / 2.916°; final998 gives
+1.62938 m / 9.991°. Neither baseline makes the frozen limits optional. Current
+forward stop path .06672 m improves on original .07945, final998 .10186 and the
+recorded CK499 .1051 m, although its endpoint is farther than either baseline.
+It has no backward crossing of the stop-onset line and only .00075 m maximum
+backtrack. Residual angular motion remains, especially after negative yaw.
+
+Stand's 20–30 s XY RMS is .00439 m/s, below .005, but body-wz RMS .01117 rad/s
+does not improve on the retained CK499 .00670 rotational reference. Full heading
+change is +2.735° (maximum deviation 3.049°); 0–5 s endpoint/path is
+.00567/.01595 m. Thus translation alone does not qualify holding.
+
+### Lateral drift is continuing curvature plus forward bias
+
+| Case / window | Mean [vx, vy, body wz] | RMSE [vx, vy, body wz] |
+| --- | --- | --- |
+| +, first second | [.00221,.27860,−.01117] | [.01224,.04313,.07493] |
+| +, full 30 s | [.00900,.30049,−.00767] | [.01306,.01531,.04571] |
+| +, last 10 s | [.01022,.30278,−.01100] | [.01362,.01330,.04338] |
+| −, first second | [.00970,−.28232,.01791] | [.01354,.03905,.04503] |
+| −, full 30 s | [.00972,−.30088,.00829] | [.01332,.01441,.04349] |
+| −, last 10 s | [.01030,−.30067,.00694] | [.01323,.01285,.04389] |
+
+Bias is mean minus the respective `[0,±.3,0]` request, including zero cross axes.
+Using the full quaternion rotation and the horizontal forward/lateral axes at
+command onset gives:
+
+| Lateral sign | Pose displacement [initial forward, lateral], m | Forward integral: body-x + rotated body-y + body-z, m | Heading first 1 s / full / last 10 s |
+| --- | --- | --- | --- |
+| + | [1.61843, 8.83435] | .26509 + 1.34959 + .00489 | −.777° / −18.813° / −7.781° |
+| − | [1.75826, −8.81700] | .28594 + 1.46761 + .00608 | +1.133° / +18.176° / +5.391° |
+
+Maximum cross-track from the onset lateral line equals 1.61843/1.75826 m.
+Velocity integration agrees with pose displacement within 1.14/1.37 mm on that
+axis. About 83% comes from rotating body-y motion, with ~16% direct body-x bias;
+tilt/body-z translation is small. The large late heading change rules out a purely
+initial orientation error. Oscillatory yaw coexists with directional bias.
+Mean Euler heading rates are −.01113/+.01123 rad/s, different from body-wz
+−.00767/+.00829 because roll/pitch motion contributes when tilted; heading was
+measured from unwrapped pose, not integrated body-wz.
+
+Weighted broad / precision costs per second on full lateral+ are
+x `.00136/.02059`, y `.00520/.02361`, yaw `.00682/.09837`; lateral− gives
+`.00142/.02145`, `.00460/.02142`, `.00618/.09257`. Late yaw costs remain
+`.00615/.09494` and `.00629/.09164`. All-window components are in the JSON.
+These instantaneous costs detect error but do not directly enforce a long-horizon
+path; their sizes are not policy gradients.
+
+The single allowed earlier check used `model_1000.pt` (1,001 completed updates),
+positive lateral only, with the same nominal schedule. It gives **5.44848 m**
+cross-track, **−76.940°** heading change, mean body-wz −.04246 and RMSE .06760.
+Final1999 improves this to 1.61843 m, −18.813°, −.00767 and .04571. This supports a
+persistent learned compromise rather than deterioration confined to late updates.
+Matched ORIGINAL1499 lateral traces are substantially straighter (.26958/.55166 m
+maximum cross-track); final998 has no retained matched strong 30 s lateral/yaw
+panel. Its short ±.1/±.4 cases are not substituted. Historical policies were not
+replayed; matched original command/phase/target arrays and nominal plant settings
+were verified against the retained artifacts.
+
+### Steps, posture and sensors
+
+Per-wheel values below are FL/FR/RL/RR; physical swing intervals use the existing
+6/10 N load hysteresis and ≥2 mm collision-cylinder peak, with boundary events
+censored. There are 37 complete desired phase swings per wheel in each moving
+stepping window. Desired apex stays 40 mm.
+
+| Case | Completed physical intervals | Median physical peaks, mm | Censored intervals | Unloaded ≤6 N near desired apex, % |
+| --- | --- | --- | --- | --- |
+| Lateral+ | 33/45/42/37 | 10.87/10.81/8.18/15.87 | 1/1/2/0 | 91.1/89.2/97.3/97.4 |
+| Lateral− | 40/37/37/50 | 11.79/9.80/16.70/6.54 | 0/2/1/1 | 93.7/90.8/100/98.9 |
+| Yaw+ | 33/39/37/37 | 4.21/17.36/9.49/13.24 | 1/1/1/1 | 82.6/96.2/98.9/98.4 |
+| Yaw− | 39/33/37/38 | 18.12/4.62/11.52/7.63 | 1/1/1/0 | 96.8/89.2/97.8/97.9 |
+
+This is shallow clearance despite substantial unloading, not evidence that every
+low liftoff/touchdown sample drags. Near desired apex (target ≥32 mm), lateral+
+actual means are only 7.27/7.11/6.00/13.48 mm. Original lateral medians were about
+20–38 mm. Lateral physical peaks within desired swing windows typically lead the
+desired apex by 20–100 ms. Positive-lateral 200 Hz peaks remain shallow, and brief reloads split
+intervals: geometric counts become 34/79/87/38, with many additional load-only
+events. Counts therefore are not interchangeable with useful gait cycles.
+Fewer than two wheels exceed 6 N on .317% of positive-lateral physics ticks,
+which policy-rate capture misses. Loaded lateral cylinder-center RMS is
+.064–.090 m/s across lateral wheels; this is a sliding surrogate, not tire-patch
+slip measurement. Peak distributions, contact duties and timing remain in the
+saved traces/analysis.
+
+Positive lateral clips RR-calf action on 39.4% of samples (negative lateral:
+RL-calf 37.1%), in repeated bursts up to .24/.18 s. Positive RL-thigh clipping is
+10.7%. No sampled actuator force reaches 99% of its limit; positive-lateral
+substep control-force peak is 66.2% of limit. Actual-versus-applied rear-calf target
+RMSE is .266/.288 rad (+) and .292/.265 rad (−). Issued and applied targets agree
+under nominal zero delay; clipping and load-following error remain distinct.
+
+At positive-lateral desired-apex versus all-stance samples, reward rates are:
+phase clearance −.1253/−.00655, support −.01428/−.00976, pose −.02194/−.01555,
+sensor −.00794/−.00991, roll/pitch-rate −.01343/−.01969, leg action-rate
+−.000719/−.001197; tracking x/y/yaw = .9630/.9706/.6963 versus
+.9929/.9732/.6965. Other windows and terms are in the JSON. Co-occurrence does not
+prove sensor or pose penalties caused the shallow steps. The apex was not raised.
+
+| Late window | Actual leg-reference RMS, rad | Height, m | Wheelbase, m | Front / rear track width, m |
+| --- | ---: | ---: | ---: | --- |
+| Stand | .05423 | .41701 | .41450 | .40911 / .43665 |
+| Forward | .08841 | .41629 | .47904 | .40996 / .43343 |
+| Lateral+ | .14729 | .41272 | .34324 | .40166 / .34974 |
+| Lateral− | .14736 | .41303 | .34243 | .40138 / .34871 |
+
+Reference geometry is wheelbase .38680 m and both widths .38020 m, distinct
+dimensions obtained from cached measured-URDF FK. Pair midpoints and actual joint
+errors are retained. Forward height is .41990 m in the first commanded second
+and .41629 late: no progressive deep crouch is demonstrated here. Late pose error
+is much better than final998's .17992 rad, with height .38160 m. The current pose
+is not exact; that alone is not the reason for withholding qualification.
+
+| Case | Camera-body world-vz RMS full / late, m/s | Existing imager world-vz RMS full / late, m/s |
+| --- | --- | --- |
+| Stand | .005869 / .000238 | .005928 / .000230 |
+| Forward | .002697 / .0000063 | .002782 / .0000058 |
+| Lateral+ | .09119 / .09095 | .09399 / .09366 |
+| Lateral− | .08614 / .08729 | .09555 / .09606 |
+| Yaw+ | .05498 / .05759 | .05448 / .05660 |
+| Yaw− | .05484 / .05342 | .05874 / .05700 |
+
+`front_realsense_body` and the existing imager use the same authored fixed-frame
+transport at 50 Hz. Positive-lateral body-camera RMS is .09384 at 200 Hz versus
+.09119 at 50 Hz; the sustained motion is not a one-sample artifact. Original
+lateral body-camera RMS was .05649/.05605; original yaw was .07341/.07289.
+Thus camera motion improves for rolling/yaw but worsens for lateral motion.
+Late lateral signed roll/pitch means are `[.02582,.01271]` and
+`[−.02330,.01220]` rad, with standard deviations `[.02587,.03552]` and
+`[.02482,.03443]`; body roll/pitch-rate RMS is `[.2794,.2942]` and
+`[.2712,.2895]` rad/s. Tilt bias and oscillation are separate observations.
+These are rigid-body motion measurements, not jerk estimates or image-quality
+measurements; a quiet forward camera does not offset path or stopping errors.
+
+### One next action and validation limits
+
+**Recommendation C:** preserve `model_1999.pt` and, in a future authorized modest
+continuation, change only `GO2WCfg.rewards.scales.tracking_yaw: .8 → 1.2`.
+Rotation accounts for most lateral drift and also explains the forward path miss.
+This proposed 50% weight increase prioritizes the existing command-yaw objective;
+it is an engineering hypothesis, not a calibrated optimum or proof of a specific
+regularizer conflict. Keep clearance, sensor, posture, action scales, sampling,
+PPO, fixed LR and std bounds unchanged. Retain actor, critic, both normalizers,
+learned std, Adam moments/steps/LR and native iteration. The earlier comparison
+does not justify a lower-LR remedy for a new late regression, or a fresh start.
+
+Ordinary `--resume` restores saved settings, so editing defaults alone would not
+apply this proposal. After a future native full-state load and before learning,
+the authorized continuation would need to set the resolved
+`env.cfg.rewards.scales.tracking_yaw=1.2` and the already prepared runtime
+`env.reward_scales['tracking_yaw']=1.2*env.dt` (`.024`), then save that resolved
+configuration and provenance in a separate output. Reward preparation must not
+run again and multiply dt twice. **No such loading mode, patch or continuation
+was implemented or executed in this review.**
+
+[Raw review evidence](../evaluation/go2w_20261007_review/analysis.json) includes
+windowed geometry, targets, clipping, costs, censoring and sensor results;
+[analysis source](../evaluation/go2w_20261007_review/analyze.py) reuses the existing
+sensor/phase/swing helpers. Focused numerical checks pass for full-quaternion
+component integration with known rotations, multi-turn heading unwrap, sensor
+transport with tilt, and swing boundary censoring. Recorded 50/200 Hz base poses
+agree at corresponding endpoints within 1e−6. No optimizer probe, training smoke,
+policy bank or full unit suite was run. Training sources, `play.py`, checkpoints,
+saved configs and historical evidence remain unchanged.
+
+The [frozen requirements](../evaluation/consolidated_v3_preparation/frozen_targets.json)
+remain intact, including holding rotation and complete stopping windows.
+Small commands, reverse, arcs/mixed, the wider required/reserve envelope, pushes,
+DR and transfer remain **untested by this panel**, with no invented pass criteria.
