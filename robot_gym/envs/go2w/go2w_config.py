@@ -291,7 +291,7 @@ class GO2WCfg(BaseConfig):
             torque_limits = -0.5
             tracking_x = 1.0
             tracking_y = 1.0
-            tracking_yaw = 0.8
+            tracking_yaw = 1.2
             wheel_action_rate = -0.005
             wheel_corridor = -0.5
             wheel_rate_zero = -0.1
@@ -468,6 +468,7 @@ class GO2WCfgPPO(BaseConfig):
 
 def add_arguments(parser):
     parameters = [
+        {"name": "--resume_current_reward_scales", "action": "store_true", "help": "Go2-W training resume only: replace saved reward scales with current GO2WCfg scales; retain all other saved settings and learning state"},
         {"name": "--skip_zero_action_probe", "action": "store_true", "help": "Bank evaluation: retain all policy cases, omit the equilibrium zero-action probe"},
         {"name": "--diagnostic_trace", "action": "store_true", "help": "Read substep control forces, summed ground loads and cylinder geometry"},
         {"name": "--reference_config", "help": "Explicit audited saved config, if not next to the checkpoint"},
@@ -531,18 +532,48 @@ def restore_saved_config(saved):
 
 
 def configure(env_cfg, train_cfg, args):
-    """Ordinary fresh defaults, or explicit full-state resume from a saved run."""
+    """Restore saved settings; optionally take only reward scales from current source."""
+    current_rewards = getattr(args, "resume_current_reward_scales", False)
+    if current_rewards and (not args.resume or getattr(args, "_replay_restored", False)):
+        raise ValueError("--resume_current_reward_scales requires training --resume")
     if getattr(args, "_replay_restored", False) or not args.resume:
         return
     if not hasattr(args, "_go2w_resume_config"):
         if args.load_run is None:
             raise ValueError("Go2-W --resume requires an explicit --load_run saved directory")
+        from robot_gym.utils.helpers import class_to_dict
         from robot_gym.utils.task_registry import task_registry
+        # Capture the one current source before saved-task restoration replaces defaults.
+        if current_rewards:
+            args._go2w_current_reward_scales = copy.deepcopy(class_to_dict(GO2WCfg().rewards.scales))
         replay_args = copy.copy(args)
         replay_args.resume = False
+        replay_args.resume_current_reward_scales = False
         restored_env, restored_train, checkpoint = task_registry.resolve_replay(replay_args)
         args.resolved_checkpoint = str(checkpoint)
         restored_env.training_resume = {"checkpoint": str(checkpoint), "state": "full native learning state"}
+        if current_rewards:
+            import hashlib
+            import json
+            from pathlib import Path
+            saved_scales = class_to_dict(restored_env.rewards.scales)
+            current_scales = args._go2w_current_reward_scales
+            if {k for k, v in saved_scales.items() if v} != {k for k, v in current_scales.items() if v}:
+                raise ValueError("Current reward scales must retain the saved active reward names")
+            if not all(math.isfinite(v) for v in current_scales.values()):
+                raise ValueError("Current reward scales must be finite")
+            diff = {k: {"old": saved_scales.get(k, 0.), "new": v}
+                    for k, v in current_scales.items() if saved_scales.get(k, 0.) != v}
+            print("Current reward scale diff (unscaled): " + json.dumps(diff, sort_keys=True), flush=True)
+            config_path = Path(args.reference_config or checkpoint.with_name("config.yaml")).resolve()
+            restored_env.training_resume.update(
+                checkpoint_sha256=hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
+                source_config=str(config_path),
+                source_config_sha256=hashlib.sha256(config_path.read_bytes()).hexdigest(),
+                reward_scale_override={"source": "GO2WCfg.rewards.scales", "diff": diff},
+            )
+            # Before environment registration: its normal reward preparation applies dt once.
+            restored_env.rewards.scales = SimpleNamespace(**copy.deepcopy(current_scales))
         restored_train.runner.checkpoint_load_cfg = dict.fromkeys(("actor", "critic", "optimizer", "iteration"), True)
         args._go2w_resume_config = (restored_env, restored_train)
     for current, restored in zip((env_cfg, train_cfg), args._go2w_resume_config):

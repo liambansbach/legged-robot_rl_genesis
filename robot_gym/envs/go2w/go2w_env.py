@@ -162,6 +162,32 @@ class Go2WEnv(Go2Env):
         from .phase import project_log_std
         runner.std_projection_hook = project_log_std(runner.alg.optimizer, runner.alg.actor.distribution)
 
+    def finalize_runner_loading(self, runner, train_cfg, args):
+        """Verify native full-state restoration and registered scales before learning."""
+        if not args.resume:
+            return
+        import math
+        from robot_gym.utils.helpers import class_to_dict
+        from .training_diagnostics import verify_resume_state
+        state = verify_resume_state(runner, runner.checkpoint_path)
+        scales = class_to_dict(self.cfg.rewards.scales)
+        if getattr(args, "resume_current_reward_scales", False):
+            if scales != args._go2w_current_reward_scales:
+                raise ValueError("Current reward scales were overwritten during native loading")
+        expected = {k: v if k in self.cfg.rewards.discrete_reward_names else v * self.dt
+                    for k, v in scales.items() if v}
+        if (self.reward_scales.keys() != expected.keys()
+                or any(not math.isclose(self.reward_scales[k], v, rel_tol=0., abs_tol=1e-12)
+                       for k, v in expected.items())):
+            raise ValueError("Registered reward scales must apply policy dt exactly once")
+        self.resume_validation = {
+            "before_updates": True, "learning_state": state,
+            "unscaled_reward_scales": scales, "runtime_reward_scales": dict(self.reward_scales),
+            "normalizer_counts": {name: int(getattr(runner.alg, name).obs_normalizer.count)
+                                  for name in ("actor", "critic")},
+        }
+        print("Verified full native learning state and reward scales before updates.", flush=True)
+
     def install_training_diagnostics(self, runner, log_dir):
         from pathlib import Path
         from .training_diagnostics import TrainingDiagnostics
@@ -174,6 +200,7 @@ class Go2WEnv(Go2Env):
             "initialization": ("full native resume: actor/critic/normalizers/std/Adam/iteration" if resume
                                else "fresh actor/critic/normalizers/std/Adam; local iteration zero"),
             "training_resume": resume,
+            "resume_validation": getattr(self, "resume_validation", None),
             "parameter_source": "robot_gym/envs/go2w/go2w_config.py",
             "phase_observation_mode": self.cfg.phase_observation_mode,
             "deployment_contract": transfer_contract(self),

@@ -459,3 +459,99 @@ The [frozen requirements](../evaluation/consolidated_v3_preparation/frozen_targe
 remain intact, including holding rotation and complete stopping windows.
 Small commands, reverse, arcs/mixed, the wider required/reserve envelope, pushes,
 DR and transfer remain **untested by this panel**, with no invented pass criteria.
+
+## Prepared yaw-weight continuation (2026-10-07; production unexecuted)
+
+The exact parent is `logs/go2w/go2w_2026-10-07_09-40-23/model_1999.pt`:
+native label 1999, **2000 completed updates**, Adam step 80000 and both normalizer
+counts 524288000. Its saved config, checkpoint metadata and retained diagnostics
+agree. The current review above and `evaluation/go2w_20261007_review/` remain the
+diagnostic basis; this preparation did not repeat policy evaluation.
+
+The only functional change is
+`GO2WCfg.rewards.scales.tracking_yaw: .8 -> 1.2` in
+`robot_gym/envs/go2w/go2w_config.py`. All other task and learning values match the
+parent, including tracking kernels, body angular-z semantics, phase/clearance,
+posture/sensor/contact terms, plant, sampling/pushes, 58/16 interface, fixed
+LR `3e-4`, gamma `.995`, lambda `.95`, entropy `.003` and std bounds `[.10,.70]`.
+The requested additional-update budget and resume bookkeeping are operational
+differences, recorded in the [configuration proof](../evaluation/go2w_yaw_continuation_preparation/configuration_proof.json).
+
+`--resume_current_reward_scales` is a Go2-W training-resume opt-in. It snapshots
+the central current scales, restores the saved task normally, requires identical
+active reward names, and prints/saves the exact old/new scale diff. For this
+parent and current source that diff is exactly `tracking_yaw: .8 -> 1.2`.
+Scales are applied **before environment reward registration**, so normal dt
+weighting occurs once: `1.2 * .02 = .024`. This implements the proposal above
+without its suggested post-construction mutation. Ordinary `--resume` and saved
+replay still use `.8` (`.016` at runtime). There is no numeric CLI override,
+recipe YAML input or second parameter source.
+
+After native loading and before learning, the existing state verifier checks
+exact actor/critic, normalizer buffers/counts, learned std, Adam moments/steps/LR
+and native iteration equality against the parent. The new hook also checks every
+registered reward scale. The separate output's generated `config.yaml` records
+the effective values and exact diff under `env_cfg.training_resume`, with source
+paths and dynamically computed SHA-256 provenance; no checkpoint hash allowlist
+is introduced. `preparation.json` records the before-update verification.
+Normalizers remain trainable. The critic initially estimates the previous
+objective and must adapt; an initial value-loss change alone is not failure.
+This retains learning state, not simulator/RNG state.
+
+Six focused tests pass: ordinary resume/replay, exact one-field diff, active-name
+and finite-value guards, opt-in scope, single dt weighting, and verification
+after loading. Temporarily changing the central test value to `1.3` produces
+runtime `.026`, proving there is no hidden `1.2` override. One native
+**4096 x 64, two-update** continuation smoke passed:
+
+| Check | Before updates | After two updates |
+| --- | ---: | ---: |
+| Native label / completed lineage updates | 1999 / 2000 | 2000 / 2002 |
+| Adam step | 80000 | 80080 |
+| Actor and critic normalizer counts, each | 524288000 | 524812288 |
+| Fixed LR | .0003 | .0003 |
+| Runtime yaw scale | .024 | .024 |
+
+Loaded state was exactly equal before learning, both normalizers advanced, and
+models/Adam/observations/rewards remained finite. The serialized output config
+matched the effective environment. The smoke checkpoint is
+`logs/go2w_continuation_smoke/two_updates_2026-10-07_15-10-37/model_2000.pt`;
+it is execution evidence only and is **not** the production parent. See the
+[before-update proof](../evaluation/go2w_yaw_continuation_preparation/smoke_before.json),
+[smoke result](../evaluation/go2w_yaw_continuation_preparation/smoke_after.json)
+and [focused test output](../evaluation/go2w_yaw_continuation_preparation/focused_tests_final.txt).
+The [final validation summary](../evaluation/go2w_yaw_continuation_preparation/validation_summary.json)
+also confirms all 39 protected source-run/review files and `play.py` are unchanged.
+
+Run from the repository root with the existing `genesis-gpu` environment active.
+This exact **500-additional-update command has not been executed**:
+
+```powershell
+python -m robot_gym.scripts.train --task go2w --resume --resume_current_reward_scales --load_run (Resolve-Path ".\logs\go2w\go2w_2026-10-07_09-40-23").Path --checkpoint 1999 --num_envs 4096 --max_iterations 500 --seed 1 --logger tensorboard --training_diagnostics --headless --rl_device cuda:0
+```
+
+The saved rollout remains 64 ticks. Output goes to a separate timestamped
+`logs/go2w/go2w_<timestamp>/`. The installed native runner repeats the source
+label: 500 updates execute labels 1999 through 2498. With unchanged save interval
+250 and native final save, expect `model_2000.pt`, `model_2250.pt`, and final
+`model_2498.pt` (**2500 completed lineage updates**, not 2499).
+
+The subsequent decision is bounded to the final checkpoint and the same nominal
+six cases: stand (30 s), forward `.5 m/s`, lateral `+/-.3 m/s`, yaw `+/-.8 rad/s`
+(moving cases: 3 s zero, 30 s command, 8 s stop). Reuse current1999 raw baselines
+under `evaluation/go2w_20261007_review/final1999/`; do not rerun them. Inspect at
+most one saved intermediate on a failing case only if final regression warrants
+it. Preserve the [frozen requirements](../evaluation/consolidated_v3_preparation/frozen_targets.json).
+Prioritize both lateral signs' body-x and body-wz bias/RMSE, pose heading and
+path decomposition; forward speed/heading/cross-track; stand displacement/path
+and late translation/rotation; and complete stop path/endpoint/reversals/residual
+motion. Then check unloading/physical clearance, rear-calf clipping and contacts;
+camera-body full/late motion is secondary. Body angular-z is not Euler heading
+rate under tilt. Residual direct body-x drift is a separate limitation.
+
+Less heading drift obtained by slowing requested travel is not success. The yaw
+reward ceiling rises from `.8` to `1.2`, so compare physical metrics and, if useful,
+traces rescored under a common objective rather than total return. Partial
+improvement remains an intermediate candidate. Small/reverse/mixed/core-edge
+commands, DR and push recovery remain separate untested qualification items.
+There is no automatic further training if this bounded continuation is ineffective.
