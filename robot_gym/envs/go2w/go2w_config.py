@@ -487,6 +487,7 @@ def add_arguments(parser):
         {"name": "--resume_current_reward_scales", "action": "store_true", "help": "Go2-W training resume only: replace saved reward scales with current GO2WCfg scales; retain all other saved settings and learning state"},
         {"name": "--skip_zero_action_probe", "action": "store_true", "help": "Bank evaluation: retain all policy cases, omit the equilibrium zero-action probe"},
         {"name": "--diagnostic_trace", "action": "store_true", "help": "Read substep control forces, summed ground loads and cylinder geometry"},
+        {"name": "--diagnostic_trace_cases", "nargs": "+", "help": "sensor_sustained recording only: restrict substep capture to these selected cases; default is forward_fast and lateral_strong_positive"},
         {"name": "--reference_config", "help": "Explicit audited saved config, if not next to the checkpoint"},
         {"name": "--eval_mode", "choices": ["nominal", "bank", "equilibrium", "sustained", "closed_loop", "precision_screen", "precision_dr", "transfer_screen", "sensor_sustained"], "default": "nominal"},
         {"name": "--eval_phase_offset", "type": float, "default": 0., "help": "sensor_sustained only: initial phase offset in cycles [0,1); phase still advances normally"},

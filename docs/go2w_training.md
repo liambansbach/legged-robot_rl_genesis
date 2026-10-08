@@ -9,9 +9,11 @@ No documentation YAML, historical profile, or fine-tune selector supplies parame
 **Current run review, 2026-10-08:** training schema 2 adds straight-motion geometric
 supervision and a 65-input asymmetric critic; the deployed actor remains 58 inputs.
 Yaw tracking is restored to `.8`. See the [task definition and validation below](#geometric-straight-motion-preparation-2026-10-08).
-The run started fresh and was interrupted. The [review below](#interrupted-geometric-run-review-2026-10-08)
-recommends ordinary full-state resume from its CK1000, with no task/PPO change.
-CK1999 remains the retained development comparison.
+The original budget is now complete: the interrupted run resumed from CK1000
+and reached 2000 lineage updates. The [completed-budget review below](#completed-geometric-budget-review-2026-10-08)
+rejects final1998 for promotion because holding/stopping regressions outweigh its
+gains. Retain geometric CK1000 as the schema2 development baseline; no additional
+training or reward change is prepared. Pre-geometric CK1999 remains a comparison.
 
 The old path was inherited Go2 defaults → Go2-W defaults → profile deltas →
 fine-tune deltas → a manually maintained recipe YAML → runtime. The current path is
@@ -19,8 +21,8 @@ fine-tune deltas → a manually maintained recipe YAML → runtime. The current 
 Go2 configuration. The shared robot mechanisms and Dodo/Go2 configurations are unchanged.
 
 The ordinary fresh-training syntax below is retained for reference. The geometric
-run has already started; the next recommended command is the bounded **resume**
-at the end of this guide. Commands run from the repository root:
+budget is closed; this syntax is not a recommendation to start another run.
+Commands run from the repository root:
 
 ```powershell
 python -m robot_gym.scripts.train --task go2w --num_envs 4096 --max_iterations 2000 --seed 1 --logger tensorboard --training_diagnostics --headless --rl_device cuda:0
@@ -992,6 +994,9 @@ by this preparation, and the geometric reward does not guarantee convergence.
 
 ## Interrupted geometric-run review (2026-10-08)
 
+Historical preparation: the 999-update resume recommended here was subsequently
+executed. The completed-budget review below supersedes this next-action decision.
+
 **Decision A: retain CK1000 and finish its original 2000-update lineage with 999
 additional native updates, using ordinary full-state resume. No reward, PPO,
 sampling, action, physics or exploration change.** This is an intermediate
@@ -1270,3 +1275,193 @@ At that budget, compare the resulting actor-only policy against these retained
 CK1000/CK1999 traces under the same frozen tracking/path/holding/stopping,
 unloading/contact and sensor requirements. No automatic continuation or tuning
 is authorized if it remains ineffective.
+
+## Completed geometric-budget review (2026-10-08)
+
+**Decision D: do not promote final1998 or intermediate1750. Retain
+`logs/go2w/go2w_2026-10-08_09-57-35/model_1000.pt` as the schema2 development
+baseline, close the original budget, and pause additional training.** The final
+policy gains useful lateral coordination, but loses holding/stopping performance
+and still curves substantially forward. No reward-scale refinement or training
+command is prepared; this decision does not qualify CK1000 either.
+
+The completed child is
+`logs/go2w/go2w_2026-10-08_13-31-18/model_1998.pt`. Saved provenance explicitly
+names the CK1000 parent and ordinary full native resume. Adam advances
+40040→80000, both normalizer counts 262406144→524288000: **1001+999=2000 completed
+lineage updates**. Native labels repeat the source label; saved child labels are
+1000/1250/1500/1750/1998. Preparation says `completed`, TensorBoard reaches1998,
+and the 993-row diagnostic JSONL lacks six rows (1171,1427,1656,1838,1932,1946),
+which are unavailable rather than zero. Saved schema2, actor58/critic65, geometric
+scales, fixed LR3e-4 and all other task/PPO values match the parent; differences
+are resume provenance/load flags and the local999-update budget.
+
+The [compact comparison](go2w_geometric_completed_2026-10-08.json) records all-axis
+means/bias/RMSE, first-second/full/late windows, stops, geometry, target/clipping
+details and sensor decomposition. Large traces and detailed calculations remain
+in `evaluation/go2w_geometric_final_review/`. CK1000 and pre-geometric CK1999 raw
+baselines were reused; no historical model was replayed. Any geometric rescoring
+of pre-geometric traces is counterfactual, not its original training reward.
+
+### Physical result and selection
+
+One final-panel invocation used stand30s and moving3s zero/30s motion/8s zero:
+forward(.5,0,0), lateral(0,±.3,0), yaw(0,0,±.8). Deterministic actor mean,
+saved nominal dynamics, noise/DR/pushes disabled, unchanged phase/reset conventions,
+including the existing zero-action settling tick. Initial pose, commands and
+desired phase/clearance arrays match the retained panels. Primary analysis is50Hz;
+only positive lateral has200Hz capture in this review.
+
+| Full movement / holding metric | Pre-geometric1999 | Geometric1000 | Final1998 |
+| --- | ---: | ---: | ---: |
+| Forward mean vx / RMSE, m/s | .49579/.01622 | .49945/.01780 | .50421/.01677 |
+| Forward heading / max initial-line cross-track | +4.24°/.508m | +8.55°/1.024m | **+7.11°/.845m** |
+| Lateral+ mean vy / RMSE, m/s | .30049/.01531 | .30363/.02036 | .30076/.02021 |
+| Lateral+ heading / max cross-track | −18.81°/1.618m | −1.75°/.217m | **+3.66°/.343m** |
+| Lateral− mean vy / RMSE, m/s | −.30088/.01441 | −.30421/.02051 | −.30011/.02006 |
+| Lateral− heading / max cross-track | +18.18°/1.758m | +8.15°/.677m | **−1.11°/.126m** |
+| Yaw+ / yaw− achieved wz, rad/s | .79956/−.80178 | .80928/−.80600 | .81071/−.81081 |
+| Stand endpoint / path, m | .0981/.1269 | .0535/.0539 | **.1759/.1840** |
+| Late stand XY / wz RMS | .00439/.01117 | .00141/.00037 | **.00662/.00593** |
+
+Forward curvature remains late (+2.70° in the last10s). Its cross-track integral
+is `.84295 + .00237 − .000215m` from rotated body-x, body-y and body-z velocity;
+the pose discrepancy is0.20mm. Thus accurate requested-axis speed does not imply
+straight travel. Lateral initial-forward displacement decomposes as
+`+.01012 − .31051 − .04106m` (+) and `−.00204 − .08238 − .04058m` (−), agreeing
+with pose within1.3mm. Direct body-x bias improves to+.000336/−.000069m/s;
+body-wz means are+.00580/−.00432rad/s with RMSE.03513/.03377. Pose-derived heading
+is authoritative: tilted body angular-z is not Euler heading rate. Late heading
+changes +1.19°/+.028° for the two lateral signs; the negative case mostly retains
+an earlier offset, whereas forward/positive lateral continue curving.
+
+Final first-second requested-axis means are .46982m/s forward and+.28106/−.28353
+lateral; corresponding RMSE is .08697/.04449/.04327m/s. The path improvement is
+not obtained by materially slowing sustained travel. Stand startup0–5s endpoint/
+path is .0177/.0246m; most of the final17.6cm drift continues afterward.
+
+| Complete8s stop | CK1000 endpoint/path, m | Final endpoint/path, m | Final last2s XY/wz RMS |
+| --- | ---: | ---: | ---: |
+| Forward | .0443/.0455 | .0824/.0825 | .00667/.00591 |
+| Lateral+ | .0201/.0396 | .0599/.0863 | .00812/.00766 |
+| Lateral− | .00473/.0425 | .0529/.0676 | .00508/.01395 |
+| Yaw+ | .0257/.0273 | .0336/.0441 | .00526/.00586 |
+| Yaw− | .0197/.0215 | .0410/.0450 | .00477/.00110 |
+
+Final lateral stop opposing travel is4.0/5.9mm; net/absolute heading travel is
++2.18°/3.33° and−1.92°/6.79°. Yaw stops reverse direction (positive/negative
+rotation2.85°/2.12° after yaw+,4.00°/1.89° after yaw−). These are separate from
+endpoint displacement; small net values do not establish good stopping.
+
+The one permitted intermediate check used **child1750, stand/forward only**:
+1752 lineage updates, Adam70080. It gives forward .50690m/s, RMSE.01702,
+cross-track.687m/heading+6.08°, but stand endpoint/path .2601/.2631m and late
+XY RMS.00954. Forward stop endpoint/path .1044/.1044m and final XY RMS.00935
+are worse again. Its lateral/yaw behavior was not tested; it does not resolve
+the higher-priority holding/stopping regression.
+
+### Clearance, body motion and camera
+
+Completed physical swing median peaks FL/FR/RL/RR (mm) change from CK1000
+`11.45/11.86/10.05/11.63` to `10.14/13.75/6.20/24.17` for lateral+, and from
+`13.61/12.33/11.35/11.79` to `14.91/11.65/24.00/6.32` for lateral−. Complete,
+load-only and censored events and peak distributions are retained separately.
+Extra clearance is asymmetric; low liftoff/touchdown gaps are not automatically
+dragging. Apex unloading improves to `.847/.995/.914/.974` (+) and
+`.974/.865/1.000/.958` (−). Positive-lateral200Hz peak lags are
+`−20/+20/−90/+20ms`, versus CK1000's `−95/−95/−105/−30ms`. Total brief sampled
+recontacts fall111→17 (per wheel21/43/12/35→1/0/16/0; RL increases12→16).
+The shallow opposite rear remains early even when
+mostly unloaded. Negative lateral mirrors this limitation.
+
+The unchanged smooth envelope `s` specifies desired gap `.04*s` and weights
+support cost `s*min(F/Fnom,2)^2 + (1−s)*relu(.2−F/Fnom)^2`; clearance remains
+Huber((gap−desired)/.04), averaged over four wheels. Final lateral clearance cost
+is57.8%/54.5% of the **same-target zero-clearance counterfactual**, versus79.5%/80.1%
+at CK1000. This is a cost ratio, not time spent dragging. Support and loaded
+scrub costs also fall; loaded lateral center RMS remains roughly.065–.084m/s.
+The surrogate measures lateral wheel-center motion, not tire-patch slip or
+legitimate longitudinal rolling. These observations do not establish a timing
+bug, defective envelope, or a need to raise the4cm apex.
+
+Ground clearance is not synonymous with articulated leg lift. For positive RR,
+mean within-desired-window start-to-peak gap change is11.39mm, decomposed into
+base heave+16.54, base rotation+10.82, relative leg motion−13.80 and cylinder
+extent−2.17mm. CK1000 gives5.90mm =1.88−.15+3.53+.63mm. Boundaries can already
+be elevated; these exact finite contributions are not causal effects or the
+final-minus-parent physical peak difference.
+
+| Full lateral + / − | Pre-geometric1999 | Geometric1000 | Final1998 |
+| --- | ---: | ---: | ---: |
+| Base height std, m | .00387/.00374 | .00320/.00301 | **.00581/.00590** |
+| Base world-z velocity RMS, m/s | .05497/.05421 | .03447/.03420 | **.07996/.08327** |
+| Camera rotational-lever z RMS, m/s | .09664/.09202 | .09154/.09056 | **.12063/.11914** |
+| Camera-body world-z RMS, m/s | .09119/.08614 | .10973/.10719 | **.09953/.09985** |
+| Retained imager world-z RMS, m/s | .09399/.09555 | .11413/.11645 | **.10457/.10803** |
+
+Using the existing rigid transforms, `vcamera_z=vbase_z+vrotation_z`. For final
+lateral+, the mean-square identity is `.009907=.006393+.014551−.011037m²/s²`;
+for lateral−, `.009970=.006935+.014195−.011160`. The negative cross term is
+essential: greater base/rotational motion can produce lower camera RMS through
+cancellation. Final camera height std is .01221/.01225m, down from CK1000
+.01354/.01336m, measured directly from positions. Late camera RMS remains
+.10005/.09923m/s; positive200Hz body/imager RMS .10221/.10742 confirms direction.
+Pitch-rate RMS increases to .37967/.37483rad/s while roll-rate RMS falls to
+.22062/.22157. Signed roll/pitch means are+.03194/+.01440rad and−.03240/+.01422;
+oscillatory std is about.0165/.040rad. Base motion is worse; camera motion is
+better than CK1000 but worse than pre-geometric1999. No image quality or jerk
+claim follows, and this does not justify increasing both sensor/angular costs.
+
+### Posture, safety, logs and closure
+
+Forward actual reference-pose RMS improves .05879→.04679rad, mean height is
+.41615m and roll/pitch−.00628/−.00291rad. Early-to-late height changes−1.32mm,
+then only−.105mm between the first/last2s of the late window: bounded migration,
+not collapse. Final forward wheelbase is.38829m; front/rear widths.40603/.42192m;
+front/rear pair midpoints are(.22045,−.00963)/(−.16784,−.00403)m. Lateral mean
+height remains.4132–.4134m with early-to-late changes below.4mm; posture RMS
+.14815/.14752rad is distinct from necessary support target offsets. Complete
+early/late geometry is in the JSON; desired height/reference/gains are unchanged.
+
+No falls, resets or sampled self/non-wheel contacts occur in the final panel.
+All joints have zero sampled99%-force-limit occupancy; positive200Hz maximum is
+.694 of limit. Positive calf-extension clipping remains predominantly stance;
+however FR/FL calf **negative flexion** clips37.8%/34.2% of lateral+/− apex
+samples. The persistently shallow opposite rear has neither-sign apex clipping.
+Actual/issued/applied targets remain distinct in reporting. This does not support
+widening stance-extension limits to solve that rear swing. Contacts between
+samples and unsampled conditions remain unknown.
+
+Labels1200–1399 versus1800–1998 show KL.01446→.01366, PPO ratio clipping25.77→24.91%,
+value loss.01284→.00969 and fixed LR3e-4. Global cross/heading/clearance cost rates
+decline .01254/.00489/.02829→.01120/.00434/.02581; sensor declines.00801→.00759,
+but orientation grows.00384→.00433. Family-conditioned term costs by hold/phase
+were not recorded. Late std-floor occupancy is about2–3% for front calves and
+19–20% for rear thighs; final rear-thigh std=.10. Rear-calf deterministic mean
+saturation is about3.94% on training states, distinct from PPO ratio clipping.
+None of this warrants resetting exploration. Episode terms divide accumulated
+contributions by configured60s; mean return is an episode sum. They are not
+interchangeable or failure probabilities. Recorded collection/learning means
+are4.209/.855→4.007/.844s; no profiling or bottleneck claim was made here.
+
+Focused numerical checks pass rigid transport/cross-term identities, rotation/
+translation invariance, known peak lag, exact wheel-lift decomposition and matched
+protocols. A recording-only `--diagnostic_trace_cases` selector limits existing
+capture; omitted options preserve its old default. Actual output confirms only
+positive lateral has200Hz data. No training parameter changed, no optimizer
+update/smoke ran, and checkpoint/config/`play.py` hashes are unchanged.
+
+The frozen30s forward **.05m/2°** targets still fail materially despite passing
+the .45–.55m/s / RMSE≤.04m/s speed band. Final stand fails late XY≤.005m/s;
+stopping regresses versus CK1000 and retained requirements. Improvements in
+negative lateral, clearance and camera cannot offset those losses. The geometric
+terms are inactive during stand/stops, so a stronger translating-heading scale
+would not directly address this combined failure. No single scale or shape fix
+is established by cost magnitudes. The actor still lacks online accumulated
+offset; an asymmetric critic does not supply hidden path-recovery feedback.
+
+**Retain CK1000, reject promotion of final1998/1750, and stop training at this
+closed budget.** Persistent forward curvature is the retained baseline's concrete
+unresolved functional limitation. No command-envelope, reverse/small/mixed,
+DR/push, Sim2Sim or hardware qualification is claimed, and no further unchanged
+block, fresh start, camera-only refinement or training command is prepared.

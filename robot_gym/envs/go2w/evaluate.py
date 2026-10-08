@@ -352,6 +352,13 @@ def evaluate(args):
     if phase_transition and (args.eval_mode != "sensor_sustained" or rolling_phase_zero or args.transfer_cases):
         raise ValueError("Phase transition requires sensor_sustained and its bounded case set")
     noise_pushes = getattr(args, "eval_noise_pushes", False)
+    trace_cases = getattr(args, "diagnostic_trace_cases", None)
+    if trace_cases and (args.eval_mode != "sensor_sustained" or not args.diagnostic_trace):
+        raise ValueError("Case-specific substep capture requires sensor_sustained --diagnostic_trace")
+    if trace_cases:
+        from robot_gym.envs.go2w.diagnostic_bank import sensor_schedule
+        if not set(trace_cases) <= set(args.transfer_cases or sensor_schedule()):
+            raise ValueError("Substep capture cases must belong to the selected panel")
     if noise_pushes and args.eval_mode != "precision_dr":
         raise ValueError("Saved noise/push stress settings require precision_dr")
     cfg, train_cfg, checkpoint = task_registry.resolve_replay(args)
@@ -447,6 +454,7 @@ def evaluate(args):
                                           case_names=getattr(args, "transfer_cases", None),
                                           sensor=args.eval_mode == "sensor_sustained",
                                           high_rate=args.diagnostic_trace, phase_offset=phase_offset,
+                                          high_rate_cases=trace_cases,
                                           rolling_phase_zero=rolling_phase_zero, phase_transition=phase_transition))
         shutdown = perf_counter()
         gs.destroy()

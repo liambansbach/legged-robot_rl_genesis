@@ -1053,7 +1053,7 @@ def sensor_metrics(data, schedule, dt, metadata):
 
 def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=None,
                        sensor=False, high_rate=False, phase_offset=0., rolling_phase_zero=False,
-                       phase_transition=False):
+                       phase_transition=False, high_rate_cases=None):
     import xml.etree.ElementTree as ET
 
     tree = ET.parse(env.urdf_reader.robot_file_path_absolute).getroot()
@@ -1111,7 +1111,7 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
         if sensor:
             env.phase.add_(phase_offset).remainder_(1.)  # Explicit episode-initial phase comparison only.
             report["reset_phase_offset_cycles"] = phase_offset
-            if high_rate and name in ("forward_fast", "lateral_strong_positive"):
+            if high_rate and name in (high_rate_cases if high_rate_cases is not None else ("forward_fast", "lateral_strong_positive")):
                 from .diagnostics import ReferenceCapture
                 env.physics_diagnostics = ReferenceCapture(env)
         if transfer:
