@@ -6,18 +6,21 @@ parameter source. Edit that file for the next experiment. Training resolves the
 registered task and writes the complete `config.yaml` into its run directory.
 No documentation YAML, historical profile, or fine-tune selector supplies parameters.
 
-**Current preparation, 2026-10-08:** training schema 2 adds straight-motion geometric
+**Current run review, 2026-10-08:** training schema 2 adds straight-motion geometric
 supervision and a 65-input asymmetric critic; the deployed actor remains 58 inputs.
 Yaw tracking is restored to `.8`. See the [task definition and validation below](#geometric-straight-motion-preparation-2026-10-08).
-CK1999 remains the development baseline; this new run starts entirely fresh.
+The run started fresh and was interrupted. The [review below](#interrupted-geometric-run-review-2026-10-08)
+recommends ordinary full-state resume from its CK1000, with no task/PPO change.
+CK1999 remains the retained development comparison.
 
 The old path was inherited Go2 defaults → Go2-W defaults → profile deltas →
 fine-tune deltas → a manually maintained recipe YAML → runtime. The current path is
 **Go2-W config → runtime → saved run config**. Go2-W configuration no longer inherits
 Go2 configuration. The shared robot mechanisms and Dodo/Go2 configurations are unchanged.
 
-The ordinary production command below is **prepared and unexecuted**. Run it from
-the repository root with the existing `genesis-gpu` environment active:
+The ordinary fresh-training syntax below is retained for reference. The geometric
+run has already started; the next recommended command is the bounded **resume**
+at the end of this guide. Commands run from the repository root:
 
 ```powershell
 python -m robot_gym.scripts.train --task go2w --num_envs 4096 --max_iterations 2000 --seed 1 --logger tensorboard --training_diagnostics --headless --rl_device cuda:0
@@ -729,7 +732,8 @@ optimizer smoke, full test suite or training-source changes were performed.
 
 This is **training a velocity-conditioned policy with privileged geometric
 supervision**, not deploying a position controller or heading-hold command
-adapter. Production remains unstarted. The selected development baseline is
+adapter. Production was unstarted at preparation time; the interrupted-run review
+below supersedes that status. The selected development baseline is
 `logs/go2w/go2w_2026-10-07_09-40-23/model_1999.pt` (2000 updates); neither it nor
 historical CK2498 initializes this run. Their checkpoint/config/raw comparisons
 are preserved. Current yaw tracking returns from 1.2 to the baseline's .8.
@@ -985,3 +989,284 @@ reversal and residual requirements stay in the [frozen record](../evaluation/con
 Do not accept straighter travel by slowing down or quieter sensors at the expense
 of tracking/support/stopping. No automatic tuning or further training is authorized
 by this preparation, and the geometric reward does not guarantee convergence.
+
+## Interrupted geometric-run review (2026-10-08)
+
+**Decision A: retain CK1000 and finish its original 2000-update lineage with 999
+additional native updates, using ordinary full-state resume. No reward, PPO,
+sampling, action, physics or exploration change.** This is an intermediate
+development candidate, with substantial forward/path and stepping limitations.
+Only optional diagnostic aggregation was optimized in this review.
+
+The verified run is `logs/go2w/go2w_2026-10-08_09-57-35/`. Saved labels are
+0, 250, 500, 750 and **1000**. `model_1000.pt` contains **1001 completed updates**,
+Adam step40040 and both normalizer counts262406144. It is the checkpoint matching
+the reported approximately-1000 GUI replay; no GUI session log identifies a more
+precise selection. TensorBoard and diagnostics actually reach label1115, so
+**1116 updates completed**, beyond the reported console1114. JSONL row254 is
+missing; it is unavailable, not a zero measurement. `preparation.json` records
+`interrupted_or_failed`; there is no retained final save or exception traceback
+that establishes the interruption cause. The later115 updates are not resumable.
+This was a planned2000 run, not a completed2000 run.
+
+Saved schema2, actor58/critic65, fixed LR3e-4, yaw weight.8/runtime.016, geometric
+runtime scales-.002 each, 4096x64, and the intended reference/action/phase task
+are present. Model first layers and both normalizers have the recorded58/65
+dimensions. The existing preparation proved critic consumption and actor/export
+isolation; no new export or complete state-equivalence campaign was needed.
+
+The [compact comparison/profiling JSON](go2w_geometric_review_2026-10-08.json)
+contains all-axis first/full/late errors, stops, joint/geometry measurements,
+conditioned costs and profiling data. Large traces and detailed arithmetic remain
+under `evaluation/go2w_geometric_review/`. CK1999 raw traces from
+`evaluation/go2w_20261007_review/final1999/` were reused, without historical replay.
+
+### Physical comparison
+
+One evaluator invocation used stand30s and moving cases3s zero,30s command,8s
+zero: forward(.5,0,0), lateral(0,+/-.3,0), yaw(0,0,+/-.8). Actor mean, nominal
+saved dynamics, no noise/DR/pushes, no action/command override. Each case starts
+from the existing nominal reset, including its one zero-action settling tick.
+Initial pose, command/phase schedules and desired clearances match CK1999 exactly.
+All comparisons use50Hz; existing200Hz capture was used only for forward and
+positive lateral. There were **no falls, resets or sampled self/non-wheel contacts**
+in the six cases. This does not exclude contacts between samples.
+
+| Full30s metric | CK1999 | Geometric CK1000 |
+| --- | ---: | ---: |
+| Forward mean vx / vx RMSE, m/s | .49579 / .01622 | .49945 / .01780 |
+| Forward heading / maximum cross-track | +4.24° / .508m | **+8.55° / 1.024m** |
+| Lateral+ mean vy / vy RMSE, m/s | .30049 / .01531 | .30363 / .02036 |
+| Lateral+ heading / maximum cross-track | -18.81° / 1.618m | **-1.75° / .217m** |
+| Lateral- mean vy / vy RMSE, m/s | -.30088 / .01441 | -.30421 / .02051 |
+| Lateral- heading / maximum cross-track | +18.18° / 1.758m | **+8.15° / .677m** |
+| Yaw+ achieved wz / RMSE, rad/s | .79956 / .04100 | .80928 / .05381 |
+| Yaw- achieved wz / RMSE, rad/s | -.80178 / .03862 | -.80600 / .04934 |
+| Stand endpoint / path, m | .09807 / .12685 | .05346 / .05387 |
+| Stand late XY / wz RMS | .004385m/s / .011165rad/s | **.001412 / .000374** |
+
+The single permitted additional check was CK750 **forward only**: mean.50118,
+RMSE.01783m/s, heading-7.12°, cross-track1.093m. Forward curvature already existed;
+its sign changes by CK1000, with little improvement in magnitude. This is not
+evidence of a newly collapsing posture, nor evidence that lower LR is required.
+
+Current lateral body-x biases are +.00262/+.00446m/s; body-wz biases are
++.00040/+.00242rad/s, with wz RMSE.05391/.05123. Full-quaternion decomposition
+of displacement along the **initial forward axis**, in body-x / rotated body-y /
+body-z contributions, gives lateral+ `.0786 + .1453 - .00945m` and lateral-
+`.1333 + .5521 - .00894m`. Integration agrees with pose to within3mm at50Hz.
+Thus direct x bias remains, while rotation of lateral travel still supplies most
+cross-axis displacement. Positive-lateral body-wz bias even has the opposite
+sign to its pose heading change: tilted body angular-z is not Euler yaw rate.
+Late heading still changes -1.13°/+4.11° over the last10s; forward adds+3.23°.
+The errors are not explained solely by acquisition. Forward cross-track is
+principally rotation of correctly achieved body-x travel, not lateral velocity.
+
+Stand startup0-5s endpoint/path is .01655/.01660m; the full drift is about5.3cm,
+not metres. Late wheel targets FL/FR/RL/RR average
+`[-.0950,.0210,.00635,.00351]rad/s`, while actual rates average
+`[-.0210,-.0131,-.0153,-.0146]rad/s`. Neither action magnitude nor zero target
+alone establishes holding or zero torque. No wheel deadband/stand controller was
+added. Full stop endpoint/path for forward, lateral+, lateral-, yaw+, yaw- is
+`.0443/.0455`, `.0201/.0396`, `.00473/.0425`, `.0257/.0273`, `.0197/.0215m`.
+Their final2s XY RMS is `.00095,.00145,.00172,.00235,.00176m/s`; wz RMS is
+`.00609,.00071,.00125,.00110,.00117rad/s`. Endpoint, path, reversals and residual
+rotation are separate records. Forward stop endpoint still exceeds frozen
+CK499's .0311m, although its path is below .1051m.
+
+Forward actual leg-reference RMS improves .08492→.05879rad. Height averages
+.41558m (late.41451); early0-10s to late20-30s changes by2.57mm, then only.24mm
+between the first/last2s of the late window. Late roll/pitch is -.88°/-.64°;
+late variations are .009°/.008°. Leg RMS rises .00144rad across that late window:
+small bounded migration, not progressive collapse. Full/late wheelbase is
+.37369/.37441m and front/rear widths .41202/.42333 → .42003/.43126m. Pair
+midpoints and each actual joint/target error are in the JSON. The canonical
+.427741656m reference height remains unchanged; forward is inside the existing
+15mm height tolerance, hence its height cost is zero.
+
+### What the objectives actually measure
+
+`Episode/rew_*` is each reset episode's accumulated contribution divided by the
+configured60s, then averaged by the logger. `Train/mean_reward` is accumulated
+episode return, not that rate. Diagnostics below instead average the actual
+rollout ticks. Do not compare those plotted quantities directly or infer failure
+probability from mean episode length/termination reward.
+
+| Recorded state/quantity, full movement | Unscaled cost | Weight | Weighted rate | Per .02s tick |
+| --- | ---: | ---: | ---: | ---: |
+| Forward actual reference error RMS .05879rad, normalized Huber mean | .17814 | -.5 | -.08907 | -.001781 |
+| Forward projected-gravity XY squared sum | .00034054 | -4 | -.001362 | -.00002724 |
+| Lateral+ actual pose RMS .15230rad: raw Huber .79214 × relaxation.05 | .039607 | -.5 | -.019803 | -.0003961 |
+| Lateral+ cylinder gap minus phase target, Huber(error/.04m), four-wheel mean | .052180 | -1 | -.052180 | -.0010436 |
+| Same desired targets, counterfactual actual clearance=0 | .065625 | -1 | -.065625 | -.0013125 |
+| Lateral+ loaded axle-lateral center speed squared, four-wheel mean | .0050383m²/s² | -.2 | -.0010077 | -.00002015 |
+| Lateral+ phase-weighted normalized support cost | .065241 | -.5 | -.032621 | -.0006524 |
+| Lateral+ mirrored-imager world-z velocity squared mean | .013521m²/s² | -1 | -.013521 | -.0002704 |
+
+Pose activation is1 for forward/stand and.05 for these lateral commands; it uses
+actual leg positions, not support target offsets or continuous wheel angles.
+Step demand is1 throughout commanded lateral/yaw and0 for pure rolling. Clearance
+cost has **no load escape gate** and includes stance. At both lateral signs its
+cost is about80% of the zero-clearance counterfactual, explaining why a small
+global mean does not establish good clearance. The matched CK1999 clearance
+costs were .04371/.04337, versus current.05218/.05260.
+
+Completed physical swing median peaks FL/FR/RL/RR are lateral+
+`11.45/11.86/10.05/11.63mm`, lateral- `13.61/12.33/11.35/11.79mm` against40mm.
+There is no general measured increase in step height. At desired apex, unloaded
+fraction(<=6N) is + `[.905,.935,.486,.932]`, - `[.911,.919,.930,.553]`.
+One rear wheel often remains loaded; the others can be unloaded yet shallow.
+Positive-lateral200Hz desired-window peak leads are typically95/95/105/30ms.
+There are21/43/12/35 brief within-swing recontacts, predominantly5ms (some10ms),
+which explains excess load-event counts. Completed, load-only and censored events
+are retained separately. Low liftoff/touchdown gaps alone were not called dragging.
+
+Loaded lateral center RMS is .084-.099m/s and .084-.094m/s for the two signs:
+the current scrub surrogate does capture substantial loaded lateral shuffling.
+It averages gated squared speed over **all four wheels**, so it is not tire-patch
+slip and does not penalize legitimate longitudinal rolling. Its small weighted
+mean is not evidence that PPO ignores it. Clearance, support, pose, sensor and
+action-rate costs are conditioned on loaded/unloaded, swing/apex/stance and
+early/late windows in the retained analysis. Cost size is not a gradient or proof
+of a causal conflict; no coefficient was changed.
+
+Rear-calf positive clipping occurs19.3% on RR for lateral+ and18.5% on RL for
+lateral-, but **zero at those calves' desired apex**; it is predominantly support
+extension. Actual joints lag the applied -1.0rad targets, distinct from clipping.
+All16 joints have zero policy-rate occupancy at99% of force limits; positive
+lateral200Hz maximum is68.2% of limit. Offline FK at five recorded clipped states
+per affected calf agrees with measured gaps within0.11micrometre; .05rad more
+flexion raises that cylinder about7.1-8.3mm with base/other joints fixed. This
+does not establish loaded feasibility, but does not support widening the positive
+calf limit to fix shallow swings. No actions/gains/limits/apex were changed.
+
+Camera-body vertical RMS improves forward .00270→.00191m/s, but worsens
+lateral+ .09119→.10973, lateral- .08614→.10719 and yaw about.055→.074-.075.
+Late lateral remains .10909/.10840m/s. Current lateral roll/pitch-rate RMS is
+`.247/.289` and `.252/.286rad/s`, so camera motion cannot be attributed simply
+to larger angular RMS. Both fixed-frame body and retained imager metrics are
+recorded at matching50Hz; positive lateral200Hz is .11190/.11652m/s. These are
+rigid-body motion measurements, not measured image quality or jerk.
+
+### Reference, training progress and parameter hypotheses
+
+Reconstructing the single command-onset anchor from recorded poses reproduces
+all saved reference errors/age/validity/activation (maximum discrepancy below
+3e-8). Translation is eligible100% of its30s command, mean activation.992
+(.76 in the first second); stand, yaw and stops are ineligible. No identical
+message relatch occurs across the long holds. Geometric cross+heading cost
+rates first-second / seconds2-4 / late are forward `.000007/.001343/.71712`,
+lateral+ `.000755/.001392/.11523`, lateral- `.000357/.004403/.47469`.
+For these eligible windows active-time and all-window means coincide; mixing
+in ineligible stand/stops would dilute them. Tracking remains about2.62-2.80/s.
+Nominal errors stay below the earlier extreme-cost examples and no resets occur;
+training logs do not associate individual large errors, pushes and resets, so
+reset-seeking cannot be inferred or ruled out from their averages.
+
+The native profiling warmup checks128 ticks across a rollout boundary and184
+partial reset events: unchanged commands preserve anchors/age; reset/changed
+commands latch the correct pose independently. No active push fell in those
+checked ticks; the unchanged push path and prior focused checks supply the
+no-push-relatch mechanism evidence, not an invented event association. The
+critic receives seven relative inputs; the actor still cannot distinguish
+identical58-input observations at opposite hidden accumulated offsets.
+
+Between labels600-749 and1000-1115, measured KL changes .01503→.01435, PPO
+ratio clipping26.81→25.82%, value loss .01615→.01342, geometric heading cost
+.00645→.00521/s and cross-track cost .01508→.01453/s. Clearance changes only
+.03136→.03102/s. Std remains above its.10 floor for every joint; late means
+are approximately.111-.167. There is no evidence here to reset exploration or
+raise LR. Family/hold time and push-event summaries are retained; latest family
+time is about16% stand,16% straight,6% arc,21% yaw,5% precision,27% lateral,
+9% mixed, with approximately11%/8% in selected long/extended holds. Realized
+tier occupancy and family-specific long holds are unavailable. Overall training
+reference validity/activation averages are43.1%/39.0%; dividing its geometric
+rates by the valid fraction gives active-time cost means, without recovering
+missing per-event associations.
+
+Sampled `[.001,.004,.005]` becomes `[0,0,0]`: XY vector norm.004123<.01,
+and absolute yaw.005<.01. XY uses a **vector-norm** deadzone, not per-axis
+zeroing; `[.009,.009,0]` survives. Fixed explicit evaluator commands use their
+own unchanged assignment path. Raw network means/samples, normalized clipping,
+delayed/scaled wheel targets and PPO likelihood-ratio clipping are different
+quantities. Removing small wheel targets can remove braking/correction too.
+Gamma.995 has an approximately4s discount time; gamma×GAE-lambda.95 has an
+approximately.355s trace time, with value bootstrapping. Dense geometric costs
+arrive every eligible tick; neither number means learning sees only one hard
+horizon. No gamma/LR/entropy/std/controller changes were made.
+
+### Bounded performance work and next command
+
+RTX4070Ti12GB, driver617.42, Genesis1.4.1, Torch2.9.0+cu130 and RSL-RL5.5.1,
+headless4096x64. No other simulation/GUI Python process ran; TensorBoard and
+the normal Windows desktop remained. Compilation/startup was excluded. GPU
+snapshots show50-67°C, approximately2.8GHz and90-171W against285W; no obvious
+power/thermal ceiling appears in these snapshots. Historical competing processes
+and continuous throttle flags were not recorded. Checkpoint/TensorBoard writer
+I/O is unmeasured; no production checkpoint was written.
+
+| Synchronized wall time per rollout/update | Before | After |
+| --- | ---: | ---: |
+| Collection, full diagnostics, mean of3×64 ticks | 4.411s | 4.281s |
+| Collection, diagnostics disabled, mean of3×64 ticks | 3.904s | 4.021s |
+| Increment for full diagnostics | .506s | .260s |
+| Native returns + PPO update, one disposable sample | .954s | .943s |
+
+The observed full-diagnostics collection reduction is **2.95%**; the control
+condition's variation limits precision. No learning-time speedup is established
+by one sample. Starting scene pose, environment/reference buffers and RNG are
+restored for on/off comparison. Saved physics is nondeterministic: subsequent
+trajectories are not bit-identical, although commands/phase/reset masks match.
+This timing comparison is not a bitwise physics-equivalence proof.
+
+Eight instrumented ticks show state/contact refresh and host dispatch dominate
+the Python path:13 state updates (including post-reset refresh),21 contact
+queries,26 wheel-quaternion getters, and1069→988 CUDA stream synchronizations.
+Diagnostic reward aggregation drops65.8→19.2ms host time and per-term recording
+62.5→30.3ms. State refresh remains about198ms, physics/control intervals about
+65/38ms, versus about5ms for critic-reference features and13ms observation
+construction. These nested CPU/CUDA intervals include profiling/host-gap overhead
+and cannot be added as exclusive kernel times. Seven critic features are not
+demonstrated to be the main slowdown. Both observation groups occupy123MiB of
+rollout storage:58MiB duplicates the policy prefix and7MiB is privileged data;
+measured add-transition time is about3.2ms over eight instrumented ticks.
+
+Only `go2w/training_diagnostics.py` changed at runtime: batch family reductions,
+fixed-size masked slew sums with exact sample counts, and reused reward-term
+accumulators without per-tick scalar copies. All64×4096 samples/channels remain;
+there is no diagnostic subsampling or phase bias. Reference caching, sampler
+constants, diagnostic-only geometry and duplicate state/contact getters were
+inspected but left unchanged. Four focused numerical tests pass, including
+sample counts, reset exclusion, dt and input/RNG preservation. The two disposable
+native updates each load CK1000 and advance Adam40040→40080 at LR3e-4, with finite
+losses. No policy was saved. An initial profiling-helper buffer-reset failure
+occurred before any optimizer update; its log is retained. `play.py`, CK1000 and
+its config pass before/after hash checks; historical artifacts were only read.
+
+The source changes are the diagnostic module, its focused test
+`tests/test_go2w_diagnostics_performance.py`, this guide and the comparison JSON.
+No current task/learning parameter changed. The frozen .05m/2° forward limits
+are still missed substantially; .45-.55m/s and <=.04m/s speed bands are met in
+this one forward case. Holding and stopping evidence does not qualify untested
+small/reverse/diagonal/mixed/core-edge/reserve/DR/push recovery/transfer conditions.
+
+**Next decision: ordinary full-state resume from CK1000 for999 additional
+updates**, preserving actor/critic, both normalizers, learned std, Adam and fixed
+LR. Lateral drift/holding and rolling pose have useful gains, with no observed
+unsafe contact/collapse in this early panel; the CK750 check does not identify
+a better forward checkpoint or a late-only failure. Finish the original lineage
+budget before changing another objective. No new reward proposal is justified
+by averaged costs alone. This is not exact simulator/RNG continuation and does
+not recover the115 unsaved updates. Expected final native label is **1998**,
+with **2000 lineage updates** and Adam step80000 (native resume repeats source
+label1000). Saves remain every250 plus native final, in a separate timestamped
+run. This exact command is **unexecuted**:
+
+```powershell
+& 'C:\Users\Liamb\anaconda3\envs\genesis-gpu\python.exe' -m robot_gym.scripts.train --task go2w --resume --load_run go2w_2026-10-08_09-57-35 --checkpoint 1000 --num_envs 4096 --max_iterations 999 --seed 1 --logger tensorboard --training_diagnostics --headless --rl_device cuda:0
+```
+
+At that budget, compare the resulting actor-only policy against these retained
+CK1000/CK1999 traces under the same frozen tracking/path/holding/stopping,
+unloading/contact and sensor requirements. No automatic continuation or tuning
+is authorized if it remains ineffective.

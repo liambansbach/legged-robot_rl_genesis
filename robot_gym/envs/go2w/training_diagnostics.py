@@ -122,6 +122,7 @@ class TrainingDiagnostics:
             self.command_families = torch.full(
                 (env.num_envs,), -1, dtype=torch.long, device=env.device
             )
+        self.family_ids = torch.arange(len(self.families), device=env.device)
         self.previous_mean = self.previous_sample = None
         self.previous_valid = torch.zeros(
             env.num_envs, dtype=torch.bool, device=env.device
@@ -141,26 +142,40 @@ class TrainingDiagnostics:
 
     def reset_aggregates(self):
         self.rollout = {}
-        self.rewards = {}
+        self.rewards = None
         self.kl = []
         self.measured_kl = []
         self.ppo_clip = []
         self.term_totals = {}
-        self.posture = {}
+        self.posture = None
         self.scrubbing = None
         self.command_holds = None
 
     def reward_term(self, name, raw, weighted):
         """Per-update scalar sums; no retained environment histories."""
-        value = torch.stack((raw.new_tensor(raw.numel()), raw.detach().sum(), weighted.detach().sum()))
-        self.term_totals[name] = self.term_totals.get(name, torch.zeros_like(value)) + value
+        if name not in self.term_totals:
+            self.term_totals[name] = [0, raw.new_zeros(()), weighted.new_zeros(())]
+        total = self.term_totals[name]
+        total[0] += raw.numel()  # Shape metadata needs no per-tick CPU-to-CUDA scalar copy.
+        total[1].add_(raw.detach().sum())
+        total[2].add_(weighted.detach().sum())
 
-    def add(self, key, value):
+    def add(self, key, value, mask=None):
         value = value.detach().float()
         if value.numel() == 0:
             return
-        total, count = self.rollout.get(key, (torch.zeros_like(value[0]), 0))
-        self.rollout[key] = (total + value.sum(dim=0), count + len(value))
+        if mask is None:
+            summed, samples = value.sum(dim=0), len(value)
+        else:
+            # Fixed-size reduction avoids boolean indexing/nonzero synchronization.
+            shape = (len(mask),) + (1,) * (value.ndim - 1)
+            summed = torch.where(mask.reshape(shape), value, 0).sum(dim=0)
+            samples = mask.sum()
+        if key in self.rollout:
+            total, count = self.rollout[key]
+        else:
+            total, count = torch.zeros_like(summed), 0
+        self.rollout[key] = (total + summed, count + samples)
 
     def targets(self, actions):
         e = self.env
@@ -193,11 +208,11 @@ class TrainingDiagnostics:
             ids = self.previous_valid
             self.add(
                 "mean_target_slew_squared_per_s2",
-                ((mean_target - self.previous_mean)[ids] / self.env.dt).square(),
+                ((mean_target - self.previous_mean) / self.env.dt).square(), ids,
             )
             self.add(
                 "sampled_target_slew_squared_per_s2",
-                ((sample_target - self.previous_sample)[ids] / self.env.dt).square(),
+                ((sample_target - self.previous_sample) / self.env.dt).square(), ids,
             )
         self.previous_mean, self.previous_sample = (
             mean_target.clone(),
@@ -211,11 +226,11 @@ class TrainingDiagnostics:
         from genesis.utils.geom import quat_to_xyz
         angles = quat_to_xyz(self.env.base_quat, rpy=True)[:, :2]
         valid = ~self.env.reset_buf.bool() & (self.env.nonfoot_contact_count == 0)
-        for i, name in enumerate(self.families):
-            mask = valid & (self.command_families == i)
-            samples = torch.where(mask[:, None], angles, 0)
-            value = torch.cat((mask.sum().reshape(1), samples.sum(0), samples.square().sum(0)))
-            self.posture[name] = self.posture.get(name, torch.zeros_like(value)) + value
+        families = self.command_families[:, None] == self.family_ids
+        mask = valid[:, None] & families
+        samples = torch.where(mask[..., None], angles[:, None], 0)
+        value = torch.cat((mask.sum(0)[:, None], samples.sum(0), samples.square().sum(0)), dim=1)
+        self.posture = value if self.posture is None else self.posture + value
         from .phase import step_demand
         gate = step_demand(commands)
         moving = valid & (gate > 0)
@@ -224,26 +239,12 @@ class TrainingDiagnostics:
                              (speed2.mean(1) * moving).sum(),
                              (speed2.mean(1) * gate * moving * (raw < 0)).sum()))
         self.scrubbing = scrub if self.scrubbing is None else self.scrubbing + scrub
-        masks = {
-            "all": torch.ones_like(raw, dtype=torch.bool),
-            "unlabelled_initial": self.command_families == -1,
-        }
-        masks.update(
-            {name: self.command_families == i for i, name in enumerate(self.families)}
-        )
-        for name, mask in masks.items():
-            values = torch.where(mask, raw.detach(), 0)
-            summary = torch.stack(
-                (
-                    mask.sum(),
-                    values.sum(),
-                    (values < 0).sum(),
-                    (-values.clamp_max(0)).sum(),
-                )
-            ).float()
-            self.rewards[name] = (
-                self.rewards.get(name, torch.zeros_like(summary)) + summary
-            )
+        masks = torch.cat((torch.ones_like(raw[:, None], dtype=torch.bool),
+                           (self.command_families == -1)[:, None], families), dim=1)
+        values = torch.where(masks, raw.detach()[:, None], 0)
+        summary = torch.stack((masks.sum(0), values.sum(0), (values < 0).sum(0),
+                               (-values.clamp_max(0)).sum(0)), dim=1).float()
+        self.rewards = summary if self.rewards is None else self.rewards + summary
 
     def install(self, alg):
         original_act, original_step, original_update = (
@@ -309,7 +310,8 @@ class TrainingDiagnostics:
         alg.actor.get_output_log_prob, alg.actor.get_kl_divergence = log_prob, kl
 
     def flush(self, alg):
-        vectors = {key: total / count for key, (total, count) in self.rollout.items()}
+        # A mask can exclude an entire rollout; omit it as before, never emit NaN.
+        vectors = {key: total / count for key, (total, count) in self.rollout.items() if count > 0}
         for key in list(vectors):
             if "squared_per_s2" in key:
                 vectors[key.replace("squared_per_s2", "rms_per_s")] = vectors.pop(
@@ -327,7 +329,7 @@ class TrainingDiagnostics:
                 if torch.is_tensor(value) and value.shape == (16,)
             }
         rewards = {}
-        for name, values in self.rewards.items():
+        for name, values in zip(("all", "unlabelled_initial", *self.families), self.rewards):
             count, total, negative, discarded = values.tolist()
             if count:
                 rewards[name] = {
@@ -368,7 +370,7 @@ class TrainingDiagnostics:
         row["body_posture_by_family"] = {
             name: {"samples": int(v[0]), "signed_mean_roll_pitch_rad": (v[1:3]/v[0]).tolist(),
                    "rms_roll_pitch_rad": (v[3:5]/v[0]).sqrt().tolist()}
-            for name, v in self.posture.items() if v[0] > 0}
+            for name, v in zip(self.families, self.posture) if v[0] > 0}
         row["posture_scope"] = "Valid rollout states by current command family, including command transients; base quaternion extrinsic xyz, not mesh tilt"
         if self.scrubbing is not None and self.scrubbing[0] > 0:
             n, clipped, speed2, clipped_speed2 = self.scrubbing.tolist()
