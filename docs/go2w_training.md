@@ -6,14 +6,17 @@ parameter source. Edit that file for the next experiment. Training resolves the
 registered task and writes the complete `config.yaml` into its run directory.
 No documentation YAML, historical profile, or fine-tune selector supplies parameters.
 
-**Current run review, 2026-10-08:** training schema 2 adds straight-motion geometric
-supervision and a 65-input asymmetric critic; the deployed actor remains 58 inputs.
-Yaw tracking is restored to `.8`. See the [task definition and validation below](#geometric-straight-motion-preparation-2026-10-08).
+**Current preparation, 2026-10-08:** schema3 changes tracking precision and two
+existing reward scales, retaining the schema2 geometric task and actor58/critic65.
+The [bounded objective refinement below](#objective-refinement-preparation-2026-10-08)
+prepares 1000 additional updates from geometric CK1000. Production is unstarted;
+the single two-update execution smoke is not its initializer. Yaw weight remains `.8`.
 The original budget is now complete: the interrupted run resumed from CK1000
 and reached 2000 lineage updates. The [completed-budget review below](#completed-geometric-budget-review-2026-10-08)
 rejects final1998 for promotion because holding/stopping regressions outweigh its
-gains. Retain geometric CK1000 as the schema2 development baseline; no additional
-training or reward change is prepared. Pre-geometric CK1999 remains a comparison.
+gains. Geometric CK1000 remains the selected development source. The new preparation
+follows that completed review; it does not initialize from rejected final1998.
+Pre-geometric CK1999 remains a comparison.
 
 The old path was inherited Go2 defaults → Go2-W defaults → profile deltas →
 fine-tune deltas → a manually maintained recipe YAML → runtime. The current path is
@@ -1465,3 +1468,221 @@ closed budget.** Persistent forward curvature is the retained baseline's concret
 unresolved functional limitation. No command-envelope, reverse/small/mixed,
 DR/push, Sim2Sim or hardware qualification is claimed, and no further unchanged
 block, fresh start, camera-only refinement or training command is prepared.
+
+## Objective refinement preparation (2026-10-08)
+
+**Prepare one combined refinement from geometric CK1000: absolute-exponential
+velocity precision, clearance scale −2, and roll/pitch-rate scale −.15. Production
+has not started.** This is a combined engineering experiment, not a single-factor
+test or a claim that the previous review established causal underweighting.
+The [generated preparation evidence](go2w_objective_refinement_2026-10-08.json)
+contains the resolved production config, exact diff, calibration by window/axis/
+wheel, provenance and validation. It is documentation output, never a training
+input. Large traces and detailed calculations remain under
+`evaluation/go2w_objective_refinement_preparation/` and the retained review folders.
+
+Source: `logs/go2w/go2w_2026-10-08_09-57-35/model_1000.pt`, schema2,
+**1001 completed updates**, native label1000, Adam40040, both normalizer counts
+262406144, actor58/critic65 and fixed LR3e-4. Source/config hashes are recorded
+as provenance, without a runtime hash allowlist. Rejected child1998/1750 and
+pre-geometric1999 checkpoints, configs, reports and raw baselines remain intact.
+
+### Finalized objective and calibration
+
+Let `e = requested − actual` for body vx/vy/angular-z at the existing authored
+base-origin reference point. Let `H(z)=.5*z²` for `|z|≤1`, otherwise `|z|−.5`.
+Each tracking rate is `w*[1−H(e/b)−P(e)]`, including zero-commanded cross axes,
+stand and stops. Only `P` changes. Its value is continuous with a cusp at zero;
+PPO consumes scalar rewards/advantages, without differentiating this function
+through the robot. There is no error-threshold switch or extra tracking term.
+
+| Quantity | Saved source | Current source | Units / runtime weighting |
+| --- | --- | --- | --- |
+| Precision cost `P(e)` | `β*(1−exp(−.5*(e/s)²))` | `β*(−expm1(−abs(e)/s))` | Dimensionless, bounded by β |
+| Axis weights x/y/yaw | 1 / 1 / .8 | Unchanged | Reward-rate weights |
+| Broad scales `b` | .25 / .15 / .35 | Unchanged | m/s, m/s, rad/s |
+| Precision scales `s`; β | .03 / .03 / .03; .25 each | Unchanged | Same axis units; dimensionless β |
+| `phase_clearance` | −1 | **−2** | `mean4 H((cylinder_gap−desired_gap)/.04m)`; runtime **−.04** |
+| `ang_vel_xy` | −.075 | **−.15** | `ωx²+ωy²`, (rad/s)²; runtime **−.003** |
+| `sensor_vertical_velocity` | −1 | Unchanged | Existing sensor points/formula; runtime −.02 |
+| All other rewards/task/PPO | Saved CK1000 | Unchanged | Including geometric terms, support, pose, orientation and discrete termination−5 |
+
+Policy dt remains .02s and multiplies each continuous rate exactly once. Yaw's
+runtime weight remains .016. The .04m apex, .8s period, .65 stance and smooth
+support envelope stay fixed, as do action bounds, gains, physics, DR and commands.
+The new angular weight targets base rotation and camera orientation; it does not
+double the penalty on net camera velocity or add a yaw stabilization term.
+
+Synthetic precision costs below include β but exclude axis weight. The last
+column is the new negative contribution for x/y; yaw multiplies it by .8.
+The JSON separately records all three unchanged broad costs and their dt factors.
+
+| Absolute error, axis units | Old precision cost | New precision cost | New x/y contribution per tick |
+| ---: | ---: | ---: | ---: |
+| 0 | 0 | 0 | 0 |
+| .003 | .001247 | .023791 | −.000476 |
+| .005 | .003448 | .038380 | −.000768 |
+| .010 | .013510 | .070867 | −.001417 |
+| .030 | .098367 | .158030 | −.003161 |
+| .060 | .216166 | .216166 | −.004323 |
+| .100 | .249034 | .241082 | −.004822 |
+
+The new precision cost is larger for `0<|e|<.06`, equal at zero and .06, slightly
+smaller above .06, and bounded at .25. Broad cost remains unbounded and retains
+large-error sensitivity. At a .5m/s
+forward start/stop error, broad/precision costs are1.5/~.25, giving affected-axis
+rate−.75 and tick−.015; the opposite error sign is identical. At .3m/s lateral
+and .8rad/s yaw acquisition, affected-axis rates remain approximately−.75 and
+−.82857. No new acquisition cliff appears. Near-zero oscillations, measurement
+noise and braking/corrective motion can also receive stronger costs; a cusp is
+not evidence that bias will vanish.
+
+Offline rescoring reused the source and rejected final's six nominal cases,
+at50Hz: first1s, seconds2–4, full30s, late10s, complete8s stops and final2s stops.
+No policy was replayed. Full-window summed weighted precision costs and the
+**whole package** change in reward rate are:
+
+| Case | CK1000 old→new precision | CK1000 package Δrate | Final1998 old→new precision | Final package Δrate |
+| --- | ---: | ---: | ---: | ---: |
+| Stand | .00079→.02135 | −.02059 | .00910→.08303 | −.07396 |
+| Forward | .00487→.04500 | −.04015 | .00773→.07201 | −.06432 |
+| Lateral+ | .15688→.27765 | −.18379 | .11976→.25647 | −.18913 |
+| Lateral− | .15376→.28170 | −.19140 | .11706→.25196 | −.18489 |
+| Yaw+ | .12192→.21271 | −.15140 | .09514→.21690 | −.16609 |
+| Yaw− | .11404→.20699 | −.15399 | .09077→.21022 | −.16312 |
+
+For example, source lateral+ broad cost rates x/y/yaw are approximately
+.00065/.00921/.00949; precision costs change
+.01044/.04264/.10380 → .05257/.09885/.12623. Every JSON row retains raw cost,
+weighted rate and per-tick contribution independently; the table rates multiply
+by .02 for a tick. The clearance/angular pair is approximately4.8% of saved
+tracking rate in source lateral motion. Source lateral+ support/pose/sensor
+rates remain−.03262/−.01980/−.01352, versus new clearance/angular
+−.10436/−.02169. Clearance is now the largest of these regularizers, but does
+not dominate tracking. The maximum first-second pair magnitude is .1554/s;
+its largest complete-stop increment is .000595/s (.00476 over8s).
+
+| Source lateral+ cost chain | Raw mean | Old→new rate | Old→new per tick |
+| --- | ---: | ---: | ---: |
+| Clearance, mean of four wheels | .05218 | −.05218→−.10436 | −.001044→−.002087 |
+| Roll/pitch rate squared | .14458 (rad/s)² | −.01084→−.02169 | −.000217→−.000434 |
+| Same-target zero-clearance counterfactual | .065625 | −.065625→−.13125 | −.0013125→−.002625 |
+| Same-target ideal clearance | 0 | 0→0 | 0→0 |
+
+Per-wheel apex/swing/stance and loaded/unloaded conditioning is retained, including
+sample fractions and each wheel's quarter contribution. The rejected final's
+weak rear is RL for lateral+ and RR for lateral−: desired-apex-window mean gaps
+are2.79/3.75mm against mean target36.20mm. Their new conditional quarter rates
+are−.17671/−.16728, versus−.03641/−.03380 for the opposite rear. These are
+conditional costs, not full-time rates. Completed physical swing median peaks
+remain6.20/6.32mm in those weak wheels; a better average cannot hide them.
+They have no apex action clipping. The front FR/FL calves instead show negative
+flexion clipping37.8%/34.2% at apex; rear positive extension clipping is mainly
+stance. No action-range enlargement is prepared. Zero-gap cost ratios are not
+dragging fractions, and low liftoff/touchdown gaps alone are not defects.
+
+The retained sensor decomposition remains `vcamera_z=vbase_z+vrot_z`, with
+`E[vcamera_z²]=E[vbase_z²]+E[vrot_z²]+2E[vbase_z*vrot_z]`.
+For lateral+ source→final, base-z RMS increases .03447→.07996m/s and rotational
+lever-arm RMS .09154→.12063m/s, while camera-body RMS falls .10973→.09953m/s.
+Final mean squares are `.009907=.006393+.014551−.011037`m²/s². Base height std
+increases3.20→5.81mm, camera height std decreases13.54→12.21mm, and final pitch
+rate RMS reaches.37967rad/s. Negative lateral shows the same pattern. Retained
+imager RMS is also reported separately. Cancellation is valid kinematics, not
+automatically a bug or cheating; quieter net camera translation does not imply
+quieter base/orientation. Stronger angular cost may change that cancellation.
+Extra world clearance also contains body heave/rotation, not just articulated
+leg lift; the previous exact gap decomposition remains evidence.
+
+All23 active terms were reconstructed for a limited incentive check; raw summed
+reward buffers were not stored. Proposed final-state total mean rates remain
+2.25–2.67/s, with positive individual samples in these traces. In final1998's moving cases,
+keeping command/phase/geometric state/other costs fixed, replacing tracked body
+velocity with zero, and optimistically deleting both new clearance/angular costs
+still loses1.31–1.68/s on average; the worst sliding1s margin is+1.1964/s.
+Acquisition also retains positive useful-motion margins. This provides no obvious
+immediate stall incentive on the retained states, not a proof about future policies.
+The added whole-package cost over30s can exceed5 (final lateral+5.67), so comparing
+that integral alone with discrete termination−5 cannot establish or rule out reset
+seeking: reset values, future rewards and changed visitation are unknown.
+Offline rescoring neither predicts learning nor establishes causal conflict.
+
+### Explicit loading, validation and unexecuted command
+
+`--resume_current_rewards` requires training `--resume`, an explicit saved run and
+checkpoint. It snapshots `GO2WCfg.rewards`, restores the saved task, and rejects
+all functional differences except the precision selector and the two scales above,
+plus schema/provenance. The post-CLI guard also rejects batch/seed/PPO drift.
+Current rewards are applied **before environment registration**; native model
+loading is followed by exact full-state equality and effective-reward/dt checks,
+then the actual effective `config.yaml` is saved. Diff values come from the central
+config; tests change a central coefficient to prove there is no hidden literal.
+
+Schema2's missing selector is resolved in memory to its original `gaussian`
+formula, without touching saved files. Ordinary replay/resume retains those saved
+rewards. Schema3 requires the explicit `absolute_exponential` selector. The small
+formula compatibility branch is not a recipe registry or an error-dependent
+switch. The existing scale-only option remains scale-only and cannot perform this
+kernel transfer; both options together are rejected. Earlier incompatible actor/
+critic schemas still require historical source. Export metadata records semantics;
+the actor/export input remains58 and privileged critic data do not enter it.
+
+The new continuation retains actor, critic, both updating normalizers, learned
+std, Adam moments/counters, native LR and iteration. The critic initially estimates
+the previous objective and must adapt; an initial value-loss change alone is not
+failure. This is a changed-objective continuation, not fresh training or exact
+simulator/RNG continuation. LR3e-4, gamma.995, lambda.95, entropy.003, std bounds,
+network layers,4096 environments and64 rollout ticks are unchanged.
+
+**Validation passed:** 19 distinct focused tests cover analytic zero/symmetry/
+monotonicity/boundedness, broad sensitivity, all-axis stand/moving/stop dispatch,
+old-schema replay, intended diff/guards, fixed-offset actions, actor/critic/export
+isolation, saved-config roundtrip and single-dt weighting. The updated seven-test
+loader/kernel group was rerun after adding runtime/schema guards. No broad suite.
+One native4096×64 two-update smoke completed in
+`logs/go2w/go2w_reward_refinement_smoke_2026-10-08_18-54-29/`.
+Before update, all model/normalizer/std/Adam tensors and counters, native LR and
+iteration exactly matched CK1000. Adam advances40040→40120; both normalizers
+262406144→262930432; actor and critic weights advance, all saved/diagnostic values
+are finite, LR remains3e-4. Native labels1000/1001 contain1003 lineage updates.
+The saved config matches intended production except smoke naming/two-update budget.
+Runtime scales are clearance−.04, angular−.003, yaw.016. Source/evidence/checkpoint
+and `play.py` hashes remain unchanged. The smoke is execution validation only and
+must never initialize production.
+
+Run from this repository on `testing`. This is the **one unexecuted production
+command**, using the installed environment; no YAML supplies parameters:
+
+```powershell
+& 'C:\Users\Liamb\anaconda3\envs\genesis-gpu\python.exe' -m robot_gym.scripts.train --task go2w --resume --resume_current_rewards --load_run go2w_2026-10-08_09-57-35 --checkpoint 1000 --num_envs 4096 --max_iterations 1000 --seed 1 --logger tensorboard --training_diagnostics --headless --rl_device cuda:0
+```
+
+Output is a separate `logs/go2w/go2w_<timestamp>/`. Native repeated-source-label
+semantics give saves1000/1250/1500/1750 and final**1999**, with **2001 completed
+lineage updates** (1001+1000), expected Adam80040 and normalizers524550144.
+The output path distinguishes it from older unrelated `model_1999.pt` files.
+
+### Frozen selection after this budget
+
+Start with its final checkpoint and the unchanged six-case nominal panel: stand30s;
+moving3s zero/30s command/8s zero, forward(.5,0,0), lateral(0,±.3,0), yaw(0,0,±.8).
+Use actor mean, saved nominal dynamics, no noise/DR/pushes/controller changes, the
+same reset/phase conventions and matched50Hz. Reuse CK1000 raw baselines; inspect
+at most one intermediate on a relevant regression. No baseline reruns or automatic
+further training are authorized by this preparation.
+
+Requested speed **and** heading/path come first, followed by stand/complete-stop
+endpoint/path/reversals/residual motion, safe per-wheel clearance/unloading/
+recontacts, then base/camera translation and rotation separately. Keep frozen30s
+forward .05m/2° targets and .45–.55m/s/RMSE≤.04 speed band, stand lateXY≤.005m/s,
+all recorded rotation/stopping bands and source comparisons. Do not equate body-wz
+with Euler heading rate, accept slower travel as reduced drift, or accept better
+steps with worse holding/stopping or camera motion. Contact/saturation sampling
+limits remain explicit. Raw return cannot rank policies across these objectives.
+
+Partial gains remain development results, not qualification of small/reverse/mixed/
+core-edge/reserve commands, DR/push recovery, Sim2Sim or hardware. If persistent
+drift again fails to improve without regressions, report that limitation rather
+than automatically extending or adding weights. The actor still has no accumulated
+path error/history; privileged geometric rewards and critic inputs do not supply
+online path-offset feedback or guarantee convergence.

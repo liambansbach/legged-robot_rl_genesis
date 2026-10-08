@@ -8,9 +8,16 @@ def huber(error):
     return torch.where(magnitude <= 1, .5 * error.square(), magnitude - .5)
 
 
-def broad_precision_tracking(error, broad_scale, precision_scale, beta):
+def broad_precision_tracking(error, broad_scale, precision_scale, beta, precision_kernel='absolute_exponential'):
     """Dimensionless reward rate; axis weight and policy dt belong to the accumulator."""
-    return 1 - huber(error / broad_scale) - beta * (-torch.expm1(-.5 * (error / precision_scale).square()))
+    normalized = error / precision_scale
+    if precision_kernel == 'absolute_exponential':
+        exponent = -normalized.abs()  # Continuous value, with a cusp at zero.
+    elif precision_kernel == 'gaussian':  # Saved schema2 semantics, not a training preset.
+        exponent = -.5 * normalized.square()
+    else:
+        raise ValueError(f"Unknown tracking precision kernel: {precision_kernel}")
+    return 1 - huber(error / broad_scale) - beta * (-torch.expm1(exponent))
 
 
 def reference_pose_activation(commands, lateral_full, yaw_full, stepping_fraction):

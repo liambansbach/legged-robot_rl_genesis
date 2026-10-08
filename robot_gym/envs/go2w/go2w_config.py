@@ -265,6 +265,7 @@ class GO2WCfg(BaseConfig):
         # Termination is the sole discrete event penalty.
         base_height_target = _REFERENCE_HEIGHT
         common_tracking = {
+            'precision_kernel': 'absolute_exponential',
             'broad_scales': [0.25, 0.15, 0.35],
             'precision_scales': [0.03, 0.03, 0.03],
             'beta': [0.25, 0.25, 0.25],
@@ -288,7 +289,7 @@ class GO2WCfg(BaseConfig):
             'stepping_fraction': 0.05,
         }
         class scales:
-            ang_vel_xy = -0.075
+            ang_vel_xy = -0.15
             contact_safety = -2.0
             dof_pos_limits = -2.0
             insufficient_support = -0.5
@@ -296,7 +297,7 @@ class GO2WCfg(BaseConfig):
             leg_action_rate = -0.01
             normalized_effort = -0.03
             orientation = -4.0
-            phase_clearance = -1.0
+            phase_clearance = -2.0
             phase_support = -0.5
             reference_height = -1.0
             reference_pose = -0.5
@@ -411,7 +412,7 @@ class GO2WCfg(BaseConfig):
         visualize_foot_contacts = False
         visualize_velocity_arrows = False
 
-    config_version = 2  # Relative geometric rewards and 58+7 asymmetric critic.
+    config_version = 3  # Absolute-exponential precision; unchanged 58+7 interface.
 
 
 class GO2WCfgPPO(BaseConfig):
@@ -484,6 +485,7 @@ class GO2WCfgPPO(BaseConfig):
 
 def add_arguments(parser):
     parameters = [
+        {"name": "--resume_current_rewards", "action": "store_true", "help": "Explicit Go2-W continuation with current tracking precision and clearance/angular scales; validate all unrelated settings and retain full learning state"},
         {"name": "--resume_current_reward_scales", "action": "store_true", "help": "Go2-W training resume only: replace saved reward scales with current GO2WCfg scales; retain all other saved settings and learning state"},
         {"name": "--skip_zero_action_probe", "action": "store_true", "help": "Bank evaluation: retain all policy cases, omit the equilibrium zero-action probe"},
         {"name": "--diagnostic_trace", "action": "store_true", "help": "Read substep control forces, summed ground loads and cylinder geometry"},
@@ -507,14 +509,17 @@ def add_arguments(parser):
 def restore_saved_config(saved):
     """Restore complete supported settings, never fill missing physics with defaults.
 
-    Schema 2 deliberately changes training rewards and critic inputs. Old models
-    require their source checkout; retained raw traces remain comparison evidence.
+    Schema2 uses Gaussian precision; schema3 uses absolute-exponential precision.
+    Earlier actor/critic schemas require their historical source checkout.
     """
     from robot_gym.utils.helpers import class_to_dict
 
     data = copy.deepcopy(saved)
     env = data["env_cfg"]
     validate_schema(env)
+    if env['config_version'] == 2:
+        # Resolve the implicit historical formula, without changing its coefficients.
+        env['rewards']['common_tracking'].setdefault('precision_kernel', 'gaussian')
     active = {k for k, v in env["rewards"]["scales"].items() if v}
     expected = set(class_to_dict(GO2WCfg().rewards.scales))
     if active != expected or env.get("phase_observation_mode") != "command_demand":
@@ -539,15 +544,53 @@ def restore_saved_config(saved):
 
 
 def validate_schema(saved):
-    if saved.get('config_version') != GO2WCfg.config_version:
+    version = saved.get('config_version')
+    if version not in (2, 3):
         raise ValueError("Go2-W training schema changed: use the checkpoint's historical source checkout; old rewards/critic inputs will not be replaced by current defaults")
+    kernel = saved.get('rewards', {}).get('common_tracking', {}).get('precision_kernel')
+    if (version == 2 and kernel not in (None, 'gaussian')
+            or version == 3 and kernel != 'absolute_exponential'):
+        raise ValueError("Go2-W saved schema and tracking precision kernel disagree")
+
+
+def reward_continuation_diff(saved, current):
+    """Permit this reward refinement only; reject unrelated central-config drift.
+
+    These are field permissions, never alternate numerical parameter sources.
+    Run selection, logging and the additional-update budget are operational.
+    """
+    from robot_gym.utils.diagnostics import config_differences
+
+    before, after = copy.deepcopy(saved), copy.deepcopy(current)
+    for config in (before, after):
+        config.pop('task', None)
+        config['env_cfg'].pop('training_resume', None)
+        for key in ('checkpoint', 'checkpoint_load_cfg', 'load_run', 'resume', 'resume_path',
+                    'experiment_name', 'run_name', 'max_iterations', 'logger', 'log_wandb', 'wandb_project'):
+            config['train_cfg']['runner'].pop(key, None)
+    diff = config_differences(before, after)
+    allowed = {
+        'env_cfg.config_version',
+        'env_cfg.rewards.common_tracking.precision_kernel',
+        'env_cfg.rewards.scales.phase_clearance',
+        'env_cfg.rewards.scales.ang_vel_xy',
+    }
+    unexpected = {k: v for k, v in diff.items() if k not in allowed}
+    if unexpected:
+        raise ValueError(f"Unintended changed-objective configuration diff: {unexpected}")
+    return diff
 
 
 def configure(env_cfg, train_cfg, args):
-    """Restore saved settings; optionally take only reward scales from current source."""
+    """Restore saved settings before optionally applying current reward definitions."""
     current_rewards = getattr(args, "resume_current_reward_scales", False)
-    if current_rewards and (not args.resume or getattr(args, "_replay_restored", False)):
-        raise ValueError("--resume_current_reward_scales requires training --resume")
+    current_definitions = getattr(args, "resume_current_rewards", False)
+    if current_rewards and current_definitions:
+        raise ValueError("Choose only one current-reward resume option")
+    if (current_rewards or current_definitions) and (not args.resume or getattr(args, "_replay_restored", False)):
+        raise ValueError("Current rewards option requires training --resume")
+    if current_definitions and (args.load_run in (None, '-1') or args.checkpoint is None or args.checkpoint < 0):
+        raise ValueError("--resume_current_rewards requires explicit --load_run and --checkpoint")
     if getattr(args, "_replay_restored", False) or not args.resume:
         return
     if not hasattr(args, "_go2w_resume_config"):
@@ -558,12 +601,48 @@ def configure(env_cfg, train_cfg, args):
         # Capture the one current source before saved-task restoration replaces defaults.
         if current_rewards:
             args._go2w_current_reward_scales = copy.deepcopy(class_to_dict(GO2WCfg().rewards.scales))
+        if current_definitions:
+            current_env, current_train = GO2WCfg(), GO2WCfgPPO()
+            args._go2w_current_rewards = copy.deepcopy(class_to_dict(current_env.rewards))
+            args._go2w_current_version = current_env.config_version
         replay_args = copy.copy(args)
         replay_args.resume = False
         replay_args.resume_current_reward_scales = False
+        replay_args.resume_current_rewards = False
         restored_env, restored_train, checkpoint = task_registry.resolve_replay(replay_args)
         args.resolved_checkpoint = str(checkpoint)
         restored_env.training_resume = {"checkpoint": str(checkpoint), "state": "full native learning state"}
+        if current_definitions:
+            import json
+            from pathlib import Path
+            import yaml
+            from robot_gym.utils.diagnostics import sha256
+
+            config_path = Path(args.reference_config or checkpoint.with_name("config.yaml")).resolve()
+            saved = yaml.safe_load(config_path.read_text(encoding='utf-8'))
+            # Normalize only the implicit schema2 formula; every saved number stays authoritative.
+            source_env, source_train = restore_saved_config(saved)
+            source = dict(env_cfg=class_to_dict(source_env), train_cfg=class_to_dict(source_train))
+            intended = dict(env_cfg=class_to_dict(current_env), train_cfg=class_to_dict(current_train))
+            diff = reward_continuation_diff(source, intended)
+            saved_scales = source['env_cfg']['rewards']['scales']
+            new_scales = args._go2w_current_rewards['scales']
+            if {k for k, v in saved_scales.items() if v} != {k for k, v in new_scales.items() if v}:
+                raise ValueError("Current rewards must retain the saved active reward names")
+            if not all(math.isfinite(v) for v in new_scales.values()):
+                raise ValueError("Current reward scales must be finite")
+            print("Current reward definition diff (unscaled): " + json.dumps(diff, sort_keys=True), flush=True)
+            restored_env.rewards = copy.deepcopy(current_env.rewards)
+            restored_env.config_version = current_env.config_version
+            restored_env.training_resume.update(
+                checkpoint_sha256=sha256(checkpoint), source_config=str(config_path),
+                source_config_sha256=sha256(config_path),
+                reward_override={'source': 'GO2WCfg.rewards', 'diff': diff,
+                                 'source_config_version': source_env.config_version,
+                                 'current_config_version': current_env.config_version},
+            )
+            # A second guard after CLI resolution prevents a hidden batch/seed/PPO change.
+            args._go2w_reward_contract = intended
         if current_rewards:
             import hashlib
             import json
@@ -596,11 +675,17 @@ def configure(env_cfg, train_cfg, args):
 
 def validate_training(args, env_cfg, train_cfg):
     """Fail before simulator construction for accidental checkpoint initialization."""
+    from robot_gym.utils.helpers import class_to_dict
+    validate_schema(class_to_dict(env_cfg))
     if args.resume:
         expected = dict.fromkeys(("actor", "critic", "optimizer", "iteration"), True)
         if (not getattr(args, "resolved_checkpoint", None) or not train_cfg.runner.resume
                 or train_cfg.runner.checkpoint_load_cfg != expected):
             raise ValueError("Go2-W resume must restore models, normalizers, std, Adam and iteration")
+        if getattr(args, 'resume_current_rewards', False):
+            actual = dict(env_cfg=class_to_dict(env_cfg), train_cfg=class_to_dict(train_cfg))
+            if reward_continuation_diff(args._go2w_reward_contract, actual):
+                raise ValueError("Effective current rewards differ from the central configuration")
     else:
         if (train_cfg.runner.resume or getattr(args, "resolved_checkpoint", None)
                 or any(getattr(args, k, None) is not None for k in ("load_run", "checkpoint", "reference_config"))

@@ -180,6 +180,10 @@ class Go2WEnv(Go2Env):
         if getattr(args, "resume_current_reward_scales", False):
             if scales != args._go2w_current_reward_scales:
                 raise ValueError("Current reward scales were overwritten during native loading")
+        if getattr(args, "resume_current_rewards", False):
+            if (class_to_dict(self.cfg.rewards) != args._go2w_current_rewards
+                    or self.cfg.config_version != args._go2w_current_version):
+                raise ValueError("Current rewards/schema were overwritten during native loading")
         expected = {k: v if k in self.cfg.rewards.discrete_reward_names else v * self.dt
                     for k, v in scales.items() if v}
         if (self.reward_scales.keys() != expected.keys()
@@ -188,6 +192,8 @@ class Go2WEnv(Go2Env):
             raise ValueError("Registered reward scales must apply policy dt exactly once")
         self.resume_validation = {
             "before_updates": True, "learning_state": state,
+            "config_version": self.cfg.config_version,
+            "common_tracking": dict(self.cfg.rewards.common_tracking),
             "unscaled_reward_scales": scales, "runtime_reward_scales": dict(self.reward_scales),
             "normalizer_counts": {name: int(getattr(runner.alg, name).obs_normalizer.count)
                                   for name in ("actor", "critic")},
@@ -210,6 +216,7 @@ class Go2WEnv(Go2Env):
             "resume_validation": getattr(self, "resume_validation", None),
             "parameter_source": "robot_gym/envs/go2w/go2w_config.py",
             "config_version": self.cfg.config_version,
+            "common_tracking": dict(self.cfg.rewards.common_tracking),
             "geometric_supervision": {
                 "actor_inputs": self.num_obs, "critic_inputs": self.num_privileged_obs,
                 "critic_relative_fields": list(CRITIC_REFERENCE_FIELDS),
@@ -234,6 +241,7 @@ class Go2WEnv(Go2Env):
         metadata["observation_order"] += ["phase_sin", "phase_cos"]
         metadata.update(
             config_version=self.cfg.config_version,
+            training_tracking_kernel=self.cfg.rewards.common_tracking['precision_kernel'],
             actor_input_dim=self.num_obs,
             privileged_inputs_exported=False,
             height_reference_m=self.cfg.rewards.base_height_target,
@@ -665,7 +673,7 @@ class Go2WEnv(Go2Env):
         actual = self.base_lin_vel[:, axis] if axis < 2 else self.base_ang_vel[:, 2]
         c = self.cfg.rewards.common_tracking
         return broad_precision_tracking(self.commands[:, axis] - actual, c['broad_scales'][axis],
-                                        c['precision_scales'][axis], c['beta'][axis])
+                                        c['precision_scales'][axis], c['beta'][axis], c['precision_kernel'])
 
     def _compute_fallen_mask(self):
         return super()._compute_fallen_mask() | self.base_contact

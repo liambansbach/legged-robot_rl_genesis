@@ -117,7 +117,7 @@ class PhaseTests(unittest.TestCase):
         env.cfg, env.dt, env.num_envs, env.device = cfg, .02, 1, "cpu"
         env.reward_scales = class_to_dict(cfg.rewards.scales)
         env._prepare_reward_function()
-        self.assertEqual(env.reward_scales["phase_clearance"], -.02)
+        self.assertEqual(env.reward_scales["phase_clearance"], -.04)
         self.assertEqual(env.reward_scales["termination"], -5)
         self.assertNotIn("step_event", env.reward_names)
         env.reward_names = ["phase_clearance"]
@@ -125,10 +125,10 @@ class PhaseTests(unittest.TestCase):
         env.rew_buf = torch.zeros(1)
         env.reset_buf, env.time_out_buf = torch.tensor([True]), torch.tensor([False])
         env.compute_reward()
-        self.assertAlmostEqual(float(env.rew_buf[0]), -7.)
+        self.assertAlmostEqual(float(env.rew_buf[0]), -9.)
         env.time_out_buf[:] = True
         env.compute_reward()
-        self.assertAlmostEqual(float(env.rew_buf[0]), -2.)
+        self.assertAlmostEqual(float(env.rew_buf[0]), -4.)
 
     def test_imported_origin_center_transport_in_base_axes(self):
         from robot_gym.utils.diagnostics import rotate_wxyz
