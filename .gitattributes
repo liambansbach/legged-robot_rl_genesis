@@ -10,3 +10,7 @@ ressources/robots/go2w/urdf/go2w_reference_original.urdf text eol=lf whitespace=
 ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf text eol=lf whitespace=-blank-at-eol
 docs/go2w_native_reference.json text eol=lf
 docs/go2w_native_reference_traces.npz -text
+# One-time handoff: keep payloads, original configs and hash manifests byte-exact.
+ressources/handoffs/go2w_2026-10-09/** -text whitespace=cr-at-eol
+# Asset snapshots retain authored whitespace and do not need generated mesh diffs.
+ressources/handoffs/go2w_2026-10-09/inference/go2w/assets/** -diff

@@ -1,0 +1,345 @@
+{
+  "status": "PASS",
+  "validation_date": "2026-10-09",
+  "isolated_copy": "Fresh temporary directory containing only the handoff; no staging files or ancestor runs required.",
+  "inference_checker": {
+    "command": "python -I inference/go2w/check_policy.py",
+    "exit_code": 0,
+    "results": {
+      "automatic_reset_interface_max_error": 0.0,
+      "batch_single_max_error": 6.556510925292969e-07,
+      "bundled_asset_count": 14,
+      "native_actor_privileged_independence_max_error": 0.0,
+      "native_cpu_max_error": 0.0,
+      "navigation_steps": 2900,
+      "normalizer_buffers_unchanged": true,
+      "numpy": "2.2.6",
+      "observation_assembly_max_error": 1.7881393432617188e-07,
+      "python": "3.11.14",
+      "recorded_gpu_max_error": 7.152557373046875e-07,
+      "samples": 5360,
+      "sequence_max_error": 0.0,
+      "torch": "2.9.0+cu130"
+    }
+  },
+  "full_checkpoints": [
+    {
+      "run": "go2w_2026-10-08_23-45-24",
+      "checkpoint": "model_1999.pt",
+      "completed_lineage_updates": 2001,
+      "training_schema": 3,
+      "normalizer_counts": {
+        "actor_state_dict": 524550144,
+        "critic_state_dict": 524550144
+      },
+      "full_state_proof": {
+        "exact_state_match": true,
+        "rsl_rl_version": "5.5.1",
+        "source_iteration": 1999,
+        "loaded_learning_rate": 0.0003,
+        "optimizer_learning_rates": [
+          0.0003
+        ],
+        "optimizer_step_counts": [
+          80040
+        ],
+        "actor_and_critic_state_keys": {
+          "actor_state_dict": [
+            "obs_normalizer._mean",
+            "obs_normalizer._var",
+            "obs_normalizer._std",
+            "obs_normalizer.count",
+            "distribution.log_std_param",
+            "mlp.0.weight",
+            "mlp.0.bias",
+            "mlp.2.weight",
+            "mlp.2.bias",
+            "mlp.4.weight",
+            "mlp.4.bias",
+            "mlp.6.weight",
+            "mlp.6.bias"
+          ],
+          "critic_state_dict": [
+            "obs_normalizer._mean",
+            "obs_normalizer._var",
+            "obs_normalizer._std",
+            "obs_normalizer.count",
+            "mlp.0.weight",
+            "mlp.0.bias",
+            "mlp.2.weight",
+            "mlp.2.bias",
+            "mlp.4.weight",
+            "mlp.4.bias",
+            "mlp.6.weight",
+            "mlp.6.bias"
+          ]
+        },
+        "std_before_update": {
+          "raw_log_std": [
+            -2.1428415775299072,
+            -1.8919909000396729,
+            -2.2631025314331055,
+            -2.2326481342315674,
+            -2.143050193786621,
+            -1.891912579536438,
+            -2.262169122695923,
+            -2.2330973148345947,
+            -2.1446304321289062,
+            -2.3025851249694824,
+            -2.2193782329559326,
+            -2.288074016571045,
+            -2.144824743270874,
+            -2.3025851249694824,
+            -2.2208244800567627,
+            -2.2873687744140625
+          ],
+          "effective_std": [
+            0.11732099205255508,
+            0.1507713347673416,
+            0.10402723401784897,
+            0.10724405944347382,
+            0.11729651689529419,
+            0.15078315138816833,
+            0.10412438213825226,
+            0.1071958988904953,
+            0.11711131036281586,
+            0.09999999403953552,
+            0.10867665708065033,
+            0.10146168619394302,
+            0.11708855628967285,
+            0.09999999403953552,
+            0.10851959884166718,
+            0.10153326392173767
+          ],
+          "raw_log_std_bounds": [
+            -2.3025850929940455,
+            -0.35667494393873245
+          ],
+          "effective_std_bounds": [
+            0.1,
+            0.7
+          ],
+          "at_or_below_lower_bound": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false
+          ],
+          "at_or_above_upper_bound": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "strictly_outside_bounds": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        }
+      },
+      "adjacent_config_resolved": true,
+      "ordinary_explicit_resume_resolved": true,
+      "no_ancestor_or_source_artifact_access": true,
+      "effective_precision_kernel": "absolute_exponential"
+    },
+    {
+      "run": "go2w_2026-10-08_09-57-35",
+      "checkpoint": "model_1000.pt",
+      "completed_lineage_updates": 1001,
+      "training_schema": 2,
+      "normalizer_counts": {
+        "actor_state_dict": 262406144,
+        "critic_state_dict": 262406144
+      },
+      "full_state_proof": {
+        "exact_state_match": true,
+        "rsl_rl_version": "5.5.1",
+        "source_iteration": 1000,
+        "loaded_learning_rate": 0.0003,
+        "optimizer_learning_rates": [
+          0.0003
+        ],
+        "optimizer_step_counts": [
+          40040
+        ],
+        "actor_and_critic_state_keys": {
+          "actor_state_dict": [
+            "obs_normalizer._mean",
+            "obs_normalizer._var",
+            "obs_normalizer._std",
+            "obs_normalizer.count",
+            "distribution.log_std_param",
+            "mlp.0.weight",
+            "mlp.0.bias",
+            "mlp.2.weight",
+            "mlp.2.bias",
+            "mlp.4.weight",
+            "mlp.4.bias",
+            "mlp.6.weight",
+            "mlp.6.bias"
+          ],
+          "critic_state_dict": [
+            "obs_normalizer._mean",
+            "obs_normalizer._var",
+            "obs_normalizer._std",
+            "obs_normalizer.count",
+            "mlp.0.weight",
+            "mlp.0.bias",
+            "mlp.2.weight",
+            "mlp.2.bias",
+            "mlp.4.weight",
+            "mlp.4.bias",
+            "mlp.6.weight",
+            "mlp.6.bias"
+          ]
+        },
+        "std_before_update": {
+          "raw_log_std": [
+            -1.8843109607696533,
+            -1.802182674407959,
+            -2.180644989013672,
+            -2.114694118499756,
+            -1.8844380378723145,
+            -1.8015625476837158,
+            -2.1801681518554688,
+            -2.114321231842041,
+            -1.9130613803863525,
+            -2.221285581588745,
+            -2.106964349746704,
+            -2.1996991634368896,
+            -1.9135422706604004,
+            -2.2222073078155518,
+            -2.1078603267669678,
+            -2.1996748447418213
+          ],
+          "effective_std": [
+            0.1519337147474289,
+            0.16493847966194153,
+            0.11296864598989487,
+            0.12067019194364548,
+            0.15191440284252167,
+            0.16504080593585968,
+            0.11302252113819122,
+            0.1207152009010315,
+            0.14762775599956512,
+            0.10846957564353943,
+            0.12160655856132507,
+            0.11083649843931198,
+            0.14755676686763763,
+            0.10836964100599289,
+            0.12149765342473984,
+            0.11083919554948807
+          ],
+          "raw_log_std_bounds": [
+            -2.3025850929940455,
+            -0.35667494393873245
+          ],
+          "effective_std_bounds": [
+            0.1,
+            0.7
+          ],
+          "at_or_below_lower_bound": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "at_or_above_upper_bound": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "strictly_outside_bounds": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        }
+      },
+      "adjacent_config_resolved": true,
+      "ordinary_explicit_resume_resolved": true,
+      "no_ancestor_or_source_artifact_access": true,
+      "effective_precision_kernel": "gaussian"
+    }
+  ],
+  "methods": "Existing TaskRegistry.resolve_replay, ordinary resume config resolution, installed OnPolicyRunner.load/PPO.load, existing verify_resume_state exact comparison. No simulator, actor rollout, optimizer step or training.",
+  "learning_updates": 0,
+  "simulator_steps": 0,
+  "limitation": "CPU loading and inference parity on the recorded Windows environment; laptop platform/Genesis execution and PhysX behavior not tested."
+}

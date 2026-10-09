@@ -1,0 +1,175 @@
+{
+  "format_version": 1,
+  "kind": "One-time experimental Go2-W laptop handoff",
+  "paths_relative_to": "This handoff directory",
+  "payload_file_count": 33,
+  "payload_bytes_excluding_manifest": 44893724,
+  "self_exclusion": "manifest.json cannot hash itself; its exact Git blob and remote copy are checked separately.",
+  "files": {
+    "environment/conda_packages.json": {
+      "bytes": 10988,
+      "sha256": "ecffecad4240dc5ef3fcf6cfc8fa42756453b58ae0003a04a6a00ad8d9f92191",
+      "purpose": "Sanitized actual desktop environment inventory; not a portable lock"
+    },
+    "environment/installed_packages.txt": {
+      "bytes": 2588,
+      "sha256": "48bb40847b085b37bc7aa4e373f755d3de0e60f196e4eb0eea6cf0cabd3bf9e3",
+      "purpose": "Sanitized actual desktop environment inventory; not a portable lock"
+    },
+    "environment/inventory.json": {
+      "bytes": 1550,
+      "sha256": "c5e92170b2e5c6c3663be2e7daa6b1abf68b8826dd580a19ff6aef44b0f4483f",
+      "purpose": "Sanitized actual desktop environment inventory; not a portable lock"
+    },
+    "inference/go2w/assets/go2w/dae/base.dae": {
+      "bytes": 10727615,
+      "sha256": "f777940215d5072dfb047726282455dff00c58655675148c21c79b3e606bfd7a",
+      "purpose": "Required byte-exact measured robot asset closure"
+    },
+    "inference/go2w/assets/go2w/dae/calf.stl": {
+      "bytes": 2247484,
+      "sha256": "2aee434b80da010deebb11c8538d593f7901a169cc34916350902746e591437e",
+      "purpose": "Required byte-exact measured robot asset closure"
+    },
+    "inference/go2w/assets/go2w/dae/calf_mirror.stl": {
+      "bytes": 1652384,
+      "sha256": "528b471bfc60b6e72dbb162b34eefebced994bea82aaf58eda91f090219cd911",
+      "purpose": "Required byte-exact measured robot asset closure"
+    },
+    "inference/go2w/assets/go2w/dae/hip.dae": {
+      "bytes": 4666550,
+      "sha256": "1f1a020683056677d73682c6783907bb13c8a9c14b2736c7cce2a630523e0597",
+      "purpose": "Required byte-exact measured robot asset closure"
+    },
+    "inference/go2w/assets/go2w/dae/left_wheel.dae": {
+      "bytes": 1395054,
+      "sha256": "92223a7a73d65173a87ab8a548fe0d881c8e6068ce5276311313a5bbbdb5c0c2",
+      "purpose": "Required byte-exact measured robot asset closure"
+    },
+    "inference/go2w/assets/go2w/dae/right_wheel.dae": {
+      "bytes": 1410634,
+      "sha256": "5e93c77d1450a15be7c707805341457047c405f0f6e3c2e300a79ea127521471",
+      "purpose": "Required byte-exact measured robot asset closure"
+    },
+    "inference/go2w/assets/go2w/dae/rs_base.stl": {
+      "bytes": 51484,
+      "sha256": "7c0bdfd04cd638ab3ca3884b6c3a26b7659e9f2456fee49fc957c90376257dba",
+      "purpose": "Required byte-exact measured robot asset closure"
+    },
+    "inference/go2w/assets/go2w/dae/rs_D456_Solid.STL": {
+      "bytes": 1225784,
+      "sha256": "19f4ce23ade9cf22957a86d0cc5f8532753a7ee278a57a183d5192b514005449",
+      "purpose": "Required byte-exact measured robot asset closure"
+    },
+    "inference/go2w/assets/go2w/dae/rs_flange.stl": {
+      "bytes": 72884,
+      "sha256": "b3514b5447dbec8d3734df150349d4398d21549edc6b96f1534699a104762491",
+      "purpose": "Required byte-exact measured robot asset closure"
+    },
+    "inference/go2w/assets/go2w/dae/rs_flange_mirror.stl": {
+      "bytes": 72884,
+      "sha256": "f8a0c1ca086ac0768e787a86e273306505bb4201844affdcfe3801f74e93954d",
+      "purpose": "Required byte-exact measured robot asset closure"
+    },
+    "inference/go2w/assets/go2w/dae/rs_mount.stl": {
+      "bytes": 31484,
+      "sha256": "8045ffe330b055a20ca72141408b8012cc01e568b77f4dd08796c0bfdf0dc938",
+      "purpose": "Required byte-exact measured robot asset closure"
+    },
+    "inference/go2w/assets/go2w/dae/thigh.dae": {
+      "bytes": 3884265,
+      "sha256": "167a6c6545f792f9e7ea53abe7e66dae4d72b53e0ef532ae9903a1f7907b384f",
+      "purpose": "Required byte-exact measured robot asset closure"
+    },
+    "inference/go2w/assets/go2w/dae/thigh_mirror.dae": {
+      "bytes": 3896704,
+      "sha256": "ab1d3b0ef1184735e79bd53c011c4f668a731a23b532d37e07ef74e65201bce2",
+      "purpose": "Required byte-exact measured robot asset closure"
+    },
+    "inference/go2w/assets/go2w/urdf/go2w_measured_ed8dc93.urdf": {
+      "bytes": 40784,
+      "sha256": "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c",
+      "purpose": "Required byte-exact measured robot asset closure"
+    },
+    "inference/go2w/check_policy.py": {
+      "bytes": 17763,
+      "sha256": "9e5807ae7d1e4af125e61e7a67812c6a010392a57ded10f80f61799a8b56d86f",
+      "purpose": "Existing portable CPU integrity/parity checker"
+    },
+    "inference/go2w/config.yaml": {
+      "bytes": 16024,
+      "sha256": "ba66e6cb6b156d6dfd1e08a0e9802314ceac3443934463ceb4331f89d885b72a",
+      "purpose": "Original candidate saved training configuration"
+    },
+    "inference/go2w/contract.json": {
+      "bytes": 42727,
+      "sha256": "78837d243d1459da9772f671e11b745c9d94934853debf466c7de1fa09a22a45",
+      "purpose": "Interface2 observation/action/plant/timing contract; handoff metadata"
+    },
+    "inference/go2w/parity_samples.npz": {
+      "bytes": 2885400,
+      "sha256": "66d99e73e3345b468e7ef368cc6f71ae18f4fd36dfbcdfba194f488eddf09950",
+      "purpose": "Retained real-input CPU/GPU parity and history/phase fixtures"
+    },
+    "inference/go2w/policy.pt": {
+      "bytes": 804134,
+      "sha256": "639a443f3da3d9fa15d9e532b85959df55c7bd5618564797740adb66b1d2bfcb",
+      "purpose": "Native deterministic actor with trained normalizer (not resumable)"
+    },
+    "inference/go2w/provenance.json": {
+      "bytes": 136959,
+      "sha256": "a98b5c5e848ea211385db5950b7c15be581b7bc1096f630f7d3b976a0b383608",
+      "purpose": "Actor, source, asset and parity identities; historical selection evidence"
+    },
+    "inference/go2w/README.md": {
+      "bytes": 7490,
+      "sha256": "bce29d98cccd0520261217699989e82b897ae3babbd738f1610d3184d54d2a72",
+      "purpose": "Inference contract and known limitations"
+    },
+    "lineage.json": {
+      "bytes": 1874,
+      "sha256": "41307f1018878cfa1977bac39bfa46b235df1d8eee9e6eed9f9677dc936f0a45",
+      "purpose": "Exact candidate/fallback/code provenance"
+    },
+    "README.md": {
+      "bytes": 7668,
+      "sha256": "ce897d3afb629d7e27ba750903b4020008b2acccdf66c3efc921c9eb356a5be5",
+      "purpose": "Laptop instructions, identities, scope and limitations"
+    },
+    "runs/go2w_2026-10-08_09-57-35/config.yaml": {
+      "bytes": 14849,
+      "sha256": "3d2570fc22f5f7d96253d1fdaf70a2e91a303118706bf46850c6add6cad441c2",
+      "purpose": "Adjacent immutable original run configuration"
+    },
+    "runs/go2w_2026-10-08_09-57-35/model_1000.pt": {
+      "bytes": 4761013,
+      "sha256": "49339c5bde1cdfaa6d7555ecd690ba9b2e64728987fdff9c1335fef82b7bfd4a",
+      "purpose": "Full native actor/critic/normalizers/std/Adam/iteration checkpoint"
+    },
+    "runs/go2w_2026-10-08_09-57-35/preparation.json": {
+      "bytes": 6312,
+      "sha256": "ffbbce9af498c83288523f16c77c5d2c4b64ac34a6e9165b0a6736deb5e93cd7",
+      "purpose": "Small original preparation and lineage record"
+    },
+    "runs/go2w_2026-10-08_23-45-24/config.yaml": {
+      "bytes": 16024,
+      "sha256": "ba66e6cb6b156d6dfd1e08a0e9802314ceac3443934463ceb4331f89d885b72a",
+      "purpose": "Adjacent immutable original run configuration"
+    },
+    "runs/go2w_2026-10-08_23-45-24/model_1999.pt": {
+      "bytes": 4761013,
+      "sha256": "2f8f3a96ad7fdf83c2966b44d10fc76ac274d9d81130a470af881f81a5980bf6",
+      "purpose": "Full native actor/critic/normalizers/std/Adam/iteration checkpoint"
+    },
+    "runs/go2w_2026-10-08_23-45-24/preparation.json": {
+      "bytes": 13458,
+      "sha256": "495d3c2d6fee8b682520dc1a2b2ee0aedd593fd674dde0f54fe5e5c45e338527",
+      "purpose": "Small original preparation and lineage record"
+    },
+    "validation.json": {
+      "bytes": 9896,
+      "sha256": "deeeb4af1e63d3c89d7300143492563cdf64bcc1bf3e78421e54c25575a7a2f4",
+      "purpose": "Isolated copied-package and native full-state loading evidence"
+    }
+  }
+}

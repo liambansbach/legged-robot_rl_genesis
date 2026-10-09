@@ -9,10 +9,13 @@ No documentation YAML, historical profile, or fine-tune selector supplies parame
 **Current review, 2026-10-09:** the schema3 reward refinement completed its 1000
 additional updates from geometric CK1000 (2001 lineage updates, final native label1999).
 The [completed refinement review below](#completed-refinement-transfer-review-2026-10-09)
-records the nominal comparison and staged interface2 actor package. Publication is
-blocked on acceptance of measured lateral drift; the stable package is unchanged.
+records the nominal comparison and staged interface2 actor package. Default-package
+replacement is blocked on acceptance of measured lateral drift; it remains unchanged.
 The [preparation below](#objective-refinement-preparation-2026-10-08) is historical,
 not an unexecuted recommendation. Actor58/critic65 and yaw weight `.8` remain unchanged.
+The [one-time laptop handoff](../ressources/handoffs/go2w_2026-10-09/README.md)
+distributes this experimental actor and both full learning checkpoints without
+replacing the pretrained default or changing the recorded qualification status.
 The original budget is now complete: the interrupted run resumed from CK1000
 and reached 2000 lineage updates. The [completed-budget review below](#completed-geometric-budget-review-2026-10-08)
 rejects final1998 for promotion because holding/stopping regressions outweigh its
@@ -1935,3 +1938,20 @@ apex clipping and stop-path regressions above. This proposed restriction is not
 an application tolerance or a passed qualification. Keep the package staged until
 that decision is explicit. Strict nominal qualification fails overall; expanded
 navigation, disturbances, PhysX agreement and hardware remain unestablished.
+
+## One-time laptop handoff (2026-10-09)
+
+The user authorized a separate experimental distribution at
+[`ressources/handoffs/go2w_2026-10-09/`](../ressources/handoffs/go2w_2026-10-09/README.md),
+including the validated interface2 inference package and exact candidate1999 /
+fallback1000 full checkpoints with adjacent original configs. This authorization
+does not promote the candidate into `ressources/pretrained/go2w` or resolve the
+lateral limitations in the completed review. Source runs and evidence remain intact.
+
+The handoff contains file hashes/purposes, source revisions, sanitized actual
+desktop environment records and read-only validation results. The existing CPU
+checker passed from an isolated copy; native full-state loading and explicit copied
+run resolution passed with access to original artifacts blocked. No simulation,
+optimizer updates, parameter changes or actor regeneration were performed.
+Use its README for laptop pull/check/replay instructions and the restricted scope;
+no training command is prepared. The Windows inventory is not a Linux lock.

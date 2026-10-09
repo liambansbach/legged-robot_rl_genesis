@@ -1,0 +1,39 @@
+{
+  "kind": "One-time experimental handoff",
+  "source_code_revision": "25e9dfdb5f5011266d236f73caa4d53304471e0f",
+  "runs": [
+    {
+      "run_directory": "go2w_2026-10-08_23-45-24",
+      "checkpoint": "model_1999.pt",
+      "sha256": "2f8f3a96ad7fdf83c2966b44d10fc76ac274d9d81130a470af881f81a5980bf6",
+      "completed_lineage_updates": 2001,
+      "training_schema": 3,
+      "actor_inputs": 58,
+      "critic_inputs": 65,
+      "training_code_revision": "5b70e79de134107ef08be4bf92cc912bd334ce8b",
+      "training_tree_clean": true,
+      "source_git_record_sha256": "dc438def6531a0ca2f86710d3ee5858e2ae7164ed730a76309708cbffd0dcdf9",
+      "original_config_sha256": "ba66e6cb6b156d6dfd1e08a0e9802314ceac3443934463ceb4331f89d885b72a"
+    },
+    {
+      "run_directory": "go2w_2026-10-08_09-57-35",
+      "checkpoint": "model_1000.pt",
+      "sha256": "49339c5bde1cdfaa6d7555ecd690ba9b2e64728987fdff9c1335fef82b7bfd4a",
+      "completed_lineage_updates": 1001,
+      "training_schema": 2,
+      "actor_inputs": 58,
+      "critic_inputs": 65,
+      "training_code_revision": "376c76e3be9f4d7933e016af759ea9c5d99a5921",
+      "training_tree_clean": true,
+      "source_git_record_sha256": "e4ddd2c31f7a9704f5a1b4bda0a7ae6d58e8b060c5232cb2d87bcdaabc15c4fb",
+      "original_config_sha256": "3d2570fc22f5f7d96253d1fdaf70a2e91a303118706bf46850c6add6cad441c2"
+    }
+  ],
+  "default_package_unchanged": true,
+  "reports": [
+    "docs/go2w_training.md#completed-refinement-transfer-review-2026-10-09",
+    "docs/go2w_refinement_transfer_2026-10-09.json"
+  ],
+  "stage_provenance_sha256": "817d5fdafa003b4d9680c6f0e21587b4b7f74e08ef88bff1fa96422500bbff97",
+  "saved_paths": "Old absolute source/ancestor strings are historical metadata. Use explicit current absolute --load_run plus --checkpoint; adjacent saved config is authoritative."
+}

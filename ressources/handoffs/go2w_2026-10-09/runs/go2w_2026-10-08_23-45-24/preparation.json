@@ -1,0 +1,464 @@
+{
+  "task": "go2w",
+  "seed": 1,
+  "python_executable": "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\python.exe",
+  "packages": {
+    "genesis-world": "1.4.1",
+    "torch": "2.9.0+cu130",
+    "rsl-rl-lib": "5.5.1",
+    "tensordict": "0.10.0"
+  },
+  "initialization": "full native resume: actor/critic/normalizers/std/Adam/iteration",
+  "checkpoint": "C:\\Users\\Liamb\\SynologyDrive\\TUM\\3_Semester\\dodo_alive\\legged-robot_rl_genesis\\logs\\go2w\\go2w_2026-10-08_09-57-35\\model_1000.pt",
+  "planned_updates": 1000,
+  "initial_learning_rate": 0.0003,
+  "entropy_coef": 0.003,
+  "training_resume": {
+    "checkpoint": "C:\\Users\\Liamb\\SynologyDrive\\TUM\\3_Semester\\dodo_alive\\legged-robot_rl_genesis\\logs\\go2w\\go2w_2026-10-08_09-57-35\\model_1000.pt",
+    "state": "full native learning state",
+    "checkpoint_sha256": "49339c5bde1cdfaa6d7555ecd690ba9b2e64728987fdff9c1335fef82b7bfd4a",
+    "source_config": "C:\\Users\\Liamb\\SynologyDrive\\TUM\\3_Semester\\dodo_alive\\legged-robot_rl_genesis\\logs\\go2w\\go2w_2026-10-08_09-57-35\\config.yaml",
+    "source_config_sha256": "3d2570fc22f5f7d96253d1fdaf70a2e91a303118706bf46850c6add6cad441c2",
+    "reward_override": {
+      "source": "GO2WCfg.rewards",
+      "diff": {
+        "env_cfg.config_version": {
+          "saved": 2,
+          "current": 3
+        },
+        "env_cfg.rewards.common_tracking.precision_kernel": {
+          "saved": "gaussian",
+          "current": "absolute_exponential"
+        },
+        "env_cfg.rewards.scales.ang_vel_xy": {
+          "saved": -0.075,
+          "current": -0.15
+        },
+        "env_cfg.rewards.scales.phase_clearance": {
+          "saved": -1.0,
+          "current": -2.0
+        }
+      },
+      "source_config_version": 2,
+      "current_config_version": 3
+    }
+  },
+  "resume_validation": {
+    "before_updates": true,
+    "learning_state": {
+      "exact_state_match": true,
+      "rsl_rl_version": "5.5.1",
+      "source_iteration": 1000,
+      "loaded_learning_rate": 0.0003,
+      "optimizer_learning_rates": [
+        0.0003
+      ],
+      "optimizer_step_counts": [
+        40040
+      ],
+      "actor_and_critic_state_keys": {
+        "actor_state_dict": [
+          "obs_normalizer._mean",
+          "obs_normalizer._var",
+          "obs_normalizer._std",
+          "obs_normalizer.count",
+          "distribution.log_std_param",
+          "mlp.0.weight",
+          "mlp.0.bias",
+          "mlp.2.weight",
+          "mlp.2.bias",
+          "mlp.4.weight",
+          "mlp.4.bias",
+          "mlp.6.weight",
+          "mlp.6.bias"
+        ],
+        "critic_state_dict": [
+          "obs_normalizer._mean",
+          "obs_normalizer._var",
+          "obs_normalizer._std",
+          "obs_normalizer.count",
+          "mlp.0.weight",
+          "mlp.0.bias",
+          "mlp.2.weight",
+          "mlp.2.bias",
+          "mlp.4.weight",
+          "mlp.4.bias",
+          "mlp.6.weight",
+          "mlp.6.bias"
+        ]
+      },
+      "std_before_update": {
+        "raw_log_std": [
+          -1.8843109607696533,
+          -1.802182674407959,
+          -2.180644989013672,
+          -2.114694118499756,
+          -1.8844380378723145,
+          -1.8015625476837158,
+          -2.1801681518554688,
+          -2.114321231842041,
+          -1.9130613803863525,
+          -2.221285581588745,
+          -2.106964349746704,
+          -2.1996991634368896,
+          -1.9135422706604004,
+          -2.2222073078155518,
+          -2.1078603267669678,
+          -2.1996748447418213
+        ],
+        "effective_std": [
+          0.1519337147474289,
+          0.16493849456310272,
+          0.11296864598989487,
+          0.12067019939422607,
+          0.15191440284252167,
+          0.16504080593585968,
+          0.11302252858877182,
+          0.1207151934504509,
+          0.14762774109840393,
+          0.10846956819295883,
+          0.12160655856132507,
+          0.11083649098873138,
+          0.14755676686763763,
+          0.10836964100599289,
+          0.12149765342473984,
+          0.11083919554948807
+        ],
+        "raw_log_std_bounds": [
+          -2.3025850929940455,
+          -0.35667494393873245
+        ],
+        "effective_std_bounds": [
+          0.1,
+          0.7
+        ],
+        "at_or_below_lower_bound": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "at_or_above_upper_bound": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "strictly_outside_bounds": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    },
+    "config_version": 3,
+    "common_tracking": {
+      "precision_kernel": "absolute_exponential",
+      "broad_scales": [
+        0.25,
+        0.15,
+        0.35
+      ],
+      "precision_scales": [
+        0.03,
+        0.03,
+        0.03
+      ],
+      "beta": [
+        0.25,
+        0.25,
+        0.25
+      ]
+    },
+    "unscaled_reward_scales": {
+      "ang_vel_xy": -0.15,
+      "contact_safety": -2.0,
+      "dof_pos_limits": -2.0,
+      "insufficient_support": -0.5,
+      "lateral_wheel_scrub": -0.2,
+      "leg_action_rate": -0.01,
+      "normalized_effort": -0.03,
+      "orientation": -4.0,
+      "phase_clearance": -2.0,
+      "phase_support": -0.5,
+      "reference_height": -1.0,
+      "reference_pose": -0.5,
+      "sensor_vertical_velocity": -1.0,
+      "straight_cross_track": -0.1,
+      "straight_heading": -0.1,
+      "termination": -5.0,
+      "torque_limits": -0.5,
+      "tracking_x": 1.0,
+      "tracking_y": 1.0,
+      "tracking_yaw": 0.8,
+      "wheel_action_rate": -0.005,
+      "wheel_corridor": -0.5,
+      "wheel_rate_zero": -0.1
+    },
+    "runtime_reward_scales": {
+      "ang_vel_xy": -0.003,
+      "contact_safety": -0.04,
+      "dof_pos_limits": -0.04,
+      "insufficient_support": -0.01,
+      "lateral_wheel_scrub": -0.004,
+      "leg_action_rate": -0.0002,
+      "normalized_effort": -0.0006,
+      "orientation": -0.08,
+      "phase_clearance": -0.04,
+      "phase_support": -0.01,
+      "reference_height": -0.02,
+      "reference_pose": -0.01,
+      "sensor_vertical_velocity": -0.02,
+      "straight_cross_track": -0.002,
+      "straight_heading": -0.002,
+      "termination": -5.0,
+      "torque_limits": -0.01,
+      "tracking_x": 0.02,
+      "tracking_y": 0.02,
+      "tracking_yaw": 0.016,
+      "wheel_action_rate": -0.0001,
+      "wheel_corridor": -0.01,
+      "wheel_rate_zero": -0.002
+    },
+    "normalizer_counts": {
+      "actor": 262406144,
+      "critic": 262406144
+    }
+  },
+  "parameter_source": "robot_gym/envs/go2w/go2w_config.py",
+  "config_version": 3,
+  "common_tracking": {
+    "precision_kernel": "absolute_exponential",
+    "broad_scales": [
+      0.25,
+      0.15,
+      0.35
+    ],
+    "precision_scales": [
+      0.03,
+      0.03,
+      0.03
+    ],
+    "beta": [
+      0.25,
+      0.25,
+      0.25
+    ]
+  },
+  "geometric_supervision": {
+    "actor_inputs": 58,
+    "critic_inputs": 65,
+    "critic_relative_fields": [
+      "cross_track_over_scale",
+      "heading_sin",
+      "heading_cos",
+      "reference_valid",
+      "activation",
+      "reference_age_over_time_scale",
+      "command_remaining_over_time_scale"
+    ],
+    "parameters": {
+      "min_speed_m_s": 0.01,
+      "yaw_zero_rad_s": 1e-06,
+      "heading_projection_min": 1e-06,
+      "cross_tolerance_m": 0.005,
+      "cross_scale_m": 0.1,
+      "heading_scale_rad": 0.1,
+      "ramp_s": 0.5,
+      "critic_time_scale_s": 30.0
+    },
+    "reference": "Fixed command-onset line/heading; any changed command (including speed) or episode reset relatches; identical values, pushes, getters and PPO boundaries do not",
+    "bootstrap": "Native RSL-RL 5.5.1 timeouts use pre-step transition values with the old reference; next observations use the reset reference; rollout-end values use the current reference",
+    "runtime_reward_scales": {
+      "tracking_yaw": 0.016,
+      "straight_cross_track": -0.002,
+      "straight_heading": -0.002
+    }
+  },
+  "phase_observation_mode": "command_demand",
+  "deployment_contract": {
+    "task": "go2w",
+    "asset": {
+      "file": "go2w_measured_ed8dc93.urdf",
+      "sha256": "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c",
+      "source_commit": "ed8dc93b3065a8e2a3a5919f032ed4690529117c",
+      "wheel_radius_m": 0.09167
+    },
+    "nominal_armature_kg_m2": {
+      "FL_hip_joint": 0.01,
+      "FL_thigh_joint": 0.01,
+      "FL_calf_joint": 0.01,
+      "FR_hip_joint": 0.01,
+      "FR_thigh_joint": 0.01,
+      "FR_calf_joint": 0.01,
+      "RL_hip_joint": 0.01,
+      "RL_thigh_joint": 0.01,
+      "RL_calf_joint": 0.01,
+      "RR_hip_joint": 0.01,
+      "RR_thigh_joint": 0.01,
+      "RR_calf_joint": 0.01,
+      "FL_foot_joint": 0.01,
+      "FR_foot_joint": 0.01,
+      "RL_foot_joint": 0.01,
+      "RR_foot_joint": 0.01
+    },
+    "nominal_passive_terms": {
+      "FL_hip_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "FL_thigh_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "FL_calf_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "FL_foot_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "FR_hip_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "FR_thigh_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "FR_calf_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "FR_foot_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "RL_hip_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "RL_thigh_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "RL_calf_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "RL_foot_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "RR_hip_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "RR_thigh_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "RR_calf_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "RR_foot_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      }
+    },
+    "training_randomization": {
+      "armature_kg_m2": [
+        0.005,
+        0.02
+      ],
+      "armature_sampling": "independent per environment leg/wheel groups; symmetric; constant across resets",
+      "action_delay_policy_steps": [
+        0,
+        2
+      ],
+      "action_delay_ms": [
+        0.0,
+        40.0
+      ]
+    },
+    "velocity": {
+      "source": "simulator-derived",
+      "frame": "body axes",
+      "reference_point": "authored base-link origin",
+      "sample_timing": "current policy boundary",
+      "genesis_getter": "RigidEntity.get_vel(relative=True), world axes then inverse base quaternion",
+      "transport": "getter already transports to authored origin; no second COM transport"
+    },
+    "physics_substeps": 1,
+    "decimation": 4,
+    "integrator": "approximate_implicitfast",
+    "solver": {
+      "constraint_solver": "1",
+      "iterations": 50,
+      "ls_iterations": 50
+    },
+    "assumptions": "Development armature preset/range and zero passive terms, not identified hardware; mass uncertainty scales base inertia proportionally; COM shift is separate uncertainty"
+  },
+  "runtime_armature_min_max_kg_m2": [
+    0.005001135636121035,
+    0.01999429240822792
+  ],
+  "status": "completed",
+  "last_iteration_label": 1999,
+  "wall_clock_s": 6155.917734399998
+}

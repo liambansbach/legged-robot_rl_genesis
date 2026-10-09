@@ -1,0 +1,503 @@
+{
+  "kind": "Observed sanitized conda records, not an installation lock",
+  "omitted": "Environment prefix, channels/URLs, credentials, local paths and command history",
+  "packages": [
+    {
+      "name": "blas",
+      "version": "1.0",
+      "build": "mkl",
+      "build_number": 1,
+      "subdir": "win-64"
+    },
+    {
+      "name": "bzip2",
+      "version": "1.0.8",
+      "build": "h2bbff1b_6",
+      "build_number": 6,
+      "subdir": "win-64"
+    },
+    {
+      "name": "ca-certificates",
+      "version": "2025.9.9",
+      "build": "haa95532_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "cuda-cccl",
+      "version": "13.0.85",
+      "build": "h5221881_1",
+      "build_number": 1,
+      "subdir": "win-64"
+    },
+    {
+      "name": "cuda-cccl_win-64",
+      "version": "13.0.85",
+      "build": "hc667259_1",
+      "build_number": 1,
+      "subdir": "win-64"
+    },
+    {
+      "name": "cuda-cudart",
+      "version": "12.1.105",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "cuda-cudart-dev",
+      "version": "12.1.105",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "cuda-cupti",
+      "version": "12.1.105",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "cuda-libraries",
+      "version": "12.1.0",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "cuda-libraries-dev",
+      "version": "12.1.0",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "cuda-nvrtc",
+      "version": "12.1.105",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "cuda-nvrtc-dev",
+      "version": "12.1.105",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "cuda-nvtx",
+      "version": "12.1.105",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "cuda-opencl",
+      "version": "13.0.85",
+      "build": "h17533db_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "cuda-opencl-dev",
+      "version": "13.0.85",
+      "build": "hde976d8_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "cuda-profiler-api",
+      "version": "13.0.85",
+      "build": "h5221881_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "cuda-runtime",
+      "version": "12.1.0",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "cuda-version",
+      "version": "13.0",
+      "build": "3",
+      "build_number": 3,
+      "subdir": "noarch"
+    },
+    {
+      "name": "expat",
+      "version": "2.7.1",
+      "build": "h8ddb27b_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "filelock",
+      "version": "3.17.0",
+      "build": "py311haa95532_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "gmp",
+      "version": "6.3.0",
+      "build": "h537511b_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "gmpy2",
+      "version": "2.2.1",
+      "build": "py311h827c3e9_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "intel-openmp",
+      "version": "2023.1.0",
+      "build": "h59b6b97_46320",
+      "build_number": 46320,
+      "subdir": "win-64"
+    },
+    {
+      "name": "jinja2",
+      "version": "3.1.6",
+      "build": "py311haa95532_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "khronos-opencl-icd-loader",
+      "version": "2024.05.08",
+      "build": "h8cc25b3_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libcublas",
+      "version": "12.1.0.26",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libcublas-dev",
+      "version": "12.1.0.26",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libcufft",
+      "version": "11.0.2.4",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libcufft-dev",
+      "version": "11.0.2.4",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libcurand",
+      "version": "10.4.0.35",
+      "build": "h86a452a_1",
+      "build_number": 1,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libcurand-dev",
+      "version": "10.4.0.35",
+      "build": "hde976d8_1",
+      "build_number": 1,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libcusolver",
+      "version": "11.4.4.55",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libcusolver-dev",
+      "version": "11.4.4.55",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libcusparse",
+      "version": "12.0.2.55",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libcusparse-dev",
+      "version": "12.0.2.55",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libffi",
+      "version": "3.4.4",
+      "build": "hd77b12b_1",
+      "build_number": 1,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libnpp",
+      "version": "12.0.2.50",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libnpp-dev",
+      "version": "12.0.2.50",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libnvjitlink",
+      "version": "12.1.105",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libnvjitlink-dev",
+      "version": "12.1.105",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libnvjpeg",
+      "version": "12.1.1.14",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libnvjpeg-dev",
+      "version": "12.1.1.14",
+      "build": "0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libuv",
+      "version": "1.48.0",
+      "build": "h827c3e9_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "libzlib",
+      "version": "1.3.1",
+      "build": "h02ab6af_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "markupsafe",
+      "version": "3.0.2",
+      "build": "py311h827c3e9_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "mkl",
+      "version": "2023.1.0",
+      "build": "h6b88ed4_46358",
+      "build_number": 46358,
+      "subdir": "win-64"
+    },
+    {
+      "name": "mpc",
+      "version": "1.3.1",
+      "build": "h827c3e9_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "mpfr",
+      "version": "4.2.1",
+      "build": "h56c3642_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "mpmath",
+      "version": "1.3.0",
+      "build": "py311haa95532_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "networkx",
+      "version": "3.5",
+      "build": "py311haa95532_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "openssl",
+      "version": "3.0.18",
+      "build": "h543e019_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "pip",
+      "version": "25.2",
+      "build": "pyhc872135_1",
+      "build_number": 1,
+      "subdir": "noarch"
+    },
+    {
+      "name": "python",
+      "version": "3.11.14",
+      "build": "h981015d_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "pytorch-cuda",
+      "version": "12.1",
+      "build": "hde6ce7c_6",
+      "build_number": 6,
+      "subdir": "win-64"
+    },
+    {
+      "name": "pytorch-mutex",
+      "version": "1.0",
+      "build": "cuda",
+      "build_number": 100,
+      "subdir": "noarch"
+    },
+    {
+      "name": "pyyaml",
+      "version": "6.0.2",
+      "build": "py311h827c3e9_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "setuptools",
+      "version": "80.9.0",
+      "build": "py311haa95532_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "sqlite",
+      "version": "3.50.2",
+      "build": "hda9a48d_1",
+      "build_number": 1,
+      "subdir": "win-64"
+    },
+    {
+      "name": "sympy",
+      "version": "1.14.0",
+      "build": "py311haa95532_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "tbb",
+      "version": "2021.8.0",
+      "build": "h59b6b97_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "tk",
+      "version": "8.6.15",
+      "build": "hf199647_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.15.0",
+      "build": "py311haa95532_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "tzdata",
+      "version": "2025b",
+      "build": "h04d1e81_0",
+      "build_number": 0,
+      "subdir": "noarch"
+    },
+    {
+      "name": "ucrt",
+      "version": "10.0.22621.0",
+      "build": "haa95532_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "vc",
+      "version": "14.3",
+      "build": "h2df5915_10",
+      "build_number": 10,
+      "subdir": "win-64"
+    },
+    {
+      "name": "vc14_runtime",
+      "version": "14.44.35208",
+      "build": "h4927774_10",
+      "build_number": 10,
+      "subdir": "win-64"
+    },
+    {
+      "name": "vs2015_runtime",
+      "version": "14.44.35208",
+      "build": "ha6b5a95_10",
+      "build_number": 10,
+      "subdir": "win-64"
+    },
+    {
+      "name": "wheel",
+      "version": "0.45.1",
+      "build": "py311haa95532_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "xz",
+      "version": "5.6.4",
+      "build": "h4754444_1",
+      "build_number": 1,
+      "subdir": "win-64"
+    },
+    {
+      "name": "yaml",
+      "version": "0.2.5",
+      "build": "he774522_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    },
+    {
+      "name": "zlib",
+      "version": "1.3.1",
+      "build": "h02ab6af_0",
+      "build_number": 0,
+      "subdir": "win-64"
+    }
+  ]
+}

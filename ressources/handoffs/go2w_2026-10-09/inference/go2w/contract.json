@@ -1,0 +1,1593 @@
+{
+  "observation_dim": 58,
+  "action_dim": 16,
+  "joint_order": [
+    "FL_hip_joint",
+    "FL_thigh_joint",
+    "FL_calf_joint",
+    "FL_foot_joint",
+    "FR_hip_joint",
+    "FR_thigh_joint",
+    "FR_calf_joint",
+    "FR_foot_joint",
+    "RL_hip_joint",
+    "RL_thigh_joint",
+    "RL_calf_joint",
+    "RL_foot_joint",
+    "RR_hip_joint",
+    "RR_thigh_joint",
+    "RR_calf_joint",
+    "RR_foot_joint"
+  ],
+  "control_type": {
+    "FL_hip_joint": "P",
+    "FL_thigh_joint": "P",
+    "FL_calf_joint": "P",
+    "FR_hip_joint": "P",
+    "FR_thigh_joint": "P",
+    "FR_calf_joint": "P",
+    "RL_hip_joint": "P",
+    "RL_thigh_joint": "P",
+    "RL_calf_joint": "P",
+    "RR_hip_joint": "P",
+    "RR_thigh_joint": "P",
+    "RR_calf_joint": "P",
+    "FL_foot_joint": "V",
+    "FR_foot_joint": "V",
+    "RL_foot_joint": "V",
+    "RR_foot_joint": "V"
+  },
+  "action_scale": [
+    0.30000001192092896,
+    0.3499999940395355,
+    0.4000000059604645,
+    18.0,
+    0.30000001192092896,
+    0.3499999940395355,
+    0.4000000059604645,
+    18.0,
+    0.30000001192092896,
+    0.3499999940395355,
+    0.4000000059604645,
+    18.0,
+    0.30000001192092896,
+    0.3499999940395355,
+    0.4000000059604645,
+    18.0
+  ],
+  "default_joint_angles": [
+    0.0,
+    0.699999988079071,
+    -1.399999976158142,
+    0.0,
+    0.0,
+    0.699999988079071,
+    -1.399999976158142,
+    0.0,
+    0.0,
+    0.699999988079071,
+    -1.399999976158142,
+    0.0,
+    0.0,
+    0.699999988079071,
+    -1.399999976158142,
+    0.0
+  ],
+  "nominal_kp": [
+    40.0,
+    40.0,
+    40.0,
+    0.0,
+    40.0,
+    40.0,
+    40.0,
+    0.0,
+    40.0,
+    40.0,
+    40.0,
+    0.0,
+    40.0,
+    40.0,
+    40.0,
+    0.0
+  ],
+  "nominal_kd": [
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "effort_limits": [
+    23.700000762939453,
+    23.700000762939453,
+    35.54999923706055,
+    23.700000762939453,
+    23.700000762939453,
+    23.700000762939453,
+    35.54999923706055,
+    23.700000762939453,
+    23.700000762939453,
+    23.700000762939453,
+    35.54999923706055,
+    23.700000762939453,
+    23.700000762939453,
+    23.700000762939453,
+    35.54999923706055,
+    23.700000762939453
+  ],
+  "joint_velocity_limits": [
+    30.100000381469727,
+    30.100000381469727,
+    20.06999969482422,
+    30.100000381469727,
+    30.100000381469727,
+    30.100000381469727,
+    20.06999969482422,
+    30.100000381469727,
+    30.100000381469727,
+    30.100000381469727,
+    20.06999969482422,
+    30.100000381469727,
+    30.100000381469727,
+    30.100000381469727,
+    20.06999969482422,
+    30.100000381469727
+  ],
+  "checkpoint": "C:\\Users\\Liamb\\SynologyDrive\\TUM\\3_Semester\\dodo_alive\\legged-robot_rl_genesis\\logs\\go2w\\go2w_2026-10-08_23-45-24\\model_1999.pt",
+  "action_bound": 1.0,
+  "wheel_velocity_target_limit": 20.0,
+  "policy_dt": 0.02,
+  "physics_dt": 0.005,
+  "observation_normalization": "embedded",
+  "quaternion_convention": "wxyz",
+  "observation_order": [
+    "body_linear_velocity",
+    "body_angular_velocity",
+    "projected_gravity",
+    "body_velocity_command",
+    "leg_position_error",
+    "joint_velocity",
+    "previous_clipped_action",
+    "phase_sin",
+    "phase_cos"
+  ],
+  "observation_scales": {
+    "lin_vel": 1.0,
+    "ang_vel": 1.0,
+    "dof_pos": 1.0,
+    "dof_vel": 1.0
+  },
+  "task": "go2w",
+  "asset": {
+    "file": "go2w_measured_ed8dc93.urdf",
+    "sha256": "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c",
+    "source_commit": "ed8dc93b3065a8e2a3a5919f032ed4690529117c",
+    "wheel_radius_m": 0.09167
+  },
+  "nominal_armature_kg_m2": {
+    "FL_hip_joint": 0.01,
+    "FL_thigh_joint": 0.01,
+    "FL_calf_joint": 0.01,
+    "FR_hip_joint": 0.01,
+    "FR_thigh_joint": 0.01,
+    "FR_calf_joint": 0.01,
+    "RL_hip_joint": 0.01,
+    "RL_thigh_joint": 0.01,
+    "RL_calf_joint": 0.01,
+    "RR_hip_joint": 0.01,
+    "RR_thigh_joint": 0.01,
+    "RR_calf_joint": 0.01,
+    "FL_foot_joint": 0.01,
+    "FR_foot_joint": 0.01,
+    "RL_foot_joint": 0.01,
+    "RR_foot_joint": 0.01
+  },
+  "nominal_passive_terms": {
+    "FL_hip_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "FL_thigh_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "FL_calf_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "FL_foot_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "FR_hip_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "FR_thigh_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "FR_calf_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "FR_foot_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "RL_hip_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "RL_thigh_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "RL_calf_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "RL_foot_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "RR_hip_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "RR_thigh_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "RR_calf_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "RR_foot_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    }
+  },
+  "training_randomization": {
+    "armature_kg_m2": [
+      0.005,
+      0.02
+    ],
+    "armature_sampling": "independent per environment leg/wheel groups; symmetric; constant across resets",
+    "action_delay_policy_steps": [
+      0,
+      2
+    ],
+    "action_delay_ms": [
+      0.0,
+      40.0
+    ]
+  },
+  "velocity": {
+    "source": "simulator-derived",
+    "frame": "body axes",
+    "reference_point": "authored base-link origin",
+    "sample_timing": "current policy boundary",
+    "genesis_getter": "RigidEntity.get_vel(relative=True), world axes then inverse base quaternion",
+    "transport": "getter already transports to authored origin; no second COM transport"
+  },
+  "physics_substeps": 1,
+  "decimation": 4,
+  "integrator": "approximate_implicitfast",
+  "solver": {
+    "constraint_solver": "1",
+    "iterations": 50,
+    "ls_iterations": 50
+  },
+  "assumptions": "Development armature preset/range and zero passive terms, not identified hardware; mass uncertainty scales base inertia proportionally; COM shift is separate uncertainty",
+  "config_version": 3,
+  "training_tracking_kernel": "absolute_exponential",
+  "actor_input_dim": 58,
+  "privileged_inputs_exported": false,
+  "height_reference_m": 0.4277416561558192,
+  "reset_spawn_clearance_m": 0.0030000000000000027,
+  "phase": {
+    "period_s": 0.8,
+    "stance_fraction": 0.65,
+    "apex_m": 0.04,
+    "offsets": {
+      "FL_foot": 0.0,
+      "FR_foot": 0.5,
+      "RL_foot": 0.5,
+      "RR_foot": 0.0
+    },
+    "randomize_reset": false,
+    "inference_reset_phase": 0.0,
+    "training_reset": "uniform [0,1)",
+    "timing": "Action at boundary phase p; reward scores p after four held-target physics steps; then advance p by policy_dt/period modulo 1. Episode reset replaces phase; getters and command changes never advance/reset it. Initial environment reset includes one zero-action policy tick.",
+    "observation": "slots 56:58 = demand(command) * [sin(2*pi*p), cos(2*pi*p)] before embedded normalizer; zero raw clock at zero demand, not necessarily normalized zero",
+    "reflection": "sagittal: p -> p+.5, both sin/cos negate",
+    "observation_mode": "command_demand",
+    "demand": {
+      "lateral_start_full_m_s": [
+        0.01,
+        0.05
+      ],
+      "yaw_start_full_rad_s": [
+        0.1,
+        0.25
+      ],
+      "combination": "max of clipped linear ramps, then smoothstep d*d*(3-2*d); invariant under sagittal reflection"
+    }
+  },
+  "wheel_thigh_dx_reference_m": [
+    0.008632517008985041,
+    0.008632517008985041,
+    0.008632517008985013,
+    0.008632517008985013
+  ],
+  "navigation_commands": {
+    "required_ranges": {
+      "ang_vel_yaw": [
+        -1.0,
+        1.0
+      ],
+      "lin_vel_x": [
+        -0.3,
+        1.0
+      ],
+      "lin_vel_y": [
+        -0.3,
+        0.3
+      ]
+    },
+    "training_sampling": {
+      "tier_probabilities": [
+        0.8,
+        0.1,
+        0.1
+      ],
+      "reserve_ranges": {
+        "lin_vel_x": [
+          -0.4,
+          1.2
+        ],
+        "lin_vel_y": [
+          -0.5,
+          0.5
+        ],
+        "ang_vel_yaw": [
+          -1.5,
+          1.5
+        ]
+      },
+      "precision_ranges": [
+        [
+          -0.063,
+          0.108
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          -0.16,
+          0.16
+        ]
+      ]
+    },
+    "units": [
+      "m/s",
+      "m/s",
+      "rad/s"
+    ],
+    "reserve_rule": "One selected active axis outside required; other axes inside required"
+  },
+  "body_push_events": {
+    "force_mixture": {
+      "probabilities": [
+        0.8,
+        0.15,
+        0.05
+      ],
+      "magnitude_ranges_n": [
+        [
+          20.0,
+          50.0
+        ],
+        [
+          50.0,
+          100.0
+        ],
+        [
+          100.0,
+          150.0
+        ]
+      ]
+    },
+    "interval_s": [
+      5.0,
+      10.0
+    ],
+    "duration_s": [
+      0.1,
+      0.2
+    ],
+    "application": "Fixed horizontal force per event at base-link COM; zero external torque",
+    "impulse": "Force norm times sampled physics ticks times physics dt; reset may truncate an event"
+  },
+  "actor_sha256": "639a443f3da3d9fa15d9e532b85959df55c7bd5618564797740adb66b1d2bfcb",
+  "checkpoint_sha256": "2f8f3a96ad7fdf83c2966b44d10fc76ac274d9d81130a470af881f81a5980bf6",
+  "interface_version": 2,
+  "publication_status": "staged_not_approved",
+  "source_checkpoint_relative": "logs/go2w/go2w_2026-10-08_23-45-24/model_1999.pt",
+  "completed_training_updates": 2001,
+  "native_checkpoint_label": 1999,
+  "config_sha256": "ba66e6cb6b156d6dfd1e08a0e9802314ceac3443934463ceb4331f89d885b72a",
+  "urdf_sha256": "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c",
+  "robot_asset": {
+    "path": "assets/go2w/urdf/go2w_measured_ed8dc93.urdf",
+    "path_base": "package_directory",
+    "original_repository_path": "ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf",
+    "bytes_unchanged": true
+  },
+  "observation_limit": 100.0,
+  "input": {
+    "dtype": "float32",
+    "shape": [
+      "N",
+      58
+    ],
+    "N_min": 1,
+    "finite_required": true
+  },
+  "output": {
+    "dtype": "float32",
+    "shape": [
+      "N",
+      16
+    ],
+    "normalized_bounds": [
+      -1,
+      1
+    ],
+    "finite_required": true
+  },
+  "observation_blocks": [
+    {
+      "slice": [
+        0,
+        3
+      ],
+      "name": "body_linear_velocity",
+      "physical_units_before_scaling": "m/s"
+    },
+    {
+      "slice": [
+        3,
+        6
+      ],
+      "name": "body_angular_velocity",
+      "physical_units_before_scaling": "rad/s"
+    },
+    {
+      "slice": [
+        6,
+        9
+      ],
+      "name": "projected_gravity",
+      "physical_units_before_scaling": "unit vector"
+    },
+    {
+      "slice": [
+        9,
+        12
+      ],
+      "name": "body_velocity_command",
+      "physical_units_before_scaling": "m/s,m/s,rad/s"
+    },
+    {
+      "slice": [
+        12,
+        24
+      ],
+      "name": "leg_position_error",
+      "physical_units_before_scaling": "rad"
+    },
+    {
+      "slice": [
+        24,
+        40
+      ],
+      "name": "joint_velocity",
+      "physical_units_before_scaling": "rad/s"
+    },
+    {
+      "slice": [
+        40,
+        56
+      ],
+      "name": "previous_issued_clipped_action",
+      "physical_units_before_scaling": "normalized"
+    },
+    {
+      "slice": [
+        56,
+        58
+      ],
+      "name": "demand_conditioned_phase_sin_cos",
+      "physical_units_before_scaling": "dimensionless"
+    }
+  ],
+  "leg_action_indices": [
+    0,
+    1,
+    2,
+    4,
+    5,
+    6,
+    8,
+    9,
+    10,
+    12,
+    13,
+    14
+  ],
+  "wheel_action_indices": [
+    3,
+    7,
+    11,
+    15
+  ],
+  "hard_joint_position_limits_rad": [
+    [
+      -1.0472,
+      1.0472
+    ],
+    [
+      -1.5707963267948966,
+      3.4907
+    ],
+    [
+      -2.7227,
+      -0.83776
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      -1.0472,
+      1.0472
+    ],
+    [
+      -1.5707963267948966,
+      3.4907
+    ],
+    [
+      -2.7227,
+      -0.83776
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      -1.0472,
+      1.0472
+    ],
+    [
+      -0.5236,
+      4.5379
+    ],
+    [
+      -2.7227,
+      -0.83776
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      -1.0472,
+      1.0472
+    ],
+    [
+      -0.5236,
+      4.5379
+    ],
+    [
+      -2.7227,
+      -0.83776
+    ],
+    [
+      null,
+      null
+    ]
+  ],
+  "physics_decimation": 4,
+  "nominal_actuator_delay_ticks": 0,
+  "policy_execution": {
+    "mode": "deterministic actor mean; no sampled Gaussian",
+    "input_order": "physical inputs -> listed scales -> clip -> embedded empirical normalization -> actor -> clip",
+    "normalizer_epsilon": 0.01,
+    "normalizer_updates": "disabled during inference",
+    "action_history": "previous issued clipped normalized actions, before optional actuator delay",
+    "delay_order": "At boundary t, actor sees a_issued[t-1]; clip new a_issued[t], enqueue it at history[0], apply a_issued[t-D] for all four physics ticks. D is an integer number of 20 ms policy ticks; reset clears the full delay buffer and issued history.",
+    "leg_target": "fixed reference + action_scale * clipped/delayed normalized action; P control",
+    "wheel_target": "action_scale * clipped/delayed normalized action; V control, explicit target cap retained",
+    "coordinates": "x forward, y left, z up; command and measured velocity use body axes",
+    "no_privileged_inputs": "No world position, absolute heading, straight-reference state, critic or estimator is exported",
+    "recurrent_network": false
+  },
+  "reset_protocol": {
+    "initial_phase": 0.0,
+    "initial_issued_action_history": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "explicit_environment_reset": "BaseTask.reset() resets physical state and phase/history, then executes one zero-action 20 ms tick. The first evaluated actor input uses the measured post-warmup physical state and phase .025. The bundled navigation fixture uses this initial-reset path.",
+    "automatic_episode_reset": "A per-environment reset_idx inside post_physics_step resets phase/history to zero and uses newly reset measured physical state for the next actor input. It adds no extra warmup physics tick; first actor phase is zero. Other environments retain their phase/history.",
+    "automatic_episode_first_actor_phase": 0.0,
+    "command_changes": "Update only requested command; keep latent phase and previous issued action history. No heading controller or action override.",
+    "phase_advance": "After holding each action for four 5 ms physics ticks, advance phase by .02/.8 modulo1.",
+    "bundled_sequence_initial_state": "parity_samples.npz: first navigation_mask row contains actual pre-action physical state, phase, command and issued history.",
+    "initial_capture_repository_provenance_only": "evaluation/go2w_refinement_review/native_export/initial_policy_state.npz",
+    "automatic_reset_validation": "Offline interface probe only; the captured navigation had no automatic reset."
+  },
+  "runtime_joint_dynamics": {
+    "joints": {
+      "FL_hip_joint": {
+        "armature": 0.009999999776482582,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          -1.0471999645233154,
+          1.0471999645233154
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "FL_thigh_joint": {
+        "armature": 0.009999999776482582,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          -1.5707963705062866,
+          3.4907000064849854
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "FL_calf_joint": {
+        "armature": 0.009999999776482582,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -35.54999923706055,
+          35.54999923706055
+        ],
+        "position_limit": [
+          -2.7227001190185547,
+          -0.8377599716186523
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "FL_foot_joint": {
+        "armature": 0.009999999776482582,
+        "kp": 0.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          null,
+          null
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "FR_hip_joint": {
+        "armature": 0.009999999776482582,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          -1.0471999645233154,
+          1.0471999645233154
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "FR_thigh_joint": {
+        "armature": 0.009999999776482582,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          -1.5707963705062866,
+          3.4907000064849854
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "FR_calf_joint": {
+        "armature": 0.009999999776482582,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -35.54999923706055,
+          35.54999923706055
+        ],
+        "position_limit": [
+          -2.7227001190185547,
+          -0.8377599716186523
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "FR_foot_joint": {
+        "armature": 0.009999999776482582,
+        "kp": 0.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          null,
+          null
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "RL_hip_joint": {
+        "armature": 0.009999999776482582,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          -1.0471999645233154,
+          1.0471999645233154
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "RL_thigh_joint": {
+        "armature": 0.009999999776482582,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          -0.5235999822616577,
+          4.537899971008301
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "RL_calf_joint": {
+        "armature": 0.009999999776482582,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -35.54999923706055,
+          35.54999923706055
+        ],
+        "position_limit": [
+          -2.7227001190185547,
+          -0.8377599716186523
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "RL_foot_joint": {
+        "armature": 0.009999999776482582,
+        "kp": 0.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          null,
+          null
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "RR_hip_joint": {
+        "armature": 0.009999999776482582,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          -1.0471999645233154,
+          1.0471999645233154
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "RR_thigh_joint": {
+        "armature": 0.009999999776482582,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          -0.5235999822616577,
+          4.537899971008301
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "RR_calf_joint": {
+        "armature": 0.009999999776482582,
+        "kp": 40.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -35.54999923706055,
+          35.54999923706055
+        ],
+        "position_limit": [
+          -2.7227001190185547,
+          -0.8377599716186523
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      },
+      "RR_foot_joint": {
+        "armature": 0.009999999776482582,
+        "kp": 0.0,
+        "kv": 1.0,
+        "stiffness": 0.0,
+        "damping": 0.0,
+        "frictionloss": 0.0,
+        "force_range": [
+          -23.700000762939453,
+          23.700000762939453
+        ],
+        "position_limit": [
+          null,
+          null
+        ],
+        "solver_parameters": [
+          0.009999999776482582,
+          1.0,
+          0.8999999761581421,
+          0.949999988079071,
+          0.0010000000474974513,
+          0.5,
+          2.0
+        ]
+      }
+    },
+    "sources": {
+      "armature": "RigidEntity.get_dofs_armature",
+      "kp": "RigidEntity.get_dofs_kp",
+      "kv": "RigidEntity.get_dofs_kv",
+      "stiffness": "RigidEntity.get_dofs_stiffness",
+      "damping": "RigidEntity.get_dofs_damping",
+      "frictionloss": "RigidEntity.get_dofs_frictionloss",
+      "force_range": "RigidEntity.get_dofs_force_range",
+      "position_limit": "RigidEntity.get_dofs_limit"
+    },
+    "environment_index_if_batched": 0,
+    "units": {
+      "armature": "kg m^2 (joint-reflected)",
+      "kp": "N m/rad",
+      "kv": "N m s/rad (active)",
+      "stiffness": "N m/rad (passive)",
+      "damping": "N m s/rad (passive)",
+      "frictionloss": "N m",
+      "force_range": "N m",
+      "position_limit": "rad"
+    }
+  },
+  "evaluation_limits": {
+    "publication_status": "staged_not_approved",
+    "selected_for_local_packaging": "logs/go2w/go2w_2026-10-08_23-45-24/model_1999.pt",
+    "completed_lineage_updates": 2001,
+    "strict_nominal_qualification": "FAIL overall: sustained lateral cross-axis/path regression despite forward and stand improvement.",
+    "restricted_sim2sim_status": "Proposed diagnostic use only, awaiting explicit acceptance of measured deviations. No tolerance was supplied or invented.",
+    "full_navigation_robustness_hardware_status": "UNMEASURED / NOT QUALIFIED",
+    "next_action": "Retain the validated local stage. Obtain acceptance of the documented limited open-area diagnostic test before replacing the published package; no further training or tuning is proposed.",
+    "acceptance_decision_required": "Whether to accept a raw-policy nominal flat-ground diagnostic Sim2Sim test with lateral bouts limited to 2m at +/-0.3m/s, despite first-2m heading errors -3.526/+4.472deg, maximum cross-track .01218/.04594m, full-30s lateral curvature 1.202/1.235m, repeated apex clipping, and lateral stop-path increases versus CK1000. These are observed deviations, not passed application tolerances.",
+    "proposed_restricted_test": {
+      "environment": "Flat, open, obstacle-free simulator area; nominal matched dynamics; ground-truth velocity at authored base origin; no DR, pushes or hardware.",
+      "command_subset": "Stand; forward up to .5m/s; lateral +/- .3m/s for at most 2m per bout; short yaw up to +/- .8rad/s; explicit zero-command stops between motions.",
+      "controller": "Unmodified deterministic 58-input actor. No heading adapter, deadband, hidden path inputs or action override.",
+      "not_inferred": "No qualification of arbitrary mixed Cartesian-box combinations, reserve extremes, 150N recovery, hardware, or PhysX agreement."
+    },
+    "frozen_criteria_status": {
+      "forward_30s": "PASS in this nominal trace: mean .501439m/s, RMSE .017158m/s, max cross .002300m <= .05m, max absolute heading .035921deg <=2deg.",
+      "stand_30s": "PASS recorded CK499 bands: late XY .000318m/s <=.005, late wz .000490rad/s <.00670 and heading1.040deg <11.1. Does not beat CK250 late wz .00030.",
+      "complete_stopping": "UNMEASURED for the full frozen CK499 reversal comparison. Known .5 forward path .042679m/lateXY .000630 improve .1051/.00544. Backward excursion .007924m is higher than CK1000; lateral+/- path rises .03961/.04254 -> .04756/.06099m. No overall stop qualification claimed.",
+      "stepping_and_cross_axis": "FAIL no-regression requirement: both long lateral paths regress. Partial +/- .03 lateral remains UNMEASURED; physical clearance/unloading improve.",
+      "posture_geometry_saturation": "UNMEASURED acceptance threshold: bounded recorded tilt and no collapse, but forward front width grows .399->.446m first-second-to-late and repeated lateral apex clipping remains. No pose redefinition.",
+      "sampled_contacts_falls": "PASS sampled panel/navigation condition: none observed. Contact capture is 50Hz except positive lateral200Hz; brief unsampled contacts cannot be ruled out.",
+      "full_navigation_envelope_DR_transfer_hardware": "UNMEASURED"
+    },
+    "lateral_distance": {
+      "lateral_strong_positive": {
+        "1.0": {
+          "attained": true,
+          "first_ge_index": 319,
+          "first_observed_elapsed_s": 3.4,
+          "first_ge_sample_progress_m": 1.0048285533780004,
+          "maximum_abs_cross_track_through_first_ge_m": 0.012178676677657554,
+          "first_observed_heading_change_deg": -1.3372963824257744
+        },
+        "2.0": {
+          "attained": true,
+          "first_ge_index": 484,
+          "first_observed_elapsed_s": 6.7,
+          "first_ge_sample_progress_m": 2.0018998379136406,
+          "maximum_abs_cross_track_through_first_ge_m": 0.012178676677657554,
+          "first_observed_heading_change_deg": -3.5255123975363274
+        }
+      },
+      "lateral_strong_negative": {
+        "1.0": {
+          "attained": true,
+          "first_ge_index": 318,
+          "first_observed_elapsed_s": 3.38,
+          "first_ge_sample_progress_m": 1.0040711779212717,
+          "maximum_abs_cross_track_through_first_ge_m": 0.007798263311551479,
+          "first_observed_heading_change_deg": 2.784513793502329
+        },
+        "2.0": {
+          "attained": true,
+          "first_ge_index": 482,
+          "first_observed_elapsed_s": 6.66,
+          "first_ge_sample_progress_m": 2.0014530827998893,
+          "maximum_abs_cross_track_through_first_ge_m": 0.04593707527303327,
+          "first_observed_heading_change_deg": 4.471727583112952
+        }
+      }
+    },
+    "navigation_screen": {
+      "duration_s": 58,
+      "samples": 2900,
+      "failure": false,
+      "schedule": [
+        [
+          3,
+          [
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        [
+          4,
+          [
+            0.05,
+            0.0,
+            0.0
+          ]
+        ],
+        [
+          3,
+          [
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        [
+          5,
+          [
+            1.0,
+            0.0,
+            0.0
+          ]
+        ],
+        [
+          4,
+          [
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        [
+          4,
+          [
+            -0.3,
+            0.0,
+            0.0
+          ]
+        ],
+        [
+          4,
+          [
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        [
+          4,
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        [
+          3,
+          [
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        [
+          4,
+          [
+            0.0,
+            0.0,
+            -1.0
+          ]
+        ],
+        [
+          3,
+          [
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        [
+          5,
+          [
+            0.5,
+            0.0,
+            0.5
+          ]
+        ],
+        [
+          3,
+          [
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        [
+          5,
+          [
+            0.3,
+            0.15,
+            -0.4
+          ]
+        ],
+        [
+          4,
+          [
+            0.0,
+            0.0,
+            0.0
+          ]
+        ]
+      ],
+      "measured_means": [
+        {
+          "command": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "mean": [
+            -0.0028495899572347602,
+            -8.048028396918501e-05,
+            0.0010796188967651687
+          ],
+          "rmse": [
+            0.0036480082161537628,
+            0.00020107678059576995,
+            0.0012570272234176745
+          ],
+          "endpoint_m": 0.008547261490066245,
+          "path_m": 0.00857782082406827
+        },
+        {
+          "command": [
+            0.05,
+            0.0,
+            0.0
+          ],
+          "mean": [
+            0.04851694773416966,
+            -0.00020489422102400566,
+            0.0010251518018776552
+          ],
+          "rmse": [
+            0.004396394812186281,
+            0.00021017055904221855,
+            0.0010323324037216895
+          ],
+          "endpoint_m": 0.1936831033783501,
+          "path_m": 0.193683654559442
+        },
+        {
+          "command": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "mean": [
+            0.00020104797639457198,
+            -1.9522960501111203e-05,
+            0.000620860867202282
+          ],
+          "rmse": [
+            0.004338989228588193,
+            5.6245505155644095e-05,
+            0.000623511565662809
+          ],
+          "endpoint_m": 0.000976809738000855,
+          "path_m": 0.004958354468231151
+        },
+        {
+          "command": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "mean": [
+            0.9774370805025101,
+            7.824344195392996e-05,
+            -0.0004979409331353963
+          ],
+          "rmse": [
+            0.11768663629986463,
+            0.00020685918409854275,
+            0.001366087098857166
+          ],
+          "endpoint_m": 4.880495858690829,
+          "path_m": 4.880496715263
+        },
+        {
+          "command": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "mean": [
+            0.024208255986995938,
+            -6.49795510227591e-05,
+            0.001052742603351362
+          ],
+          "rmse": [
+            0.12388978975624616,
+            0.0002338175889269708,
+            0.0019423330377775943
+          ],
+          "endpoint_m": 0.10432890436200593,
+          "path_m": 0.11589252506405917
+        },
+        {
+          "command": [
+            -0.3,
+            0.0,
+            0.0
+          ],
+          "mean": [
+            -0.30107883337885144,
+            0.00015256574853765416,
+            4.562843259463989e-05
+          ],
+          "rmse": [
+            0.021267247331354516,
+            0.00023737179766139757,
+            0.0005884952542947772
+          ],
+          "endpoint_m": 1.2021499421766064,
+          "path_m": 1.2021502366364971
+        },
+        {
+          "command": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "mean": [
+            -0.004295728981164757,
+            -9.723570049573027e-05,
+            0.000581280242477078
+          ],
+          "rmse": [
+            0.024794652298802577,
+            0.00014804028560188445,
+            0.0006243576479929149
+          ],
+          "endpoint_m": 0.01945852170773682,
+          "path_m": 0.02222105957398399
+        },
+        {
+          "command": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "mean": [
+            0.003419411821087124,
+            0.0068136127300022055,
+            0.9846386620402336
+          ],
+          "rmse": [
+            0.008503565214279292,
+            0.010717504304224242,
+            0.05222523678913042
+          ],
+          "endpoint_m": 0.01137127315600186,
+          "path_m": 0.04551303656535216
+        },
+        {
+          "command": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "mean": [
+            0.0022689419032440126,
+            -0.0025139019410805002,
+            -0.004069294382255369
+          ],
+          "rmse": [
+            0.0048507101695005155,
+            0.004874113851485493,
+            0.07073031112870186
+          ],
+          "endpoint_m": 0.010302552232612913,
+          "path_m": 0.013741284246525109
+        },
+        {
+          "command": [
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "mean": [
+            0.0016455395205593958,
+            -0.007654424582976844,
+            -0.9994536107778549
+          ],
+          "rmse": [
+            0.00845637181597145,
+            0.01283318760969222,
+            0.04935300738646154
+          ],
+          "endpoint_m": 0.015494734383341872,
+          "path_m": 0.05217877565431654
+        },
+        {
+          "command": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "mean": [
+            0.001367139173992958,
+            -0.0011627369806228671,
+            0.010349540492024972
+          ],
+          "rmse": [
+            0.004049461385854475,
+            0.002692049299373614,
+            0.05055313942603836
+          ],
+          "endpoint_m": 0.005342604339792162,
+          "path_m": 0.010470262427981096
+        },
+        {
+          "command": [
+            0.5,
+            0.0,
+            0.5
+          ],
+          "mean": [
+            0.49405490526556967,
+            0.010170734914310742,
+            0.5078407080173493
+          ],
+          "rmse": [
+            0.04174746727534026,
+            0.024697490368111155,
+            0.05197236304807316
+          ],
+          "endpoint_m": 1.8824100463950197,
+          "path_m": 2.473085449325305
+        },
+        {
+          "command": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "mean": [
+            0.01131418469112153,
+            -0.001557551208534278,
+            -0.009472741113665204
+          ],
+          "rmse": [
+            0.04975405661084878,
+            0.004996409090593382,
+            0.024169821262063552
+          ],
+          "endpoint_m": 0.03773314616195296,
+          "path_m": 0.04574152647412929
+        },
+        {
+          "command": [
+            0.3,
+            0.15,
+            -0.4
+          ],
+          "mean": [
+            0.29469500759243966,
+            0.14983793537318707,
+            -0.4053868691921234
+          ],
+          "rmse": [
+            0.023319309012277405,
+            0.023348807346292712,
+            0.05471784662971698
+          ],
+          "endpoint_m": 1.3891765473789968,
+          "path_m": 1.655899060388093
+        },
+        {
+          "command": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "mean": [
+            0.005772186425165273,
+            -0.0007132677314803004,
+            0.0022452466159211325
+          ],
+          "rmse": [
+            0.02012506287736799,
+            0.009413845126390012,
+            0.020642064122832877
+          ],
+          "endpoint_m": 0.025531540426880515,
+          "path_m": 0.0310141314867969
+        }
+      ],
+      "scope": "Representative screening only. 1m/s stop path .115893m, final1s XY RMS .000826m/s; no all-box or disturbance qualification."
+    },
+    "known_limitations": [
+      "Long lateral heading bias continues late; body angular-z is not Euler heading derivative.",
+      "Lateral stop paths increase versus CK1000, though final residuals remain small.",
+      "Lateral apex thigh/calf clipping and brief one-wheel support transitions remain; no force-cap occupancy sampled.",
+      "Yaw camera heave worsens against prior1998 despite reduced rotational lever term.",
+      "The actor cannot observe accumulated path offset; a privileged critic does not provide online path feedback."
+    ],
+    "publication": "No replacement, commit or push in this review. Old published56-input package retained with Git identities and hashes."
+  },
+  "handoff_distribution": {
+    "kind": "one-time experimental laptop handoff",
+    "date": "2026-10-09",
+    "default_policy_replacement": false,
+    "qualification_changed": false,
+    "note": "Recorded selection status is the historical review; this copy is explicitly authorized for experimental distribution."
+  }
+}

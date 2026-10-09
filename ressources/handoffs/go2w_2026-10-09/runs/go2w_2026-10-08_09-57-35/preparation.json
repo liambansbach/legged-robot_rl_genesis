@@ -1,0 +1,199 @@
+{
+  "task": "go2w",
+  "seed": 1,
+  "python_executable": "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\python.exe",
+  "packages": {
+    "genesis-world": "1.4.1",
+    "torch": "2.9.0+cu130",
+    "rsl-rl-lib": "5.5.1",
+    "tensordict": "0.10.0"
+  },
+  "initialization": "fresh actor/critic/normalizers/std/Adam; local iteration zero",
+  "checkpoint": null,
+  "planned_updates": 2000,
+  "initial_learning_rate": 0.0003,
+  "entropy_coef": 0.003,
+  "training_resume": null,
+  "resume_validation": null,
+  "parameter_source": "robot_gym/envs/go2w/go2w_config.py",
+  "config_version": 2,
+  "geometric_supervision": {
+    "actor_inputs": 58,
+    "critic_inputs": 65,
+    "critic_relative_fields": [
+      "cross_track_over_scale",
+      "heading_sin",
+      "heading_cos",
+      "reference_valid",
+      "activation",
+      "reference_age_over_time_scale",
+      "command_remaining_over_time_scale"
+    ],
+    "parameters": {
+      "min_speed_m_s": 0.01,
+      "yaw_zero_rad_s": 1e-06,
+      "heading_projection_min": 1e-06,
+      "cross_tolerance_m": 0.005,
+      "cross_scale_m": 0.1,
+      "heading_scale_rad": 0.1,
+      "ramp_s": 0.5,
+      "critic_time_scale_s": 30.0
+    },
+    "reference": "Fixed command-onset line/heading; any changed command (including speed) or episode reset relatches; identical values, pushes, getters and PPO boundaries do not",
+    "bootstrap": "Native RSL-RL 5.5.1 timeouts use pre-step transition values with the old reference; next observations use the reset reference; rollout-end values use the current reference",
+    "runtime_reward_scales": {
+      "tracking_yaw": 0.016,
+      "straight_cross_track": -0.002,
+      "straight_heading": -0.002
+    }
+  },
+  "phase_observation_mode": "command_demand",
+  "deployment_contract": {
+    "task": "go2w",
+    "asset": {
+      "file": "go2w_measured_ed8dc93.urdf",
+      "sha256": "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c",
+      "source_commit": "ed8dc93b3065a8e2a3a5919f032ed4690529117c",
+      "wheel_radius_m": 0.09167
+    },
+    "nominal_armature_kg_m2": {
+      "FL_hip_joint": 0.01,
+      "FL_thigh_joint": 0.01,
+      "FL_calf_joint": 0.01,
+      "FR_hip_joint": 0.01,
+      "FR_thigh_joint": 0.01,
+      "FR_calf_joint": 0.01,
+      "RL_hip_joint": 0.01,
+      "RL_thigh_joint": 0.01,
+      "RL_calf_joint": 0.01,
+      "RR_hip_joint": 0.01,
+      "RR_thigh_joint": 0.01,
+      "RR_calf_joint": 0.01,
+      "FL_foot_joint": 0.01,
+      "FR_foot_joint": 0.01,
+      "RL_foot_joint": 0.01,
+      "RR_foot_joint": 0.01
+    },
+    "nominal_passive_terms": {
+      "FL_hip_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "FL_thigh_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "FL_calf_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "FL_foot_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "FR_hip_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "FR_thigh_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "FR_calf_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "FR_foot_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "RL_hip_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "RL_thigh_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "RL_calf_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "RL_foot_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "RR_hip_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "RR_thigh_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "RR_calf_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      },
+      "RR_foot_joint": {
+        "stiffness_Nm_per_rad": 0.0,
+        "damping_Nm_s_per_rad": 0.0,
+        "frictionloss_Nm": 0.0
+      }
+    },
+    "training_randomization": {
+      "armature_kg_m2": [
+        0.005,
+        0.02
+      ],
+      "armature_sampling": "independent per environment leg/wheel groups; symmetric; constant across resets",
+      "action_delay_policy_steps": [
+        0,
+        2
+      ],
+      "action_delay_ms": [
+        0.0,
+        40.0
+      ]
+    },
+    "velocity": {
+      "source": "simulator-derived",
+      "frame": "body axes",
+      "reference_point": "authored base-link origin",
+      "sample_timing": "current policy boundary",
+      "genesis_getter": "RigidEntity.get_vel(relative=True), world axes then inverse base quaternion",
+      "transport": "getter already transports to authored origin; no second COM transport"
+    },
+    "physics_substeps": 1,
+    "decimation": 4,
+    "integrator": "approximate_implicitfast",
+    "solver": {
+      "constraint_solver": "1",
+      "iterations": 50,
+      "ls_iterations": 50
+    },
+    "assumptions": "Development armature preset/range and zero passive terms, not identified hardware; mass uncertainty scales base inertia proportionally; COM shift is separate uncertainty"
+  },
+  "runtime_armature_min_max_kg_m2": [
+    0.005001135636121035,
+    0.01999429240822792
+  ],
+  "status": "interrupted_or_failed",
+  "last_iteration_label": 1115,
+  "wall_clock_s": 5961.8504216
+}
