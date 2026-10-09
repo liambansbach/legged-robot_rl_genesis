@@ -6,16 +6,18 @@ parameter source. Edit that file for the next experiment. Training resolves the
 registered task and writes the complete `config.yaml` into its run directory.
 No documentation YAML, historical profile, or fine-tune selector supplies parameters.
 
-**Current preparation, 2026-10-08:** schema3 changes tracking precision and two
-existing reward scales, retaining the schema2 geometric task and actor58/critic65.
-The [bounded objective refinement below](#objective-refinement-preparation-2026-10-08)
-prepares 1000 additional updates from geometric CK1000. Production is unstarted;
-the single two-update execution smoke is not its initializer. Yaw weight remains `.8`.
+**Current review, 2026-10-09:** the schema3 reward refinement completed its 1000
+additional updates from geometric CK1000 (2001 lineage updates, final native label1999).
+The [completed refinement review below](#completed-refinement-transfer-review-2026-10-09)
+records the nominal comparison and staged interface2 actor package. Publication is
+blocked on acceptance of measured lateral drift; the stable package is unchanged.
+The [preparation below](#objective-refinement-preparation-2026-10-08) is historical,
+not an unexecuted recommendation. Actor58/critic65 and yaw weight `.8` remain unchanged.
 The original budget is now complete: the interrupted run resumed from CK1000
 and reached 2000 lineage updates. The [completed-budget review below](#completed-geometric-budget-review-2026-10-08)
 rejects final1998 for promotion because holding/stopping regressions outweigh its
-gains. Geometric CK1000 remains the selected development source. The new preparation
-follows that completed review; it does not initialize from rejected final1998.
+gains. Geometric CK1000 remains the retained development source. The subsequent
+refinement initialized from that source, not rejected final1998.
 Pre-geometric CK1999 remains a comparison.
 
 The old path was inherited Go2 defaults → Go2-W defaults → profile deltas →
@@ -1473,7 +1475,7 @@ block, fresh start, camera-only refinement or training command is prepared.
 
 **Prepare one combined refinement from geometric CK1000: absolute-exponential
 velocity precision, clearance scale −2, and roll/pitch-rate scale −.15. Production
-has not started.** This is a combined engineering experiment, not a single-factor
+was unstarted at preparation; it subsequently completed as recorded below.** This is a combined engineering experiment, not a single-factor
 test or a claim that the previous review established causal underweighting.
 The [generated preparation evidence](go2w_objective_refinement_2026-10-08.json)
 contains the resolved production config, exact diff, calibration by window/axis/
@@ -1650,8 +1652,8 @@ Runtime scales are clearance−.04, angular−.003, yaw.016. Source/evidence/che
 and `play.py` hashes remain unchanged. The smoke is execution validation only and
 must never initialize production.
 
-Run from this repository on `testing`. This is the **one unexecuted production
-command**, using the installed environment; no YAML supplies parameters:
+Historical preparation command, subsequently executed by the user. **Do not run
+it again as part of this review.** It uses the installed environment; no YAML supplies parameters:
 
 ```powershell
 & 'C:\Users\Liamb\anaconda3\envs\genesis-gpu\python.exe' -m robot_gym.scripts.train --task go2w --resume --resume_current_rewards --load_run go2w_2026-10-08_09-57-35 --checkpoint 1000 --num_envs 4096 --max_iterations 1000 --seed 1 --logger tensorboard --training_diagnostics --headless --rl_device cuda:0
@@ -1686,3 +1688,250 @@ drift again fails to improve without regressions, report that limitation rather
 than automatically extending or adding weights. The actor still has no accumulated
 path error/history; privileged geometric rewards and critic inputs do not supply
 online path-offset feedback or guarantee convergence.
+
+## Completed refinement transfer review (2026-10-09)
+
+**Stage the new actor for a proposed restricted diagnostic Sim2Sim test; do not
+replace the published package.** Forward direction control, holding and stepping
+improved, but sustained lateral curvature regressed materially. Acceptance of
+the measured short-distance deviations remains unresolved. This review proposes
+no further training, controller change or reward tuning.
+The [compact comparison and package checks](go2w_refinement_transfer_2026-10-09.json)
+record the measurements. Large traces and analysis scripts remain local under
+`evaluation/go2w_refinement_review/`.
+
+### Completed lineage and conditions
+
+The verified non-smoke candidate is
+`logs/go2w/go2w_2026-10-08_23-45-24/model_1999.pt`, SHA256
+`2f8f3a96ad7fdf83c2966b44d10fc76ac274d9d81130a470af881f81a5980bf6`.
+Its saved provenance selects geometric
+`logs/go2w/go2w_2026-10-08_09-57-35/model_1000.pt`, not pre-geometric1999 or
+rejected geometric final1998. The 1000-update continuation completed:
+native labels1000/1250/1500/1750/1999, **2001 lineage updates**, Adam40040→80040,
+both normalizer counts262406144→524550144. Saved schema3 retains actor58/critic65
+and LR3e-4. The only functional changes from CK1000 are Gaussian→absolute-exponential
+tracking precision, clearance−1→−2 and roll/pitch-rate−.075→−.15, plus schema.
+The preparation's retained before-update proof records full-state loading; it was
+not repeated. The preparation command above is now historical and must not be rerun.
+
+One final-checkpoint invocation ran all six nominal cases: stand30s; forward
+(.5,0,0), lateral(0,±.3,0), yaw(0,0,±.8), each moving case with3s zero/30s motion/
+8s zero. Actor mean, seed1, saved nominal dynamics, noise/DR/pushes off; no action
+or command adapter. Each independent reset uses the existing zero-action settling
+tick and unchanged latent phase timing. Commands, phase, desired clearance/swing
+and initial pose match retained CK1000 arrays exactly. Primary analysis is50Hz;
+only positive lateral has new200Hz capture. CK1000 and prior final1998 traces were
+reused; no historical replay or intermediate checkpoint was needed.
+
+Training logs support completion, not transfer qualification. In labels1200–1399
+versus1800–1999, measured KL is .01432→.01408, PPO clipping .2613→.2563, value loss
+.01156→.01014, LR remains .0003. Per-joint mean std ranges .1043–.1585→.1030–.1501;
+rear thighs touch the floor in1/200 late records each. Logged clearance/angular/
+sensor rates change −.04624/−.03554/−.00804→−.03373/−.03237/−.00735. These averages
+do not override the matched physical results. JSONL has998 records through1999,
+with1149/1418 missing. Episode terms divide episode sums by configured60s; mean
+return is different. No return ranking across changed objectives, success
+probability from episode length, or unrecorded push/failure association is inferred.
+
+### Physical comparison and frozen requirements
+
+All biases/RMSE use the external requested body velocity; pose-derived heading
+is not integrated body angular-z. Table entries are CK1000 / prior final1998 / new
+refinement1999. The last is a different model from pre-geometric1999.
+
+| Case | Requested-axis mean | Requested-axis RMSE | Heading change | Maximum initial-line cross-track |
+| --- | --- | --- | --- | --- |
+| Forward .5 | .49945 / .50421 / **.50144 m/s** | .01780 / .01677 / **.01716** | +8.546 / +7.105 / **−.00984°** | 1.0237 / .8453 / **.00230m** |
+| Lateral +.3 | .30363 / .30076 / **.30063 m/s** | .02036 / .02020 / **.01416** | −1.749 / +3.656 / **−18.762°** | .2168 / .3426 / **1.2023m** |
+| Lateral −.3 | −.30421 / −.30011 / **−.30167 m/s** | .02051 / .02006 / **.01494** | +8.153 / −1.108 / **+16.558°** | .6772 / .1262 / **1.2350m** |
+| Yaw +.8 | .80928 / .81071 / **.80105 rad/s** | .05381 / .03899 / **.03189** | Commanded rotation | XY path .2472 / .3633 / **.2980m** |
+| Yaw −.8 | −.80600 / −.81081 / **−.80315 rad/s** | .04934 / .03753 / **.02875** | Commanded rotation | XY path .2523 / .3523 / **.3140m** |
+
+New full-motion `(vx,vy,wz)` means are forward `(.501439,.000005,−.000016)`,
+lateral+ `(−.004563,.300625,−.008224)`, lateral− `(−.004567,−.301671,.006963)`,
+yaw+ `(.003497,.004277,.801050)`, yaw− `(.003090,−.004719,−.803150)`.
+Lateral all-axis RMSE is `(.01081,.01416,.05182)` / `(.01072,.01494,.05446)`;
+the requested-axis speed did not fall to produce the apparent gains.
+First-second requested-axis means are .46613, .27977, −.28458, .75733, −.79945.
+Full/first/late all-axis values are retained in the JSON.
+
+Lateral curvature persists: final10s heading changes −7.606/+5.065°, with mean
+body-wz−.01097/+.00557rad/s. Full-quaternion displacement along the **initial
+forward axis**, decomposed into body-x / rotated body-y / body-z contributions,
+is `−.13510 +1.33514 −.000066m` for lateral+ and
+`−.13541 +1.36616 +.000625m` for lateral−. Integration differs from recorded
+pose by−2.30/−3.68mm. Rotation of sustained lateral velocity dominates the metre-scale
+drift; direct body-x bias remains a separate limitation. The unchanged actor has
+no accumulated path-offset input; the privileged critic cannot supply that online.
+
+Stand endpoint/path improves .05346/.05387 → .17593/.18397 → **.02147/.02159m**.
+New startup0–5s endpoint/path is .01079/.01087m; late20–30s XY RMS .000318m/s,
+wz RMS .000490rad/s, full heading+1.040°. Late wheel targets FL/FR/RL/RR average
+−.272/−.217/+.224/+.248rad/s, while actual rates are−.0214/−.0161/+.00825/+.0114.
+These corrective targets were left intact; no zero-action or wheel-lock criterion
+was imposed.
+
+| Complete8s stop after | New endpoint / path, m | CK1000 / prior1998 path, m | New final2s XY / wz RMS | New net / absolute rotation |
+| --- | ---: | ---: | ---: | ---: |
+| Forward | .02682 / .04268 | .04552 / .08249 | .000630 / .000454 | +.245 / .245° |
+| Lateral+ | .03196 / .04756 | .03961 / .08628 | .001888 / .000287 | −1.671 / 2.297° |
+| Lateral− | .04388 / .06099 | .04254 / .06756 | .003868 / .000235 | −.962 / 2.674° |
+| Yaw+ | .01677 / .01979 | .02731 / .04405 | .000958 / .000957 | +1.491 / 1.864° |
+| Yaw− | .00929 / .01249 | .02147 / .04500 | .000036 / .000531 | +.848 / 6.415° |
+
+Forward stop reverses7.92mm; lateral+ maximum backtrack4.65mm, lateral− zero.
+Shorter endpoints do not erase path or rotational reversals. Lateral stop paths
+increase20%/43% versus CK1000 (8/18mm absolute), although they improve over prior1998.
+
+| Previously frozen criterion | Status in this review |
+| --- | --- |
+| Forward30s cross≤.05m, max heading≤2°, mean .45–.55, RMSE≤.04 | **PASS:** .00230m, max absolute heading .03592°, .50144/.01716m/s |
+| Stand lateXY≤.005; rotation better than CK499 .00670rad/s and11.1° | **PASS:** .000318, .000490, 1.040°. Does not beat CK250 .00030 late yaw RMS |
+| Complete stops without material path/reversal/residual regression | **UNMEASURED as a complete CK499 comparison:** known forward path/residual improve .1051m/.00544m/s; full matched old reversal evidence is unavailable here. CK1000 lateral regressions above remain explicit |
+| Stepping retained with no material cross-axis/transition regression | **FAIL:** long lateral curvature regresses. Partial lateral±.03 is unmeasured |
+| Acceptable posture/placement/saturation | **UNMEASURED acceptance:** no collapse, but widening and repeated apex clipping remain; no new tolerance invented |
+| No undesired contacts/falls | **PASS sampled nominal condition only**, with capture limitations below |
+| Expanded envelope, DR/pushes, transfer/hardware | **UNMEASURED / NOT QUALIFIED** |
+
+### Actual1m/2m lateral distances
+
+These are the first observed50Hz samples reaching signed progress along the
+initial requested lateral line, including startup. They are neither path length
+nor a linear extrapolation of30s errors. Interpolation is only a bracket estimate,
+not an established continuous-time first hit.
+
+| Sign / threshold | Time | Attained progress | Maximum cross so far | Heading | Camera-body vz RMS through attainment |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| + / 1m | 3.40s | 1.00483m | .01218m | −1.337° | .08391m/s |
+| + / 2m | 6.70s | 2.00190m | .01218m | −3.526° | .08132m/s |
+| − / 1m | 3.38s | 1.00407m | .00780m | +2.785° | .07437m/s |
+| − / 2m | 6.66s | 2.00145m | .04594m | +4.472° | .07851m/s |
+
+Every wheel has4/8 completed physical swings through1m/2m, with boundary censoring
+reported separately. Clearance gains are already present in those prefixes.
+Small early cross-track therefore does not establish sustained direction control.
+
+### Clearance, posture and sensors
+
+Physical collision-cylinder peak medians/high-percentile(p90) values, FL/FR/RL/RR,
+are below. The target stays .04m; wheel-link height is not the clearance metric.
+
+| Case | CK1000 medians, mm | Prior1998 medians, mm | New medians, mm | New p90, mm |
+| --- | --- | --- | --- | --- |
+| Lateral+ | 11.45/11.86/10.05/11.63 | 10.14/13.75/6.20/24.17 | **26.21/24.79/22.34/26.72** | 27.89/26.78/25.98/27.44 |
+| Lateral− | 13.61/12.33/11.35/11.79 | 14.91/11.65/24.00/6.32 | **24.36/23.97/27.77/21.48** | 30.53/27.87/28.95/28.06 |
+| Yaw+ | 6.54/7.87/3.70/4.53 | 8.12/16.56/3.18/20.56 | **40.78/27.68/33.78/20.91** | 41.37/33.88/37.19/21.86 |
+| Yaw− | 7.77/6.32/4.29/3.91 | 16.05/8.61/19.97/3.16 | **27.02/41.11/20.29/33.14** | 33.75/41.51/21.44/37.44 |
+
+Maximum observed yaw peak is41.71mm, a small overshoot on one front wheel;
+other wheels remain lower. Positive-lateral200Hz median peak timing relative
+to desired apex is+15/+15/−5/+20ms. Intended-apex unloading is97.4–100% in lateral
+motion and approximately100% in yaw. No recontact was sampled **between unloading
+samples within intended swings**; load-only events and censored cycles still exist.
+For example lateral+ completed/load-only/censored counts are37/3/1,37/24/1,
+37/12/2,37/1/0. Loaded lateral wheel-center RMS remains .072/.099/.076/.069m/s;
+this is a sliding surrogate, not full tire-contact-patch slip or generic rolling.
+Same-phase clearance-cost/zero-clearance ratios are .236/.246 in lateral±, versus
+prior .578/.545; these are cost ratios, not dragging fractions.
+
+Lateral+ FR thigh positive action clipping covers100% of apex samples; lateral−
+FL covers97.4%. Front calf negative clipping is40.5/38.9%, opposite rear18.4/18.9%.
+Actual joint/target errors, clipping and force occupancy are distinct in local
+evidence. There is no sampled99%-force-limit occupancy; maximum positive-lateral
+200Hz force is .714 of limit. No sampled self/non-wheel contact, fall or reset
+occurs. Thirty isolated5ms positive-lateral samples have only one wheel above6N
+(0.5%); none have zero. Other cases use50Hz, so brief events can be missed.
+
+New mean reference-pose RMS is .0371rad stand, .0471 forward, .1454/.1451 lateral;
+forward improves from source .0588, lateral from .1523/.1518. Mean heights are
+.4165/.4167/.41285/.41269m. Forward first-second→late height .41892→.41558m and
+front/rear width .3986/.3920→.4465/.4235m show settling/widening, not an exact static
+reference or evidence of collapse. Full forward wheelbase is .36861m, lateral±
+.34538/.34618m; front/rear widths .4091/.3841 and .4100/.3846m during lateral motion.
+Pair midpoints remain measured separately in the JSON. Lateral mean roll is
+approximately±.85°, roll/pitch std about1.0/1.5°; full forward pitch−.389° with std .043°.
+Small signed tilt and oscillation are separate. Canonical pose0/.70/−1.40/0,
+reference height .427741656m and spawn .430741656m were not redefined.
+
+| Motion | Camera-body vz RMS source / prior / new | New full / late imager RMS | New base-height / camera-height std |
+| --- | --- | --- | --- |
+| Lateral+ | .10973 / .09953 / **.07982m/s** | .08097 / .08308m/s | 5.48 / 8.07mm |
+| Lateral− | Retained in JSON / .09985 / **.07750m/s** | .08140 / .08289m/s | 5.57 / 7.98mm |
+| Yaw+ | .07503 / .05715 / **.07178m/s** | Retained in JSON | 8.23 / 5.76mm |
+| Yaw− | .07379 / .05730 / **.07290m/s** | Retained in JSON | 8.16 / 5.87mm |
+
+Lateral camera improves; yaw camera worsens versus prior1998. For lateral+,
+`E[vcamera_z²]=.00637156=.00720209(base)+.00543638(rotation)−.00626690(cross)`.
+Base/rotational/camera RMS are .08487/.07373/.07982m/s; prior base was .07996
+and rotational .12063. New roll/pitch-rate RMS is .1802/.2319rad/s. Yaw+ has
+`.00515171=.00980735+.00345093−.00810657`, so stronger heave/reduced cancellation
+can increase camera motion while angular motion decreases. Articulated lift
+also improves: three lateral legs and all four yaw legs have positive articulated
+start-to-peak contributions, alongside base motion. These quantities cannot be
+replaced by adding RMS values or claiming image quality. Positive-lateral200Hz
+camera RMS .08011 agrees with50Hz .07982.
+
+### One navigation screen and staged package
+
+A single58s sequence used zeros between seven motions, with no reserve extremes:
+4s(.05,0,0),5s(1,0,0),4s(−.3,0,0),4s yaw±1 each,5s(.5,0,.5),5s(.3,.15,−.4).
+Zeros total27s including the initial3s. All2900 samples completed without sampled
+undesired contacts/falls/resets or force-cap occupancy. This is one sequential
+screen, not independent reset trials or qualification of every simultaneous input.
+
+| Request | Achieved mean `(vx,vy,wz)` | All-axis RMSE | Following zero duration / endpoint / path |
+| --- | --- | --- | --- |
+| (.05,0,0) | (.04852,−.00020,.00103) | (.00440,.00021,.00103) | 3s / .00098 / .00496m |
+| (1,0,0) | (.97744,.00008,−.00050) | (.11769,.00021,.00137) | 4s / .10433 / .11589m |
+| (−.3,0,0) | (−.30108,.00015,.00005) | (.02127,.00024,.00059) | 4s / .01946 / .02222m |
+| (0,0,1) | (.00342,.00681,.98464) | (.00850,.01072,.05223) | 3s / .01030 / .01374m |
+| (0,0,−1) | (.00165,−.00765,−.99945) | (.00846,.01283,.04935) | 3s / .00534 / .01047m |
+| (.5,0,.5) | (.49405,.01017,.50784) | (.04175,.02470,.05197) | 3s / .03773 / .04574m |
+| (.3,.15,−.4) | (.29470,.14984,−.40539) | (.02332,.02335,.05472) | 4s / .02553 / .03101m |
+
+Small/fast/reverse maximum cross-track is .45/7.37/.91mm. Fast-forward first→last
+second mean is .8832→1.0011m/s; its RMSE includes acquisition. Final-second stop
+XY RMS after small/fast/reverse/yaw+/yaw−/arc/mixed is
+.000534/.000826/.000426/.001541/.001175/.003714/.001819m/s. Arc/mixed rotation is
+commanded, not straight-line failure; camera-body RMS .08624/.08614m/s includes
+base and lever-arm contributions. Their complete decompositions remain local.
+
+The **unpublished** complete package is
+`evaluation/go2w_refinement_review/package_stage/go2w/`: all seven coupled files
+(`policy.pt`, `contract.json`, `config.yaml`, `provenance.json`, `parity_samples.npz`,
+`check_policy.py`, `README.md`) plus14 exact measured asset dependencies. Interface
+**2** replaces the old56-input event-step contract with58 inputs including the
+command-demand clock; training schema**3** is separate. Critic65, optimizer and
+privileged path state are not exported. The saved YAML is immutable provenance,
+not a new input recipe. Nominal reference, joint order, gains/limits/passive terms,
+dt/decimation/delay, issued-action history, body-origin frames, reset timing and
+required/reserve/tested envelopes are specified in the contract. Inputs are real
+states, not zero-velocity placeholders; trained normalization is embedded once.
+
+The unchanged native TorchScript exporter was used. A fresh isolated CPU process
+with PyTorch/NumPy/stdlib passed5360 real-input samples, batch1/batched parity,
+all2900 navigation history/phase steps, clipping, immutable normalizer buffers,
+exact source actor/normalizer tensors and case-sensitive asset closure. Observed
+max errors: native CPU0, GPU comparison7.15e−7, batch1 versus batched6.56e−7,
+observation reconstruction1.79e−7, native CPU history-sequence0. Tolerances and
+their rationale are saved. Holding policy inputs fixed while varying all65 critic
+inputs changes native actor outputs by exactly0; synthetic automatic-reset input
+assembly also matches. Recorded-state sequence checks test execution-contract
+assembly, not a new exported-actor physics rollout or cross-platform agreement.
+
+The old seven-file public package is unchanged, retrievable at Git commit
+`0ca8d747a94341ed94d59075c2899c5348de688a`; its asset hashes match that historical
+revision. Its checker currently sees a different canonical URDF in HEAD, a
+pre-existing historical asset mismatch. No model was overwritten to make it pass.
+The new stage instead bundles `go2w_measured_ed8dc93.urdf` and its exact meshes.
+No commit or push was made, and no receiving repository was edited.
+
+**Remaining acceptance decision:** whether to permit an open, flat, obstacle-free
+diagnostic Sim2Sim test using nominal dynamics and ground-truth base-origin velocity,
+forward≤.5m/s, lateral±.3m/s in bouts≤2m with explicit stops, and short yaw≤.8rad/s,
+despite the measured2m lateral heading−3.526/+4.472°, cross .01218/.04594m, repeated
+apex clipping and stop-path regressions above. This proposed restriction is not
+an application tolerance or a passed qualification. Keep the package staged until
+that decision is explicit. Strict nominal qualification fails overall; expanded
+navigation, disturbances, PhysX agreement and hardware remain unestablished.
