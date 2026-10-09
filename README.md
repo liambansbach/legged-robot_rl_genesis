@@ -155,6 +155,35 @@ Go2-W's .02 s policy period means 18 simulated seconds, excluding reset settling
 `--episode_length_s` separately changes the timeout; falls still reset.
 Use `python -m robot_gym.scripts.play --task go2w --help` for all Go2-W options.
 
+#### Keyboard replay
+
+Add `--manual_control` to a successful replay command for any registered robot
+(Dodo, Go2 or Go2-W). It shows Genesis and a small pygame 2 input window. Install
+the optional dependency in your active Genesis environment with
+`python -m pip install pygame`; ordinary replay, training and help do not need it.
+Keep the input window focused while Genesis remains visible. Losing focus sends
+zero commands on the next policy tick; release keys before moving again.
+
+Hold W/S for forward/reverse vx, A/D for left/right vy, and Q/E for
+counterclockwise/clockwise yaw. Commands use body +X forward, +Y left, +Z up;
+linear speeds are m/s and yaw rate is rad/s. Opposite keys cancel, axes combine,
+either Shift multiplies speeds by 0.3, and held Space requests exact zero.
+Releasing movement keys requests zero; this asks the policy to stop and does not
+force the robot's physical velocity. Limits come from the selected saved/runtime
+`commands.ranges`, using each direction's own bound; unsupported directions are zero.
+
+Manual replay starts at zero, defaults to one environment, and broadcasts to all
+environments if `--num_envs` is supplied. Esc or closing either window exits.
+It runs until exit unless `--steps` is explicit, retaining the policy timestep and
+episode resets. Remove fixed `--command_vx/vy/yaw` arguments and `--headless`.
+For the current handoff's selected refinement candidate (native CK1999, saved
+configuration and nominal replay dynamics; no historical profile required):
+
+```powershell
+$run = (Resolve-Path 'ressources/handoffs/go2w_2026-10-09/runs/go2w_2026-10-08_23-45-24').Path
+python -m robot_gym.scripts.play --task go2w --experiment_name go2w --load_run "$run" --checkpoint 1999 --num_envs 1 --seed 1 --rl_device cuda:0 --no_export --manual_control
+```
+
 ### Export Policy
 
 Replay exports only when `--export` is supplied. The existing exporter embeds the

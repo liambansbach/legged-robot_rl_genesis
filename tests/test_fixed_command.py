@@ -49,6 +49,8 @@ class FixedCommandTests(unittest.TestCase):
         e.cfg.env.send_timeouts = False
         e.cfg.viewer.print_debug_velocities = False
         e.device, e.num_envs, e.dt = torch.device("cpu"), 3, 0.02
+        e.all_env_ids = torch.arange(e.num_envs)
+        e.privileged_obs_buf = None
         e.num_obs = e.cfg.env.num_observations
         e.joint_names = list(e.cfg.init_state.default_joint_angles)
         e.joint_dof_idx = list(range(len(e.joint_names)))
@@ -63,6 +65,9 @@ class FixedCommandTests(unittest.TestCase):
             torch.zeros(3, 3),
             torch.tensor([[1.0, 0, 0, 0]]).expand(3, -1),
         )
+        e.robot = Mock()
+        e.robot.get_pos.return_value = e.base_pos
+        e.robot.get_quat.return_value = e.base_quat
         e.default_dof_pos = torch.zeros(1, len(e.joint_names))
         e.dof_pos = torch.zeros(3, len(e.joint_names))
         for name in (
@@ -97,6 +102,8 @@ class FixedCommandTests(unittest.TestCase):
             setattr(e, name, Mock())
         e.common_step_counter, e.headless, e.add_noise = 0, False, False
         if task == "go2w":
+            from robot_gym.envs.go2w.straight_motion import StraightMotionReference
+            e.straight_reference = StraightMotionReference(e.num_envs, e.device, e.cfg.straight_motion)
             e.phase = torch.zeros(3)
             e.phase_offsets = torch.tensor([0., .5, .5, 0.])
             e.wheel_clearance = torch.zeros(3, 4)

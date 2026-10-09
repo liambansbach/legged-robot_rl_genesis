@@ -15,6 +15,10 @@ No command flags retains task sampling. Any --command_vx (m/s), --command_vy
 18 simulated seconds, excluding reset settling/startup. Ticks span episode resets;
 --episode_length_s changes the episode timeout. Falls still reset.
 
+--manual_control opens a focused keyboard input window and starts at zero command.
+It defaults to one environment and runs until Esc/window closure unless --steps is
+explicit. Hold W/S, A/D, Q/E; Shift slows to 30%, Space requests a policy stop.
+
 --export opts into export under the selected run. --no_export remains compatible
 with the default. See --help for the full CLI and Go2-W docs for concrete examples.
 """
@@ -32,17 +36,34 @@ def should_export_policy(args):
 
 
 def play(args):
+    manual = getattr(args, "manual_control", False)
+    if manual and args.headless:
+        raise ValueError("--manual_control needs the Genesis viewer; remove --headless")
+    if manual and any(getattr(args, f"command_{axis}", None) is not None for axis in ("vx", "vy", "yaw")):
+        raise ValueError("--manual_control cannot be combined with fixed --command_vx/vy/yaw")
     cfg, train_cfg, checkpoint = task_registry.resolve_replay(args)
     configure_nominal(cfg, args)
-    cfg.env.num_envs = args.num_envs or min(cfg.env.num_envs, 5)
+    cfg.env.num_envs = args.num_envs if args.num_envs is not None else (1 if manual else min(cfg.env.num_envs, 5))
     cfg.env.play_mode = True
     cfg.viewer.visualize_foot_contacts = False
     cfg.viewer.visualize_velocity_arrows = True
     cfg.viewer.ref_env = list(range(cfg.env.num_envs))
     cfg.viewer.print_debug_velocities = False
     env = None
+    keyboard = None
+    steps = None if manual and not args._steps_explicit else args.steps
     try:
-        env, _ = task_registry.make_env(args.task, args=args, env_cfg=cfg)
+        if manual:
+            from robot_gym.utils.manual_control import KeyboardInput, scale_axes
+            # Capture the effective saved/runtime ranges before command ownership changes.
+            limits = tuple(tuple(getattr(cfg.commands.ranges, name))
+                           for name in ("lin_vel_x", "lin_vel_y", "ang_vel_yaw"))
+            keyboard = KeyboardInput()
+            print(f"Manual limits [vx m/s, vy m/s, yaw rad/s]: {limits}", flush=True)
+        env, _ = task_registry.make_env(args.task, args=args, env_cfg=cfg,
+                                        initial_command=(0.0, 0.0, 0.0) if manual else None)
+        if manual:
+            env.sim.viewer.realtime_factor = 1.0  # Reuse Genesis's physics-step pacing.
         configure_fixed_command(env, args)
         if getattr(args, "zero_command_brake", False):
             env.enable_zero_command_brake()
@@ -51,7 +72,8 @@ def play(args):
         policy = runner.get_inference_policy(device=env.device)
         env.compute_observations()
         obs = env.get_observations()
-        print(f"Session: {args.steps} policy ticks ({args.steps * env.dt:g} s); "
+        session = "until Esc or window closure" if steps is None else f"{steps} policy ticks ({steps * env.dt:g} s)"
+        print(f"Session: {session}; "
               f"episode timeout: {env.max_episode_length * env.dt:g} s. Falls still reset.", flush=True)
         if should_export_policy(args):
             from robot_gym.utils.export import export_policy
@@ -59,16 +81,29 @@ def play(args):
             export_policy(runner, env, output)
             print(f"Exported policy: {output}", flush=True)
         with torch.no_grad():
-            for _ in range(args.steps):
+            tick = 0
+            while steps is None or tick < steps:
                 if not args.headless and not env.sim.viewer.is_alive():
                     break
+                if keyboard is not None:
+                    axes, quit_requested = keyboard.poll()
+                    command = scale_axes(axes, limits)
+                    env.set_fixed_command((0.0, 0.0, 0.0) if quit_requested else command)
+                    if quit_requested:
+                        break
+                    # The setter rebuilds command features without advancing phase/history.
+                    obs = env.get_observations()
+                    keyboard.draw(command)
                 obs, _, _, _ = env.step(policy(obs).detach())
+                tick += 1
     except KeyboardInterrupt:
         print("Replay interrupted.", flush=True)
     except gs.GenesisException as error:
         if "Viewer closed" not in str(error):
             raise
     finally:
+        if keyboard is not None:
+            keyboard.close()
         from robot_gym.envs.base.base_task import BaseTask
         if BaseTask._gs_initialized:
             gs.destroy()

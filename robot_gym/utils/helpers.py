@@ -155,12 +155,13 @@ def get_args():
         {"name": "--training_diagnostics", "action": "store_true", "help": "Opt-in RSL-RL and unclipped reward JSONL diagnostics"},
         {"name": "--output", "default": "evaluation", "help": "Evaluation output directory"},
         {"name": "--logger", "choices": ["tensorboard", "wandb"], "help": "Override training logger"},
-        {"name": "--steps", "type": int, "default": 1000, "help": "Replay policy ticks; 900 at dt=.02 is 18 s, excluding reset settling; spans episode resets"},
+        {"name": "--steps", "type": int, "help": "Replay policy ticks; default 1000, or unlimited in manual play; spans episode resets"},
         {"name": "--episode_length_s", "type": float, "help": "Replay episode timeout in seconds; session length is still --steps"},
         {"name": "--export", "action": "store_true", "help": "Opt-in replay export under the selected run/exported/model_<checkpoint>"},
         {"name": "--command_vx", "type": float, "help": "Fixed play vx in m/s; omitted axes default to zero"},
         {"name": "--command_vy", "type": float, "help": "Fixed play vy in m/s; omitted axes default to zero"},
         {"name": "--command_yaw", "type": float, "help": "Fixed play yaw rate in rad/s; omitted axes default to zero"},
+        {"name": "--manual_control", "action": "store_true", "help": "Play only: hold W/S, A/D, Q/E in a keyboard input window to command the policy"},
         {"name": "--task", "type": str, "default": "dodo", "help": "Resume training or start testing from a checkpoint. Overrides config file if provided."},
         {"name": "--resume", "action": "store_true", "default": False, "help": "Resume training from a checkpoint"},
         {"name": "--experiment_name", "type": str, "help": "Name of the experiment to run or load. Overrides config file if provided."},
@@ -186,6 +187,9 @@ def get_args():
     task_name = selection.parse_known_args()[0].task
     task_registry.get_task_class(task_name).add_arguments(parser)
     args = parser.parse_args()
+    args._steps_explicit = args.steps is not None
+    if args.steps is None:
+        args.steps = 1000
     if args.steps <= 0:
         parser.error("--steps must be positive")
     if args.episode_length_s is not None and (not np.isfinite(args.episode_length_s) or args.episode_length_s <= 0):

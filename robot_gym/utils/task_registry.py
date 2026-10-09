@@ -146,6 +146,7 @@ class TaskRegistry:
         name: str,
         args=None,
         env_cfg: LeggedRobotCfg | None = None,
+        initial_command=None,
     ) -> Tuple[BaseTask, LeggedRobotCfg]:
         """ Creates an environment either from a registered name or from the provided config file.
 
@@ -153,6 +154,7 @@ class TaskRegistry:
             name (string): Name of a registered env.
             args (Args, optional): command line arguments. If None get_args() will be called. Defaults to None.
             env_cfg (Dict, optional): Environment config file used to override the registered config. Defaults to None.
+            initial_command (tuple, optional): Pin vx/vy/yaw before the first reset.
 
         Raises:
             ValueError: Error if no registered env corresponds to 'name' 
@@ -203,6 +205,9 @@ class TaskRegistry:
             headless=args.headless,
         )
 
+        # Claim external command ownership before reset's sampling and zero-action tick.
+        if initial_command is not None:
+            env.set_fixed_command(initial_command)
         env.reset()
         return env, env_cfg
 
