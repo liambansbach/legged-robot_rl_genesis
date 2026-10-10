@@ -58,7 +58,7 @@ def play(args):
             # Capture the effective saved/runtime ranges before command ownership changes.
             limits = tuple(tuple(getattr(cfg.commands.ranges, name))
                            for name in ("lin_vel_x", "lin_vel_y", "ang_vel_yaw"))
-            keyboard = KeyboardInput()
+            keyboard = KeyboardInput(limits)
             print(f"Manual limits [vx m/s, vy m/s, yaw rad/s]: {limits}", flush=True)
         env, _ = task_registry.make_env(args.task, args=args, env_cfg=cfg,
                                         initial_command=(0.0, 0.0, 0.0) if manual else None)
@@ -87,7 +87,7 @@ def play(args):
                     break
                 if keyboard is not None:
                     axes, quit_requested = keyboard.poll()
-                    command = scale_axes(axes, limits)
+                    command = scale_axes(axes, keyboard.limits)
                     env.set_fixed_command((0.0, 0.0, 0.0) if quit_requested else command)
                     if quit_requested:
                         break

@@ -12,7 +12,7 @@ import torch
 import test_fixed_command
 from robot_gym.scripts.play import play
 from robot_gym.utils import get_args, task_registry
-from robot_gym.utils.manual_control import KeyboardInput, held_axes, scale_axes
+from robot_gym.utils.manual_control import KeyboardInput, adjust_limits, held_axes, scale_axes
 
 
 def arguments(*flags):
@@ -34,34 +34,58 @@ class ManualControlTests(unittest.TestCase):
         self.assertEqual(scale_axes((-1, 1, 0), ((0, 1), (-1, 0), (1, 2))), (0., 0., 0.))
         self.assertEqual(scale_axes((0, 0, 0), ((1, 2), (-2, -1), (0, 0))), (0., 0., 0.))
 
+    def test_limit_adjustment_preserves_asymmetry_and_allows_training_override(self):
+        initial = ((-.3, 1.), (-.2, .4), (-.8, .6))
+        limits = adjust_limits(initial, 0, .1)
+        self.assertEqual(limits, ((-.4, 1.1), (-.2, .4), (-.8, .6)))
+        self.assertEqual(adjust_limits(limits, 0, -.1), initial)
+        self.assertEqual(scale_axes(held_axes({"w"}), limits), (1.1, 0., 0.))
+        for _ in range(12):
+            limits = adjust_limits(limits, 0, -.1)
+        self.assertEqual(limits[0], (0., 0.))
+        self.assertEqual(adjust_limits(limits, 0, .1)[0], (-.1, .1))
+        self.assertEqual(initial[0], (-.3, 1.))
+
     def test_held_state_release_focus_and_quit(self):
         # Only pygame's event/focus/key reads are stubbed; no event-driven movement state.
         names = ("QUIT", "WINDOWCLOSE", "KEYDOWN", "WINDOWFOCUSLOST", "K_ESCAPE",
-                 "K_w", "K_s", "K_a", "K_d", "K_q", "K_e", "K_SPACE", "K_LSHIFT", "K_RSHIFT")
+                 "K_w", "K_s", "K_a", "K_d", "K_q", "K_e", "K_SPACE", "K_LSHIFT", "K_RSHIFT",
+                 "K_TAB", "K_PLUS", "K_EQUALS", "K_KP_PLUS", "K_MINUS", "K_KP_MINUS", "MOUSEBUTTONDOWN")
         pg = SimpleNamespace(**{name: name for name in names})
         pressed = defaultdict(bool)
         pg.event = SimpleNamespace(get=Mock(return_value=[]))
         pg.key = SimpleNamespace(get_focused=Mock(return_value=True), get_pressed=Mock(return_value=pressed))
         keyboard = KeyboardInput.__new__(KeyboardInput)
         keyboard.pg, keyboard.quit, keyboard.wait_for_release = pg, False, True
+        keyboard.keys = set()
+        keyboard.limits, keyboard.selected_axis = ((-.3, 1.), (-.2, .4), (-.8, .6)), 0
         self.assertEqual(keyboard.poll(), ((0., 0., 0.), False))
         pressed[pg.K_w] = True
         self.assertEqual(keyboard.poll()[0], (1., 0., 0.))
+        self.assertEqual(keyboard.keys, {"w"})
         for shift in (pg.K_LSHIFT, pg.K_RSHIFT):
             pressed[shift] = True
             self.assertEqual(keyboard.poll()[0], (.3, 0., 0.))
             pressed[shift] = False
         pressed.clear()
         self.assertEqual(keyboard.poll()[0], (0., 0., 0.))
+        self.assertEqual(keyboard.keys, set())
         pressed[pg.K_w] = True
         pg.key.get_focused.return_value = False
         self.assertEqual(keyboard.poll()[0], (0., 0., 0.))
+        self.assertEqual(keyboard.keys, set())
         pg.key.get_focused.return_value = True
         self.assertEqual(keyboard.poll()[0], (0., 0., 0.))  # Held across focus return.
         pressed.clear()
         keyboard.poll()
         pressed[pg.K_w] = True
         self.assertEqual(keyboard.poll()[0], (1., 0., 0.))
+        pressed[pg.K_s] = True
+        self.assertEqual(keyboard.poll()[0], (0., 0., 0.))
+        self.assertEqual(keyboard.keys, {"w", "s"})  # Both arrows still light up.
+        pressed[pg.K_SPACE] = True
+        self.assertEqual(keyboard.poll()[0], (0., 0., 0.))
+        self.assertEqual(keyboard.keys, {"w", "s", "space"})
         pg.event.get.return_value = [SimpleNamespace(type=pg.WINDOWFOCUSLOST)]
         self.assertEqual(keyboard.poll()[0], (0., 0., 0.))  # Lost/regained between ticks.
         for event in (SimpleNamespace(type=pg.QUIT), SimpleNamespace(type=pg.WINDOWCLOSE),
@@ -69,6 +93,40 @@ class ManualControlTests(unittest.TestCase):
             keyboard.quit = False
             pg.event.get.return_value = [event]
             self.assertTrue(keyboard.poll()[1])
+
+        pressed.clear()
+        keyboard.quit = False
+        for axis in (1, 2, 0):
+            pg.event.get.return_value = [SimpleNamespace(type=pg.KEYDOWN, key=pg.K_TAB)]
+            keyboard.poll()
+            self.assertEqual(keyboard.selected_axis, axis)
+        for key in (pg.K_PLUS, pg.K_EQUALS, pg.K_KP_PLUS):
+            pg.event.get.return_value = [SimpleNamespace(type=pg.KEYDOWN, key=key)]
+            keyboard.poll()
+        self.assertEqual(keyboard.limits[0], (-.6, 1.3))
+        pg.event.get.return_value[0].repeat = True
+        keyboard.poll()
+        self.assertEqual(keyboard.limits[0], (-.6, 1.3))
+        for key in (pg.K_MINUS, pg.K_KP_MINUS):
+            pg.event.get.return_value = [SimpleNamespace(type=pg.KEYDOWN, key=key)]
+            keyboard.poll()
+        self.assertEqual(keyboard.limits[0], (-.4, 1.1))
+        pg.key.get_focused.return_value = False
+        keyboard.poll()
+        self.assertEqual(keyboard.limits[0], (-.4, 1.1))
+        pg.key.get_focused.return_value = True
+        keyboard.selected_axis = 2
+        keyboard.plus_button = Mock()
+        keyboard.plus_button.collidepoint.return_value = True
+        keyboard.minus_button = Mock()
+        keyboard.minus_button.collidepoint.return_value = False
+        pg.event.get.return_value = [SimpleNamespace(type=pg.MOUSEBUTTONDOWN, button=1, pos=(570, 400))]
+        keyboard.poll()
+        self.assertEqual(keyboard.limits[2], (-.9, .7))
+        keyboard.plus_button.collidepoint.return_value = False
+        keyboard.minus_button.collidepoint.return_value = True
+        keyboard.poll()
+        self.assertEqual(keyboard.limits[2], (-.8, .6))
 
     def test_factory_claims_zero_before_initial_reset_for_each_robot(self):
         for task in ("dodo", "go2", "go2w"):
@@ -99,7 +157,9 @@ class ManualControlTests(unittest.TestCase):
                 e.phase[:] = .17
             history = e.action_history.clone()
             axes = ((-.3, 0., .3), (0., 1., 0.), (0., 0., 0.))
-            expected = [scale_axes(value, limits) for value in axes]
+            changed_limits = adjust_limits(limits, 1, .1)
+            expected = [scale_axes(value, limits if tick == 0 else changed_limits)
+                        for tick, value in enumerate(axes)]
             seen = []
             def policy(obs):
                 command = torch.tensor(expected[len(seen)]).expand(3, -1)
@@ -126,7 +186,13 @@ class ManualControlTests(unittest.TestCase):
                 return e.get_observations(), None, None, {}
             e.step = Mock(side_effect=step)
             keyboard = Mock()
-            keyboard.poll.side_effect = [(value, False) for value in axes] + [((0., 0., 0.), True)]
+            keyboard.limits = limits
+            inputs = iter([(value, False) for value in axes] + [((0., 0., 0.), True)])
+            def poll():
+                if len(seen) == 1:
+                    keyboard.limits = changed_limits
+                return next(inputs)
+            keyboard.poll.side_effect = poll
             runner = Mock()
             runner.get_inference_policy.return_value = policy
             def make_env(*unused, **kwargs):
@@ -152,7 +218,7 @@ class ManualControlTests(unittest.TestCase):
                 play(arguments("--manual_control", *flags))
         with patch.dict(sys.modules, {"pygame": None}):
             with self.assertRaisesRegex(RuntimeError, "python -m pip install pygame"):
-                KeyboardInput()
+                KeyboardInput(((-.3, 1.), (-.3, .3), (-1., 1.)))
             # Exercise ordinary replay and CLI help while pygame cannot be imported.
             from test_shared_pipeline import ReplayTests
             ReplayTests().test_play_refreshes_first_observation_after_task_state_load()

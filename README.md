@@ -169,8 +169,17 @@ counterclockwise/clockwise yaw. Commands use body +X forward, +Y left, +Z up;
 linear speeds are m/s and yaw rate is rad/s. Opposite keys cancel, axes combine,
 either Shift multiplies speeds by 0.3, and held Space requests exact zero.
 Releasing movement keys requests zero; this asks the policy to stop and does not
-force the robot's physical velocity. Limits come from the selected saved/runtime
-`commands.ranges`, using each direction's own bound; unsupported directions are zero.
+force the robot's physical velocity. Grey arrows turn orange while their keys are
+held, including when opposite keys cancel or Space overrides them.
+
+Initial limits come from the selected saved/runtime `commands.ranges`, using each
+direction's own bound. Tab cycles the highlighted limit axis: vx, vy, yaw. Press
+`+` (also `=` or numpad `+`) / `-` (also numpad `-`), or click the panel's `+` / `-`
+buttons, to change both directional speed magnitudes for that axis by 0.1 m/s
+(vx/vy) or 0.1 rad/s (yaw). Each magnitude stops at zero when decreasing. Increasing
+can exceed the training range or enable a direction initially at zero. Changes
+apply on the next policy inference and last for this replay session, including
+resets; they do not modify the saved configuration.
 
 Manual replay starts at zero, defaults to one environment, and broadcasts to all
 environments if `--num_envs` is supplied. Esc or closing either window exits.
