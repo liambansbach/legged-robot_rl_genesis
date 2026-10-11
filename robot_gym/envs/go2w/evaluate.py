@@ -338,6 +338,9 @@ def use_physics_diagnostics(args):
 
 
 def evaluate(args):
+    if args.eval_mode == "source_yaw":
+        from .source_yaw import evaluate_source_yaw
+        return evaluate_source_yaw(args)
     if args.steps < 2:
         raise ValueError("--steps must be at least 2")
     if args.task != "go2w":

@@ -1,0 +1,1605 @@
+{
+  "date": "2026-10-11",
+  "section": "W only: Windows Genesis source comparison",
+  "status": "Completed; nominal settings retained. Cross-engine contact/actuation response implicated; exact solver cause not isolated.",
+  "identities": {
+    "root": "C:\\Users\\Liamb\\Desktop\\projects\\legged-robot_rl_genesis",
+    "branch": "testing",
+    "reviewed_and_execution_base_head": "e9d40a35d3362e8a9535816d9ae1e829c6bc1c46",
+    "remote": "git@github.com:liambansbach/legged-robot_rl_genesis.git",
+    "upstream": "origin/testing",
+    "initial_worktree": "clean",
+    "initial_divergence_after_fetch": [
+      0,
+      0
+    ],
+    "navigation_reviewed_head": "da89a687c4122cfe19d8ccdca080d6ce4c44d7cd",
+    "navigation_remote_head_read_only": "56bb62530d7ea2dcd03418567bcb2d28d3328429",
+    "navigation_yaw_result_blob_unchanged_at_newer_head": "5322d5d1b623bf7e66bef5e5f55b5ace14ac8529",
+    "training_source": "5b70e79de134107ef08be4bf92cc912bd334ce8b",
+    "environment_control_observation_phase_source_identical_at_execution_base": true,
+    "actor_sha256": "639a443f3da3d9fa15d9e532b85959df55c7bd5618564797740adb66b1d2bfcb",
+    "urdf_sha256": "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c",
+    "bundle_file_sha256": {
+      "policy.pt": "639a443f3da3d9fa15d9e532b85959df55c7bd5618564797740adb66b1d2bfcb",
+      "contract.json": "78837d243d1459da9772f671e11b745c9d94934853debf466c7de1fa09a22a45",
+      "config.yaml": "ba66e6cb6b156d6dfd1e08a0e9802314ceac3443934463ceb4331f89d885b72a",
+      "provenance.json": "a98b5c5e848ea211385db5950b7c15be581b7bc1096f630f7d3b976a0b383608"
+    },
+    "actor": "NEW58-input frozen TorchScript, CK1999 refinement lineage; embedded normalizer, deterministic mean; no native checkpoint inference/re-export",
+    "navigation_framework_pin": "c647d3915c4c8b2dc13efecf73865d0450f9c42c",
+    "code_at_native_execution": {
+      "head": "e9d40a35d3362e8a9535816d9ae1e829c6bc1c46",
+      "branch": "testing",
+      "status": " M robot_gym/envs/go2w/diagnostics.py\n M robot_gym/envs/go2w/evaluate.py\n M robot_gym/envs/go2w/go2w_config.py\n?? robot_gym/envs/go2w/source_yaw.py\n?? tests/test_source_yaw.py\n",
+      "dirty_diff_sha256": "1766e47b0453cf32ae5f808a0e27ca8c7ef9ca0ec23cf4b0539d68d0c2ba300e",
+      "untracked_sha256": {
+        "robot_gym/envs/go2w/source_yaw.py": "e32a4a7075aa147a6a20f20df7fa6c636114c6a397abff3c42de8ccc55c30a8e",
+        "tests/test_source_yaw.py": "7e45edd2f660813302538e888dc1fc802f60d4b60403676a9cfd9a09f975d2f0"
+      }
+    },
+    "final_git_revision": "Use the commit containing this result; local and remote SHA are reported by the completion message (avoids a self-referential commit hash)."
+  },
+  "runtime": {
+    "python": "3.11.14 | packaged by Anaconda, Inc. | (main, Oct 21 2025, 18:30:03) [MSC v.1929 64 bit (AMD64)]",
+    "executable": "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\python.exe",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "packages": {
+      "genesis-world": "1.4.1",
+      "torch": "2.9.1+cu130",
+      "numpy": "2.2.6",
+      "rsl-rl-lib": "5.5.1",
+      "quadrants": "1.3.0",
+      "PyYAML": "6.0.3"
+    },
+    "imports": {
+      "genesis": "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\genesis\\__init__.py",
+      "torch": "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\torch\\__init__.py",
+      "numpy": "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\numpy\\__init__.py",
+      "yaml": "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\yaml\\__init__.py"
+    },
+    "gpu": "NVIDIA GeForce RTX 5060 Laptop GPU",
+    "cuda": "13.0"
+  },
+  "actual_imports": {
+    "genesis": "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\genesis\\__init__.py",
+    "torch": "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\torch\\__init__.py",
+    "numpy": "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\numpy\\__init__.py",
+    "rsl_rl": "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\rsl_rl\\__init__.py",
+    "yaml": "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\yaml\\__init__.py",
+    "robot_gym": "C:\\Users\\Liamb\\Desktop\\projects\\legged-robot_rl_genesis\\robot_gym\\__init__.py"
+  },
+  "gpu_driver": "NVIDIA GeForce RTX 5060 Laptop GPU, 617.42, 8151 MiB",
+  "runtime_difference": "Laptop Torch2.9.1+cu130/RTX5060 versus original desktop Torch2.9.0+cu130/RTX4070Ti. Genesis1.4.1 remains installed. Environment not recreated or updated.",
+  "effective_settings": {
+    "physics_dt_s": 0.005,
+    "actor_dt_s": 0.02,
+    "decimation": 4,
+    "seed": 1,
+    "robots": 1,
+    "display": "Headless; no renderer changes or GUI throughput measurements",
+    "joint_order": [
+      "FL_hip_joint",
+      "FL_thigh_joint",
+      "FL_calf_joint",
+      "FL_foot_joint",
+      "FR_hip_joint",
+      "FR_thigh_joint",
+      "FR_calf_joint",
+      "FR_foot_joint",
+      "RL_hip_joint",
+      "RL_thigh_joint",
+      "RL_calf_joint",
+      "RL_foot_joint",
+      "RR_hip_joint",
+      "RR_thigh_joint",
+      "RR_calf_joint",
+      "RR_foot_joint"
+    ],
+    "wheel_order": [
+      "FL_foot",
+      "FR_foot",
+      "RL_foot",
+      "RR_foot"
+    ],
+    "leg_joint_order": [
+      "FL_hip_joint",
+      "FL_thigh_joint",
+      "FL_calf_joint",
+      "FR_hip_joint",
+      "FR_thigh_joint",
+      "FR_calf_joint",
+      "RL_hip_joint",
+      "RL_thigh_joint",
+      "RL_calf_joint",
+      "RR_hip_joint",
+      "RR_thigh_joint",
+      "RR_calf_joint"
+    ],
+    "armature_kg_m2": 0.01,
+    "leg_kp_kd": [
+      40,
+      1
+    ],
+    "wheel_kp_kd": [
+      0,
+      1
+    ],
+    "passive_stiffness_damping_frictionloss": [
+      0,
+      0,
+      0
+    ],
+    "action_scales_hip_thigh_calf_wheel": [
+      0.3,
+      0.35,
+      0.4,
+      18
+    ],
+    "action_bound": 1,
+    "wheel_target_limit_rad_s": 20,
+    "effort_limits_Nm": [
+      23.700000762939453,
+      23.700000762939453,
+      35.54999923706055,
+      23.700000762939453,
+      23.700000762939453,
+      23.700000762939453,
+      35.54999923706055,
+      23.700000762939453,
+      23.700000762939453,
+      23.700000762939453,
+      35.54999923706055,
+      23.700000762939453,
+      23.700000762939453,
+      23.700000762939453,
+      35.54999923706055,
+      23.700000762939453
+    ],
+    "joint_velocity_limits_rad_s": [
+      30.100000381469727,
+      30.100000381469727,
+      20.06999969482422,
+      30.100000381469727,
+      30.100000381469727,
+      30.100000381469727,
+      20.06999969482422,
+      30.100000381469727,
+      30.100000381469727,
+      30.100000381469727,
+      20.06999969482422,
+      30.100000381469727,
+      30.100000381469727,
+      30.100000381469727,
+      20.06999969482422,
+      30.100000381469727
+    ],
+    "phase_period_s": 0.8,
+    "first_actor_phase": 0.025,
+    "yaw_onset_phase_expected": 0.525,
+    "leg_reference_hip_thigh_calf_rad": [
+      0,
+      0.7,
+      -1.4
+    ],
+    "spawn_z_m": 0.4307416561558192,
+    "noise_DR_push_delay_resampling_outer_feedback": false,
+    "wheel_geometry_mu": 1.0,
+    "nominal_wheel_ratio": 1.0,
+    "ground_geometry_mu": 0.1,
+    "ground_ratio": 1.0,
+    "effective_wheel_ground_mu": 1.0,
+    "genesis_solver_options": {
+      "dt": 0.005,
+      "gravity": [
+        0.0,
+        0.0,
+        -9.81
+      ],
+      "enable_collision": true,
+      "enable_joint_limit": true,
+      "enable_self_collision": true,
+      "enable_neutral_collision": false,
+      "enable_adjacent_collision": false,
+      "disable_constraint": false,
+      "max_collision_pairs": 150,
+      "max_contacts": 750,
+      "multiplier_collision_broad_phase": 8,
+      "integrator": 2,
+      "IK_max_targets": 6,
+      "batch_links_info": true,
+      "batch_joints_info": false,
+      "batch_dofs_info": true,
+      "constraint_solver": 1,
+      "iterations": 50,
+      "tolerance": 1.0000000000000002e-06,
+      "ls_iterations": 50,
+      "ls_tolerance": 0.01,
+      "noslip_iterations": 0,
+      "noslip_tolerance": 1e-06,
+      "friction_cone": 0,
+      "contact_resolution": 0,
+      "enable_torsional_friction": false,
+      "enable_rolling_friction": false,
+      "impratio": 1.0,
+      "contact_pruning_tolerance": 0.02,
+      "sparse_solve": null,
+      "constraint_timeconst": 0.01,
+      "box_box_detection": false,
+      "use_hibernation": false,
+      "hibernation_thresh_vel": null,
+      "max_dynamic_constraints": 8,
+      "enable_multi_contact": true,
+      "enable_mujoco_compatibility": false,
+      "use_gjk_collision": false,
+      "enable_contact_patch": false,
+      "broadphase_traversal": null
+    },
+    "genesis_solver_names": "approximate_implicitfast; Newton constraints; pyramidal friction; convex contact; contact patch disabled; 50 iterations /50 line-search iterations; .01s constraint time constant; rolling/torsional disabled",
+    "physx_recorded_solver_iterations_position_velocity": [
+      8,
+      2
+    ],
+    "readback": "All initialized/reset property JSONs in evidence. Armature/gains/passive terms/effort limits checked against contract; mass/COM/inertia unchanged. Sensitivity changes only four wheel ratios; all geometry coefficients and ground/nonwheel ratios unchanged."
+  },
+  "protocol": "Each fresh explicit nominal reset has exactly one zero-action20ms tick, followed by2s zero/4s requested yaw/2s zero; phase/history continue through command changes. Additional make_env initialization zero tick is excluded and counted in budget.",
+  "sample_alignment": "Genesis paired pre-action/post-step50Hz; PhysX reset rows removed and every fourth200Hz post-step row selected. First1s hold=actor100:150, last1s=250:300, full4s=100:300. Old PhysX published200Hz means retained separately; small sampling differences are not tuning.",
+  "yaw_comparison": [
+    {
+      "requested_rad_s": 0.3,
+      "genesis_first1s_rad_s": 0.30007317662239075,
+      "genesis_last1s_rad_s": 0.32860782742500305,
+      "genesis_full4s_rmse_rad_s": 0.05061720742329141,
+      "physx_matched_50Hz": null,
+      "conditioning": "PhysX retained conditioning differs; descriptive comparison only",
+      "physx_unmatched_last1s_rad_s": 0.1259928
+    },
+    {
+      "requested_rad_s": -0.3,
+      "genesis_first1s_rad_s": -0.27244728803634644,
+      "genesis_last1s_rad_s": -0.30972525477409363,
+      "genesis_full4s_rmse_rad_s": 0.05202773458111775,
+      "physx_matched_50Hz": null,
+      "conditioning": "PhysX retained conditioning differs; descriptive comparison only",
+      "physx_unmatched_last1s_rad_s": -0.1227584
+    },
+    {
+      "requested_rad_s": 0.6,
+      "genesis_first1s_rad_s": 0.5961009860038757,
+      "genesis_last1s_rad_s": 0.6005069613456726,
+      "genesis_full4s_rmse_rad_s": 0.04076495925735093,
+      "physx_matched_50Hz": {
+        "cpu_export_vs_receiving_issued_action_max_abs_9_inputs": 2.980232238769531e-07,
+        "first_second_rad_s": 0.30737796425819397,
+        "last_second_rad_s": 0.33682015538215637,
+        "full4s_rmse_rad_s": 0.2776121497154236,
+        "late_body_xy_mean_m_s": [
+          0.0037572034634649754,
+          0.0018158107995986938
+        ],
+        "late_wheel_target_rad_s": [
+          -1.9158196449279785,
+          5.950849533081055,
+          -1.7583177089691162,
+          3.3312127590179443
+        ],
+        "late_wheel_speed_rad_s": [
+          -1.0594514608383179,
+          5.763317108154297,
+          -1.553467869758606,
+          2.671604633331299
+        ],
+        "late_wheel_tracking_rmse_rad_s": [
+          1.1121697425842285,
+          0.5231955647468567,
+          0.4556649625301361,
+          0.8995682001113892
+        ],
+        "late_leg_tracking_rmse_rad": [
+          0.1546739935874939,
+          0.16203925013542175,
+          0.13020609319210052,
+          0.1398451179265976,
+          0.10779690742492676,
+          0.19940976798534393,
+          0.13405382633209229,
+          0.02989356219768524,
+          0.18096154928207397,
+          0.1584799736738205,
+          0.17545171082019806,
+          0.3160805106163025
+        ],
+        "full_hold_leg_clipped_fraction": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.19
+        ],
+        "late_load_fraction_gt8N": [
+          0.66,
+          0.58,
+          0.58,
+          0.64
+        ],
+        "late_clearance_gt1mm_fraction": [
+          0.32,
+          0.38,
+          0.36,
+          0.32
+        ],
+        "tangential_contact_force": null,
+        "contact_point_slip": null,
+        "quat_heading_change_rad": 1.3610351085662842
+      },
+      "conditioning": "fresh reset/2s zero/4s yaw/2s stop; matched schedule, phase, Actor and sample cadence",
+      "source_minus_target_late_rad_s": 0.26368680596351624
+    },
+    {
+      "requested_rad_s": -0.6,
+      "genesis_first1s_rad_s": -0.5738491415977478,
+      "genesis_last1s_rad_s": -0.6046714782714844,
+      "genesis_full4s_rmse_rad_s": 0.04594743763951022,
+      "physx_matched_50Hz": {
+        "cpu_export_vs_receiving_issued_action_max_abs_9_inputs": 4.172325134277344e-07,
+        "first_second_rad_s": -0.29995599389076233,
+        "last_second_rad_s": -0.33715033531188965,
+        "full4s_rmse_rad_s": 0.28310447931289673,
+        "late_body_xy_mean_m_s": [
+          0.006895774509757757,
+          0.00017664380720816553
+        ],
+        "late_wheel_target_rad_s": [
+          5.845386981964111,
+          -2.3051576614379883,
+          3.4260947704315186,
+          -2.050161838531494
+        ],
+        "late_wheel_speed_rad_s": [
+          5.5189995765686035,
+          -1.7506990432739258,
+          2.887190580368042,
+          -1.7318898439407349
+        ],
+        "late_wheel_tracking_rmse_rad_s": [
+          0.6364901661872864,
+          0.8195396661758423,
+          0.8734948039054871,
+          0.43851950764656067
+        ],
+        "late_leg_tracking_rmse_rad": [
+          0.16239796578884125,
+          0.11817261576652527,
+          0.2289438545703888,
+          0.13587680459022522,
+          0.1406300663948059,
+          0.11846749484539032,
+          0.1384992003440857,
+          0.13683851063251495,
+          0.2730644941329956,
+          0.15807166695594788,
+          0.034134186804294586,
+          0.19378452003002167
+        ],
+        "full_hold_leg_clipped_fraction": [
+          0.0,
+          0.02,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.195,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "late_load_fraction_gt8N": [
+          0.72,
+          0.5,
+          0.48,
+          0.68
+        ],
+        "late_clearance_gt1mm_fraction": [
+          0.24,
+          0.48,
+          0.48,
+          0.26
+        ],
+        "tangential_contact_force": null,
+        "contact_point_slip": null,
+        "quat_heading_change_rad": -1.3371261358261108
+      },
+      "conditioning": "fresh reset/2s zero/4s yaw/2s stop; matched schedule, phase, Actor and sample cadence",
+      "source_minus_target_late_rad_s": -0.2675211429595947
+    },
+    {
+      "requested_rad_s": 0.8,
+      "genesis_first1s_rad_s": 0.7926121354103088,
+      "genesis_last1s_rad_s": 0.8081433773040771,
+      "genesis_full4s_rmse_rad_s": 0.03745592166751257,
+      "physx_matched_50Hz": {
+        "cpu_export_vs_receiving_issued_action_max_abs_9_inputs": 3.5762786865234375e-07,
+        "first_second_rad_s": 0.4816149175167084,
+        "last_second_rad_s": 0.5037623047828674,
+        "full4s_rmse_rad_s": 0.2996309995651245,
+        "late_body_xy_mean_m_s": [
+          0.0013591633178293705,
+          0.003430597484111786
+        ],
+        "late_wheel_target_rad_s": [
+          -2.943870782852173,
+          6.797490119934082,
+          -2.8126680850982666,
+          3.8253068923950195
+        ],
+        "late_wheel_speed_rad_s": [
+          -1.9660749435424805,
+          6.576351165771484,
+          -2.513200521469116,
+          3.046431541442871
+        ],
+        "late_wheel_tracking_rmse_rad_s": [
+          1.2425243854522705,
+          0.5933956503868103,
+          0.4517764747142792,
+          1.016631007194519
+        ],
+        "late_leg_tracking_rmse_rad": [
+          0.14602230489253998,
+          0.18270286917686462,
+          0.11533162742853165,
+          0.15337006747722626,
+          0.1148238405585289,
+          0.20054040849208832,
+          0.14785075187683105,
+          0.039395738393068314,
+          0.17602524161338806,
+          0.1526327133178711,
+          0.19368040561676025,
+          0.3223666548728943
+        ],
+        "full_hold_leg_clipped_fraction": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.005,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.085
+        ],
+        "late_load_fraction_gt8N": [
+          0.64,
+          0.58,
+          0.62,
+          0.66
+        ],
+        "late_clearance_gt1mm_fraction": [
+          0.32,
+          0.38,
+          0.34,
+          0.3
+        ],
+        "tangential_contact_force": null,
+        "contact_point_slip": null,
+        "quat_heading_change_rad": 2.057842969894409
+      },
+      "conditioning": "fresh reset/2s zero/4s yaw/2s stop; matched schedule, phase, Actor and sample cadence",
+      "source_minus_target_late_rad_s": 0.3043810725212097
+    },
+    {
+      "requested_rad_s": -0.8,
+      "genesis_first1s_rad_s": -0.7681642770767212,
+      "genesis_last1s_rad_s": -0.8019593954086304,
+      "genesis_full4s_rmse_rad_s": 0.04761262704242245,
+      "physx_matched_50Hz": {
+        "cpu_export_vs_receiving_issued_action_max_abs_9_inputs": 4.172325134277344e-07,
+        "first_second_rad_s": -0.4784353971481323,
+        "last_second_rad_s": -0.5223955512046814,
+        "full4s_rmse_rad_s": 0.3021986484527588,
+        "late_body_xy_mean_m_s": [
+          0.00953645072877407,
+          0.0013850481482222676
+        ],
+        "late_wheel_target_rad_s": [
+          6.825750350952148,
+          -3.2798497676849365,
+          3.9445362091064453,
+          -3.0525753498077393
+        ],
+        "late_wheel_speed_rad_s": [
+          6.377345561981201,
+          -2.672883987426758,
+          3.3275506496429443,
+          -2.8428890705108643
+        ],
+        "late_wheel_tracking_rmse_rad_s": [
+          0.75350022315979,
+          0.8706071972846985,
+          0.9476420283317566,
+          0.3844025433063507
+        ],
+        "late_leg_tracking_rmse_rad": [
+          0.17853905260562897,
+          0.1284208446741104,
+          0.22806213796138763,
+          0.1333024799823761,
+          0.16127438843250275,
+          0.10698685795068741,
+          0.13424564898014069,
+          0.14949816465377808,
+          0.2809917628765106,
+          0.1763748824596405,
+          0.05056869611144066,
+          0.184467613697052
+        ],
+        "full_hold_leg_clipped_fraction": [
+          0.0,
+          0.035,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.125,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "late_load_fraction_gt8N": [
+          0.72,
+          0.48,
+          0.52,
+          0.72
+        ],
+        "late_clearance_gt1mm_fraction": [
+          0.24,
+          0.48,
+          0.44,
+          0.24
+        ],
+        "tangential_contact_force": null,
+        "contact_point_slip": null,
+        "quat_heading_change_rad": -2.0487558841705322
+      },
+      "conditioning": "fresh reset/2s zero/4s yaw/2s stop; matched schedule, phase, Actor and sample cadence",
+      "source_minus_target_late_rad_s": -0.279563844203949
+    },
+    {
+      "requested_rad_s": 1.0,
+      "genesis_first1s_rad_s": 0.9907335638999939,
+      "genesis_last1s_rad_s": 0.9975075721740723,
+      "genesis_full4s_rmse_rad_s": 0.046749063860460655,
+      "physx_matched_50Hz": null,
+      "conditioning": "PhysX retained conditioning differs; descriptive comparison only",
+      "physx_unmatched_last1s_rad_s": 0.698645830154419
+    },
+    {
+      "requested_rad_s": -1.0,
+      "genesis_first1s_rad_s": -0.9607483148574829,
+      "genesis_last1s_rad_s": -0.993989884853363,
+      "genesis_full4s_rmse_rad_s": 0.05247467995360064,
+      "physx_matched_50Hz": null,
+      "conditioning": "PhysX retained conditioning differs; descriptive comparison only",
+      "physx_unmatched_last1s_rad_s": -0.691066563129425
+    }
+  ],
+  "physx_published_200Hz_fresh_curve": [
+    {
+      "command_rad_s": 0.6,
+      "first_second_rad_s": 0.306069940328598,
+      "last_second_rad_s": 0.3404759466648102,
+      "response_gain": 0.567459911108017,
+      "mean_body_xy": [
+        0.0037282900884747505,
+        0.0015865337336435914
+      ],
+      "whole_hold_rmse": 0.2769280672073364,
+      "stop_last_second_planar_rms": 0.004329705145210028,
+      "stop_last_second_yaw_rms": 0.00548897311091423
+    },
+    {
+      "command_rad_s": -0.6,
+      "first_second_rad_s": -0.29760828614234924,
+      "last_second_rad_s": -0.33815470337867737,
+      "response_gain": 0.5635911722977957,
+      "mean_body_xy": [
+        0.006916432175785303,
+        5.6324108300032094e-05
+      ],
+      "whole_hold_rmse": 0.282477468252182,
+      "stop_last_second_planar_rms": 0.00716469157487154,
+      "stop_last_second_yaw_rms": 0.006481838412582874
+    },
+    {
+      "command_rad_s": 0.8,
+      "first_second_rad_s": 0.4793042242527008,
+      "last_second_rad_s": 0.5056930780410767,
+      "response_gain": 0.6321163475513458,
+      "mean_body_xy": [
+        0.0013499993365257978,
+        0.0036597340367734432
+      ],
+      "whole_hold_rmse": 0.3002707362174988,
+      "stop_last_second_planar_rms": 0.011033943854272366,
+      "stop_last_second_yaw_rms": 0.008391682989895344
+    },
+    {
+      "command_rad_s": -0.8,
+      "first_second_rad_s": -0.47380077838897705,
+      "last_second_rad_s": -0.5226494669914246,
+      "response_gain": 0.6533118337392807,
+      "mean_body_xy": [
+        0.009658852592110634,
+        0.001363098155707121
+      ],
+      "whole_hold_rmse": 0.3031599223613739,
+      "stop_last_second_planar_rms": 0.008094589225947857,
+      "stop_last_second_yaw_rms": 0.007105945143848658
+    }
+  ],
+  "source_support_actuation_stopping": [
+    {
+      "yaw_rad_s": 0.3,
+      "first_actor_phase": 0.02500000037252903,
+      "yaw_onset_phase": 0.5249993205070496,
+      "failure": null,
+      "whole_hold_mean_body_vx_vy_wz": [
+        0.005364490207284689,
+        -0.0020043132826685905,
+        0.31214869022369385
+      ],
+      "hold_motion": {
+        "world_xy_displacement_m": [
+          0.0251768846064806,
+          0.006657652091234922
+        ],
+        "xy_displacement_m": 0.0260422695428133,
+        "xy_path_length_m": 0.04657037928700447,
+        "heading_change_rad": 1.2500356435775757
+      },
+      "stop": {
+        "world_xy_displacement_m": [
+          0.0007609259337186813,
+          -0.0005495147779583931
+        ],
+        "xy_displacement_m": 0.000938602548558265,
+        "xy_path_length_m": 0.004056320991367102,
+        "heading_change_rad": -0.014894843101501465,
+        "settled_after_s": 0.16,
+        "settling_rule": "planar <=.02m/s and abs(body wz)<=.03rad/s, remaining inside through end for >=.25s; null means not observed"
+      },
+      "stop_last1s_planar_rms_m_s": 0.001928894896991551,
+      "stop_last1s_yaw_rms_rad_s": 0.010614621404186023,
+      "late_wheel_target_rad_s": [
+        0.13503815233707428,
+        3.698235511779785,
+        -0.16832824051380157,
+        2.0771100521087646
+      ],
+      "late_wheel_speed_rad_s": [
+        0.5689127445220947,
+        3.782320976257324,
+        -0.2036159187555313,
+        1.7220913171768188
+      ],
+      "late_wheel_tracking_rmse_rad_s": [
+        0.6956958770751953,
+        0.47764211893081665,
+        0.2920002043247223,
+        0.5848933458328247
+      ],
+      "late_leg_tracking_rmse_rad": [
+        0.1383029669523239,
+        0.10316672921180725,
+        0.1690066009759903,
+        0.16124621033668518,
+        0.08055663108825684,
+        0.1679060161113739,
+        0.15428389608860016,
+        0.03814603015780449,
+        0.19857287406921387,
+        0.1411971002817154,
+        0.10625321418046951,
+        0.2701776623725891
+      ],
+      "full_hold_leg_clip_fraction": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.01
+      ],
+      "late_wheel_load_fraction_gt8N": [
+        0.66,
+        0.5,
+        0.48,
+        0.68
+      ],
+      "full_hold_min_leg_limit_margin_rad": 0.4644815637969971,
+      "nonwheel_ground_contact_steps": 0
+    },
+    {
+      "yaw_rad_s": -0.3,
+      "first_actor_phase": 0.02500000037252903,
+      "yaw_onset_phase": 0.5249993205070496,
+      "failure": null,
+      "whole_hold_mean_body_vx_vy_wz": [
+        0.005870973691344261,
+        -0.00016471865819767118,
+        -0.3071260154247284
+      ],
+      "hold_motion": {
+        "world_xy_displacement_m": [
+          0.02552059292793274,
+          -0.016422303393483162
+        ],
+        "xy_displacement_m": 0.030347861349582672,
+        "xy_path_length_m": 0.04594433307647705,
+        "heading_change_rad": -1.2301710844039917
+      },
+      "stop": {
+        "world_xy_displacement_m": [
+          0.0013180635869503021,
+          -0.005736956372857094
+        ],
+        "xy_displacement_m": 0.005886421538889408,
+        "xy_path_length_m": 0.009127594530582428,
+        "heading_change_rad": 0.028186678886413574,
+        "settled_after_s": 0.7000000000000001,
+        "settling_rule": "planar <=.02m/s and abs(body wz)<=.03rad/s, remaining inside through end for >=.25s; null means not observed"
+      },
+      "stop_last1s_planar_rms_m_s": 0.001995297847315669,
+      "stop_last1s_yaw_rms_rad_s": 0.01291915399827765,
+      "late_wheel_target_rad_s": [
+        3.7887821197509766,
+        -0.14606516063213348,
+        2.232497453689575,
+        -0.3293335437774658
+      ],
+      "late_wheel_speed_rad_s": [
+        3.7853424549102783,
+        0.1812368929386139,
+        1.9693371057510376,
+        -0.3791249990463257
+      ],
+      "late_wheel_tracking_rmse_rad_s": [
+        0.528300404548645,
+        0.5708937644958496,
+        0.5024218559265137,
+        0.31614950299263
+      ],
+      "late_leg_tracking_rmse_rad": [
+        0.18896342813968658,
+        0.08403608202934265,
+        0.1955445557832718,
+        0.1229766309261322,
+        0.09423761814832687,
+        0.14708490669727325,
+        0.1220172569155693,
+        0.08482597023248672,
+        0.2351701259613037,
+        0.1842389553785324,
+        0.04554910957813263,
+        0.22640183568000793
+      ],
+      "full_hold_leg_clip_fraction": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.015,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "late_wheel_load_fraction_gt8N": [
+        0.66,
+        0.48,
+        0.52,
+        0.64
+      ],
+      "full_hold_min_leg_limit_margin_rad": 0.46023497127532964,
+      "nonwheel_ground_contact_steps": 0
+    },
+    {
+      "yaw_rad_s": 0.6,
+      "first_actor_phase": 0.02500000037252903,
+      "yaw_onset_phase": 0.5249993205070496,
+      "failure": null,
+      "whole_hold_mean_body_vx_vy_wz": [
+        0.003645308082923293,
+        0.0013714954257011414,
+        0.6028902530670166
+      ],
+      "hold_motion": {
+        "world_xy_displacement_m": [
+          -0.0002768253907561302,
+          0.014591132290661335
+        ],
+        "xy_displacement_m": 0.014593757688999176,
+        "xy_path_length_m": 0.0379151850938797,
+        "heading_change_rad": 2.4098148345947266
+      },
+      "stop": {
+        "world_xy_displacement_m": [
+          0.00024309242144227028,
+          -0.0010759374126791954
+        ],
+        "xy_displacement_m": 0.0011030572932213545,
+        "xy_path_length_m": 0.006530041806399822,
+        "heading_change_rad": -0.05093789100646973,
+        "settled_after_s": 0.92,
+        "settling_rule": "planar <=.02m/s and abs(body wz)<=.03rad/s, remaining inside through end for >=.25s; null means not observed"
+      },
+      "stop_last1s_planar_rms_m_s": 0.0009912681998685002,
+      "stop_last1s_yaw_rms_rad_s": 0.0030302322851600534,
+      "late_wheel_target_rad_s": [
+        -1.6342028379440308,
+        5.2773919105529785,
+        -1.3880343437194824,
+        3.1952033042907715
+      ],
+      "late_wheel_speed_rad_s": [
+        -0.9446759819984436,
+        5.1503753662109375,
+        -1.296584129333496,
+        2.7105116844177246
+      ],
+      "late_wheel_tracking_rmse_rad_s": [
+        0.9390003681182861,
+        0.6466622352600098,
+        0.30639779567718506,
+        0.669630765914917
+      ],
+      "late_leg_tracking_rmse_rad": [
+        0.12281700223684311,
+        0.13720187544822693,
+        0.13927237689495087,
+        0.1741977035999298,
+        0.0927388146519661,
+        0.17181003093719482,
+        0.16790014505386353,
+        0.0336141511797905,
+        0.18710719048976898,
+        0.11948844790458679,
+        0.14012673497200012,
+        0.27914556860923767
+      ],
+      "full_hold_leg_clip_fraction": [
+        0.0,
+        0.015,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.01,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "late_wheel_load_fraction_gt8N": [
+        0.66,
+        0.5,
+        0.52,
+        0.64
+      ],
+      "full_hold_min_leg_limit_margin_rad": 0.44526776813507085,
+      "nonwheel_ground_contact_steps": 0
+    },
+    {
+      "yaw_rad_s": -0.6,
+      "first_actor_phase": 0.02500000037252903,
+      "yaw_onset_phase": 0.5249993205070496,
+      "failure": null,
+      "whole_hold_mean_body_vx_vy_wz": [
+        0.0036011235788464546,
+        -0.0030386685393750668,
+        -0.5979868173599243
+      ],
+      "hold_motion": {
+        "world_xy_displacement_m": [
+          0.0005270536057651043,
+          -0.02020319364964962
+        ],
+        "xy_displacement_m": 0.020210066810250282,
+        "xy_path_length_m": 0.040634989738464355,
+        "heading_change_rad": -2.3912830352783203
+      },
+      "stop": {
+        "world_xy_displacement_m": [
+          -0.004850318655371666,
+          -0.005241088569164276
+        ],
+        "xy_displacement_m": 0.0071410504169762135,
+        "xy_path_length_m": 0.011269237846136093,
+        "heading_change_rad": 0.030196428298950195,
+        "settled_after_s": 0.8,
+        "settling_rule": "planar <=.02m/s and abs(body wz)<=.03rad/s, remaining inside through end for >=.25s; null means not observed"
+      },
+      "stop_last1s_planar_rms_m_s": 0.002961600897833705,
+      "stop_last1s_yaw_rms_rad_s": 0.01269058461095824,
+      "late_wheel_target_rad_s": [
+        5.378561019897461,
+        -2.038693428039551,
+        3.2595620155334473,
+        -1.7479560375213623
+      ],
+      "late_wheel_speed_rad_s": [
+        5.220396518707275,
+        -1.5520200729370117,
+        2.895627737045288,
+        -1.6520500183105469
+      ],
+      "late_wheel_tracking_rmse_rad_s": [
+        0.5084839463233948,
+        0.74689781665802,
+        0.5954117774963379,
+        0.2727641463279724
+      ],
+      "late_leg_tracking_rmse_rad": [
+        0.21075616776943207,
+        0.1001553162932396,
+        0.19909502565860748,
+        0.10856739431619644,
+        0.12165854126214981,
+        0.12891672551631927,
+        0.1102437674999237,
+        0.10867469012737274,
+        0.24552792310714722,
+        0.20101161301136017,
+        0.034510161727666855,
+        0.20769959688186646
+      ],
+      "full_hold_leg_clip_fraction": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.045,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "late_wheel_load_fraction_gt8N": [
+        0.62,
+        0.5,
+        0.52,
+        0.62
+      ],
+      "full_hold_min_leg_limit_margin_rad": 0.4303029491806031,
+      "nonwheel_ground_contact_steps": 0
+    },
+    {
+      "yaw_rad_s": 0.8,
+      "first_actor_phase": 0.02500000037252903,
+      "yaw_onset_phase": 0.5249993205070496,
+      "failure": null,
+      "whole_hold_mean_body_vx_vy_wz": [
+        0.0025755444075912237,
+        0.004231451079249382,
+        0.8003566861152649
+      ],
+      "hold_motion": {
+        "world_xy_displacement_m": [
+          -0.008895481005311012,
+          0.008930156007409096
+        ],
+        "xy_displacement_m": 0.012604652903974056,
+        "xy_path_length_m": 0.042147114872932434,
+        "heading_change_rad": 3.2005436420440674
+      },
+      "stop": {
+        "world_xy_displacement_m": [
+          -0.002374798059463501,
+          5.894619971513748e-05
+        ],
+        "xy_displacement_m": 0.0023755296133458614,
+        "xy_path_length_m": 0.010683766566216946,
+        "heading_change_rad": -0.06971931457519531,
+        "settled_after_s": 1.4000000000000001,
+        "settling_rule": "planar <=.02m/s and abs(body wz)<=.03rad/s, remaining inside through end for >=.25s; null means not observed"
+      },
+      "stop_last1s_planar_rms_m_s": 0.007088439539074898,
+      "stop_last1s_yaw_rms_rad_s": 0.03820964522288793,
+      "late_wheel_target_rad_s": [
+        -2.706895112991333,
+        6.141571044921875,
+        -2.2648651599884033,
+        3.8007700443267822
+      ],
+      "late_wheel_speed_rad_s": [
+        -1.9659323692321777,
+        5.99683952331543,
+        -2.1496317386627197,
+        3.216719627380371
+      ],
+      "late_wheel_tracking_rmse_rad_s": [
+        0.9687201976776123,
+        0.5134471654891968,
+        0.2982618510723114,
+        0.7584731578826904
+      ],
+      "late_leg_tracking_rmse_rad": [
+        0.12261075526475906,
+        0.1548144519329071,
+        0.12498046457767487,
+        0.188558891415596,
+        0.09111930429935455,
+        0.1720982789993286,
+        0.1835247129201889,
+        0.03593187406659126,
+        0.18180568516254425,
+        0.11389349400997162,
+        0.1484566032886505,
+        0.2860720455646515
+      ],
+      "full_hold_leg_clip_fraction": [
+        0.0,
+        0.08,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.02,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "late_wheel_load_fraction_gt8N": [
+        0.66,
+        0.44,
+        0.54,
+        0.68
+      ],
+      "full_hold_min_leg_limit_margin_rad": 0.4047558023834229,
+      "nonwheel_ground_contact_steps": 0
+    },
+    {
+      "yaw_rad_s": -0.8,
+      "first_actor_phase": 0.02500000037252903,
+      "yaw_onset_phase": 0.5249993205070496,
+      "failure": null,
+      "whole_hold_mean_body_vx_vy_wz": [
+        0.0021920297294855118,
+        -0.005859047640115023,
+        -0.7974256277084351
+      ],
+      "hold_motion": {
+        "world_xy_displacement_m": [
+          -0.01156749576330185,
+          -0.013429208658635616
+        ],
+        "xy_displacement_m": 0.01772429421544075,
+        "xy_path_length_m": 0.04577156901359558,
+        "heading_change_rad": -3.1868748664855957
+      },
+      "stop": {
+        "world_xy_displacement_m": [
+          -0.005069153383374214,
+          0.0037419069558382034
+        ],
+        "xy_displacement_m": 0.006300649605691433,
+        "xy_path_length_m": 0.009807155467569828,
+        "heading_change_rad": 0.025592327117919922,
+        "settled_after_s": 0.8200000000000001,
+        "settling_rule": "planar <=.02m/s and abs(body wz)<=.03rad/s, remaining inside through end for >=.25s; null means not observed"
+      },
+      "stop_last1s_planar_rms_m_s": 0.0029197540134191513,
+      "stop_last1s_yaw_rms_rad_s": 0.011122367476989282,
+      "late_wheel_target_rad_s": [
+        6.295952320098877,
+        -3.1649515628814697,
+        3.786043643951416,
+        -2.6170778274536133
+      ],
+      "late_wheel_speed_rad_s": [
+        6.00649356842041,
+        -2.636303186416626,
+        3.373168706893921,
+        -2.440046787261963
+      ],
+      "late_wheel_tracking_rmse_rad_s": [
+        0.6308341026306152,
+        0.774092435836792,
+        0.6355597376823425,
+        0.33427077531814575
+      ],
+      "late_leg_tracking_rmse_rad": [
+        0.22747543454170227,
+        0.10946036130189896,
+        0.19645710289478302,
+        0.12211880087852478,
+        0.14042560756206512,
+        0.11642439663410187,
+        0.10184750705957413,
+        0.11540982872247696,
+        0.25387826561927795,
+        0.2180560976266861,
+        0.041814111173152924,
+        0.20038031041622162
+      ],
+      "full_hold_leg_clip_fraction": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.11,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.005
+      ],
+      "late_wheel_load_fraction_gt8N": [
+        0.6,
+        0.5,
+        0.54,
+        0.64
+      ],
+      "full_hold_min_leg_limit_margin_rad": 0.3944122507476807,
+      "nonwheel_ground_contact_steps": 0
+    },
+    {
+      "yaw_rad_s": 1.0,
+      "first_actor_phase": 0.02500000037252903,
+      "yaw_onset_phase": 0.5249993205070496,
+      "failure": null,
+      "whole_hold_mean_body_vx_vy_wz": [
+        0.002039942890405655,
+        0.006655616220086813,
+        0.9931575059890747
+      ],
+      "hold_motion": {
+        "world_xy_displacement_m": [
+          -0.014168156310915947,
+          -0.0022511344868689775
+        ],
+        "xy_displacement_m": 0.014345879666507244,
+        "xy_path_length_m": 0.046220578253269196,
+        "heading_change_rad": 3.9724771976470947
+      },
+      "stop": {
+        "world_xy_displacement_m": [
+          -0.003990655764937401,
+          -0.004609404131770134
+        ],
+        "xy_displacement_m": 0.006096879485994577,
+        "xy_path_length_m": 0.015067197382450104,
+        "heading_change_rad": -0.07563185691833496,
+        "settled_after_s": null,
+        "settling_rule": "planar <=.02m/s and abs(body wz)<=.03rad/s, remaining inside through end for >=.25s; null means not observed"
+      },
+      "stop_last1s_planar_rms_m_s": 0.008045360445976257,
+      "stop_last1s_yaw_rms_rad_s": 0.060219357087032514,
+      "late_wheel_target_rad_s": [
+        -3.4554014205932617,
+        7.256433486938477,
+        -2.949437141418457,
+        4.390044689178467
+      ],
+      "late_wheel_speed_rad_s": [
+        -2.682297468185425,
+        6.9844160079956055,
+        -2.7724051475524902,
+        3.7995619773864746
+      ],
+      "late_wheel_tracking_rmse_rad_s": [
+        0.9876688718795776,
+        0.8033950924873352,
+        0.3643668293952942,
+        0.7729915976524353
+      ],
+      "late_leg_tracking_rmse_rad": [
+        0.12104690074920654,
+        0.16344134509563446,
+        0.12547029554843903,
+        0.20366200804710388,
+        0.10631749033927917,
+        0.17692407965660095,
+        0.18941383063793182,
+        0.03955638036131859,
+        0.17693538963794708,
+        0.11393120884895325,
+        0.15242941677570343,
+        0.29082241654396057
+      ],
+      "full_hold_leg_clip_fraction": [
+        0.0,
+        0.11,
+        0.0,
+        0.0,
+        0.0,
+        0.07,
+        0.0,
+        0.0,
+        0.02,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "late_wheel_load_fraction_gt8N": [
+        0.68,
+        0.5,
+        0.52,
+        0.66
+      ],
+      "full_hold_min_leg_limit_margin_rad": 0.36780378364562993,
+      "nonwheel_ground_contact_steps": 0
+    },
+    {
+      "yaw_rad_s": -1.0,
+      "first_actor_phase": 0.02500000037252903,
+      "yaw_onset_phase": 0.5249993205070496,
+      "failure": null,
+      "whole_hold_mean_body_vx_vy_wz": [
+        0.0014959207037463784,
+        -0.008655881509184837,
+        -0.9898461103439331
+      ],
+      "hold_motion": {
+        "world_xy_displacement_m": [
+          -0.012777643278241158,
+          0.0004828741366509348
+        ],
+        "xy_displacement_m": 0.012786763720214367,
+        "xy_path_length_m": 0.053362660109996796,
+        "heading_change_rad": -3.958244800567627
+      },
+      "stop": {
+        "world_xy_displacement_m": [
+          -0.005923710763454437,
+          0.002363731851801276
+        ],
+        "xy_displacement_m": 0.0063778976909816265,
+        "xy_path_length_m": 0.01354013942182064,
+        "heading_change_rad": 0.015859603881835938,
+        "settled_after_s": 0.8200000000000001,
+        "settling_rule": "planar <=.02m/s and abs(body wz)<=.03rad/s, remaining inside through end for >=.25s; null means not observed"
+      },
+      "stop_last1s_planar_rms_m_s": 0.0036319673527032137,
+      "stop_last1s_yaw_rms_rad_s": 0.009859946086545345,
+      "late_wheel_target_rad_s": [
+        7.271727085113525,
+        -4.115445613861084,
+        4.41196346282959,
+        -3.3854286670684814
+      ],
+      "late_wheel_speed_rad_s": [
+        6.8934831619262695,
+        -3.491638422012329,
+        3.975226402282715,
+        -3.1589651107788086
+      ],
+      "late_wheel_tracking_rmse_rad_s": [
+        0.6890126466751099,
+        0.8668757677078247,
+        0.6782355904579163,
+        0.37353211641311646
+      ],
+      "late_leg_tracking_rmse_rad": [
+        0.24684688448905945,
+        0.127719908952713,
+        0.19710789620876312,
+        0.12069694697856903,
+        0.15566402673721313,
+        0.11148378252983093,
+        0.10111002624034882,
+        0.11902816593647003,
+        0.25479522347450256,
+        0.22597099840641022,
+        0.04614944010972977,
+        0.19289414584636688
+      ],
+      "full_hold_leg_clip_fraction": [
+        0.0,
+        0.0,
+        0.11,
+        0.0,
+        0.14,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.01
+      ],
+      "late_wheel_load_fraction_gt8N": [
+        0.58,
+        0.52,
+        0.54,
+        0.6
+      ],
+      "full_hold_min_leg_limit_margin_rad": 0.3577693416976929,
+      "nonwheel_ground_contact_steps": 0
+    }
+  ],
+  "contact_sensitivity": {
+    "source_fresh_reset_cases": [
+      {
+        "yaw_rad_s": 0.8,
+        "late_nominal_rad_s": 0.8081433773040771,
+        "late_friction07_rad_s": 0.8078926205635071,
+        "signed_change_rad_s": -0.00025075674057006836,
+        "failure": null,
+        "stopping": {
+          "world_xy_displacement_m": [
+            -0.0023248326033353806,
+            0.0010996219934895635
+          ],
+          "xy_displacement_m": 0.0025717727839946747,
+          "xy_path_length_m": 0.01126496959477663,
+          "heading_change_rad": -0.06882143020629883,
+          "settled_after_s": 1.44,
+          "settling_rule": "planar <=.02m/s and abs(body wz)<=.03rad/s, remaining inside through end for >=.25s; null means not observed"
+        }
+      },
+      {
+        "yaw_rad_s": -0.8,
+        "late_nominal_rad_s": -0.8019593954086304,
+        "late_friction07_rad_s": -0.8070387244224548,
+        "signed_change_rad_s": -0.005079329013824463,
+        "failure": null,
+        "stopping": {
+          "world_xy_displacement_m": [
+            -0.002309795469045639,
+            0.0041741980239748955
+          ],
+          "xy_displacement_m": 0.0047706482000648975,
+          "xy_path_length_m": 0.008561485446989536,
+          "heading_change_rad": 0.017394304275512695,
+          "settled_after_s": 0.86,
+          "settling_rule": "planar <=.02m/s and abs(body wz)<=.03rad/s, remaining inside through end for >=.25s; null means not observed"
+        }
+      }
+    ],
+    "receiving_paired_nominal_late_rad_s": [
+      0.3404759466648102,
+      -0.3410257399082184,
+      0.5051639676094055,
+      -0.5097029209136963
+    ],
+    "receiving_paired_friction07_late_rad_s": [
+      0.41879069805145264,
+      -0.41868752241134644,
+      0.6049506068229675,
+      -0.6096856594085693
+    ],
+    "scope": "Genesis fresh +/- .8 sensitivities; receiving paired sequence .6,-.6,.8,-.8 has retained conditioning. Compare each engine's within-protocol change, not an exactly matched friction07 cross-engine trial. No calibration/default promotion."
+  },
+  "contacts": {
+    "nominal/yaw_+0.8": {
+      "post_time_window_s": [
+        2.005,
+        3.0
+      ],
+      "samples": 200,
+      "available": [
+        "position_world",
+        "normal_world",
+        "force_a_world",
+        "force_b_world",
+        "link_a",
+        "link_b",
+        "valid_mask"
+      ],
+      "mean_total_ground_force_world_N": [
+        0.06432679295539856,
+        0.2190380096435547,
+        194.41806030273438
+      ],
+      "rms_total_horizontal_force_N": 16.581274032592773,
+      "mean_sum_contact_tangential_norm_N": 27.599931716918945,
+      "rms_ground_yaw_moment_about_authored_base_Nm": 3.22794246673584,
+      "peak_nonwheel_normal_force_N": 0.0,
+      "contact_point_slip": null,
+      "interpretation": "Full solver-reported contact forces and positions; force components available. No contact-point velocity/material tire slip measured; no equivalent PhysX shear trace exists."
+    },
+    "nominal/yaw_-0.8": {
+      "post_time_window_s": [
+        2.005,
+        3.0
+      ],
+      "samples": 200,
+      "available": [
+        "position_world",
+        "normal_world",
+        "force_a_world",
+        "force_b_world",
+        "link_a",
+        "link_b",
+        "valid_mask"
+      ],
+      "mean_total_ground_force_world_N": [
+        -0.026071982458233833,
+        -0.6133050322532654,
+        196.0207061767578
+      ],
+      "rms_total_horizontal_force_N": 19.1170654296875,
+      "mean_sum_contact_tangential_norm_N": 39.095401763916016,
+      "rms_ground_yaw_moment_about_authored_base_Nm": 3.6331441402435303,
+      "peak_nonwheel_normal_force_N": 0.0,
+      "contact_point_slip": null,
+      "interpretation": "Full solver-reported contact forces and positions; force components available. No contact-point velocity/material tire slip measured; no equivalent PhysX shear trace exists."
+    },
+    "friction07/yaw_+0.8": {
+      "post_time_window_s": [
+        2.005,
+        3.0
+      ],
+      "samples": 200,
+      "available": [
+        "position_world",
+        "normal_world",
+        "force_a_world",
+        "force_b_world",
+        "link_a",
+        "link_b",
+        "valid_mask"
+      ],
+      "mean_total_ground_force_world_N": [
+        0.04362616688013077,
+        0.21632590889930725,
+        194.4067840576172
+      ],
+      "rms_total_horizontal_force_N": 17.967132568359375,
+      "mean_sum_contact_tangential_norm_N": 26.681264877319336,
+      "rms_ground_yaw_moment_about_authored_base_Nm": 3.361671209335327,
+      "peak_nonwheel_normal_force_N": 0.0,
+      "contact_point_slip": null,
+      "interpretation": "Full solver-reported contact forces and positions; force components available. No contact-point velocity/material tire slip measured; no equivalent PhysX shear trace exists."
+    },
+    "friction07/yaw_-0.8": {
+      "post_time_window_s": [
+        2.005,
+        3.0
+      ],
+      "samples": 200,
+      "available": [
+        "position_world",
+        "normal_world",
+        "force_a_world",
+        "force_b_world",
+        "link_a",
+        "link_b",
+        "valid_mask"
+      ],
+      "mean_total_ground_force_world_N": [
+        -0.03031836822628975,
+        -0.6513214707374573,
+        195.95286560058594
+      ],
+      "rms_total_horizontal_force_N": 15.86874008178711,
+      "mean_sum_contact_tangential_norm_N": 35.33741760253906,
+      "rms_ground_yaw_moment_about_authored_base_Nm": 3.5805037021636963,
+      "peak_nonwheel_normal_force_N": 0.0,
+      "contact_point_slip": null,
+      "interpretation": "Full solver-reported contact forces and positions; force components available. No contact-point velocity/material tire slip measured; no equivalent PhysX shear trace exists."
+    }
+  },
+  "findings": [
+    "Source yaw undershoot is not reproduced: fresh +/- .6/.8 late means differ from request by at most .00815rad/s. Matched PhysX50Hz late means undershoot by .26285..29624rad/s. Source full4s RMSE .03746..04761 versus target .27761..30220rad/s.",
+    "The NEW Actor/normalizer, phase, history, frames, nominal armature, SI gains, passive properties and action scales are consistent. Recorded source CPU/GPU export actions agree within3.58e-7 on90 shared inputs. A command scale or wrong-policy explanation is not supported.",
+    "PhysX wheel speeds are comparable to, sometimes higher than, Genesis although body yaw is much smaller. Both engines have leg compliance and some leg clipping; there is no wheel action clipping. Matching gain numbers does not prove equivalent actuator integration.",
+    "Effective wheel friction1->.7 changes source late yaw by -.00025/-.00508rad/s for+/- .8, whereas receiving paired changes are about+.09979/-.09998rad/s. Alongside different contact formulations, this favors cross-engine contact/actuation response over missing learned yaw tracking. It does not identify one unique solver parameter.",
+    "Genesis stopping is not perfect: +.8 reverses heading by .06972rad after release; +1 reverses by .07563rad and does not meet the stated .25s sustained settling criterion within2s. Source hold tracking success is not whole-envelope qualification."
+  ],
+  "contact_implementation": {
+    "installed_source_hashes": {
+      "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\genesis\\engine\\entities\\rigid_entity\\rigid_entity.py": "502d57543738219520b26eecbd4117862d15ca425fc0060ea3f6a5bcd7c5f5a8",
+      "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\genesis\\engine\\solvers\\rigid\\collider\\contact.py": "0461ff9939f5843c3c8f62abff72aed86526c3c633670501711e31e2dfe6cb16",
+      "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\genesis\\engine\\solvers\\rigid\\constraint\\solver.py": "a0623c9fcde4c2acbdf1001864c23696ed519a11af380f3bbe3bbf909e89421f",
+      "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\genesis\\engine\\solvers\\rigid\\abd\\accessor.py": "c1539db8146f76a3e3683e7d2b2da9180076c9f51eda15aea264017e19868562",
+      "C:\\Users\\Liamb\\anaconda3\\envs\\genesis-gpu\\Lib\\site-packages\\genesis\\engine\\solvers\\rigid\\abd\\forward_dynamics.py": "ac1ae45de138599e422fa203e5e63788253079a2ad866443bf2c461e23b4b0a6"
+    },
+    "combination": "contact.py: max(mu_a*ratio_a,mu_b*ratio_b,.01); sol_params averaged then time constant floored at2*substep_dt",
+    "force_semantics": "constraint/solver.py reconstructs contact force from four normal+tangent friction-pyramid constraint directions; exported force includes tangential components",
+    "actuation": "approximate_implicitfast forward dynamics includes implicit PD mass terms; get_dofs_control_force recomputes current clipped PD, not integration impulse",
+    "physx_reference": "https://nvidia-omniverse.github.io/PhysX/physx/5.4.1/docs/RigidBodyDynamics.html#friction-and-restitution",
+    "interpretation": "Equal scalar max-combined friction is not equal contact dynamics: Genesis measured pyramidal constraints/no contact patch versus PhysX's documented contact-patch friction formulation. Exact target friction-type runtime readback is absent; do not infer a unique solver cause from defaults."
+  },
+  "remaining_gaps": [
+    "One seed and one robot, no statistical robustness claim.",
+    "PhysX .3 and +/-1 retained conditioning differs; no exact eight-case claim.",
+    "No matched contact-point velocity/slip and no PhysX tangential contact force trace; null is unavailable, never zero.",
+    "No single actuation/contact/geometry-response mechanism isolated; no physical floor calibration or hardware validation.",
+    "Positive1rad/s source stop remains unsettled by the bounded criterion; no longer rollout authorized/performed."
+  ],
+  "checks": {
+    "focused_tests_passed": 14,
+    "trace_audit_cases": 10,
+    "cpu_gpu_shared_inputs": 90,
+    "cpu_gpu_actor_max_abs_error": 3.5762786865234375e-07,
+    "receiving_shared_inputs": 36,
+    "cpu_export_vs_receiving_action_max_abs": 4.172325134277344e-07,
+    "actor_and_normalizer_unchanged": true,
+    "stale_test_fixture": "Existing CPU FK test mixed the legacy URDF/old expected heights with current joint reference. Updated to measured URDF and .4277416561558192m; initial failure and passing rerun retained.",
+    "git_diff_check": "passed",
+    "native_exit_codes": [
+      0,
+      0
+    ]
+  },
+  "budget": {
+    "native_simulator_launches": 2,
+    "bounded_rollouts": 10,
+    "nominal_rollouts": 8,
+    "sensitivity_rollouts": 2,
+    "actor_rollout_seconds_each": 8,
+    "reset_inclusive_rollout_seconds_each": 8.02,
+    "total_actor_sim_seconds": 80,
+    "extra_factory_initialization_ticks": 2,
+    "total_sim_seconds_including_all_reset_ticks": 80.24,
+    "cumulative_native_process_wall_seconds": 295.5865949,
+    "process_receipts": [
+      {
+        "exit_code": 0,
+        "launch": 1,
+        "wall_seconds": 219.624954
+      },
+      {
+        "wall_seconds": 75.9616409,
+        "exit_code": 0,
+        "launch": 2
+      }
+    ],
+    "ceilings": {
+      "launches": 6,
+      "rollouts": 10,
+      "seconds_per_rollout": 15,
+      "native_process_wall_seconds": 1800
+    },
+    "scope": "Full wall receipts include Python imports/build/recording/shutdown. Offline unit tests/import probes/Git/evidence analysis are not simulator launches; no scene created by those commands."
+  },
+  "one_recommended_next_action": "Run one bounded receiving-side replay of the recorded Genesis +/- .8 named joint targets with fixed nominal physics and matched reset, recording actual joint response and tangential ground-contact forces. This removes Actor feedback as a confound before considering any contact/actuator change; stop on first failure. No training proposed or executed.",
+  "owner_command": "conda run -n genesis-gpu python -X utf8 -m robot_gym.scripts.evaluate --task go2w --eval_mode source_yaw --headless --diagnostic_trace --output evaluation/source_yaw_owner",
+  "preservation": "Policy/normalizer/canonical assets/training settings/historical evidence retained. No training, export, Linux execution, navigation integration, hardware work, package edits or remote writes to navigation repository.",
+  "evidence_archive": {
+    "path": "docs/go2w_source_yaw_2026-10-11_evidence.zip",
+    "bytes": 6644109,
+    "sha256": "357bf42767fe5a94bbb07ae52aae1c29e012ec4874c48d1c0a269786f0e4e6be",
+    "contents": "Ten paired50Hz traces and four1s200Hz contact windows; initialized/reset readbacks; exact configs; process receipts; analysis/audit; immutable receiving summary. Receiving raw archive retained locally/read-only, not duplicated.",
+    "receiving_raw_archive": {
+      "path": "outputs/locomotion/go2w_genesis_sim2sim_v1/handoff_2026_10_09/yaw_display_evidence.tar.gz",
+      "sha256": "7cfefdff73076311808c020d1a1564635c995d3f9d7d1214c6bbbac53569dcb5",
+      "bytes": 19777423
+    },
+    "trace_storage": "Optional bounded NPZ files; no persistent recorder in ordinary play"
+  }
+}

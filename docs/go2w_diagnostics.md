@@ -1,5 +1,97 @@
 # Go2-W diagnostics and reproducibility
 
+## Windows source-versus-PhysX yaw comparison — 11 October 2026
+
+Section W is complete on the Windows laptop using the frozen **NEW 58-input
+CK1999 TorchScript Actor**. The [compact result](go2w_source_yaw_2026-10-11.json),
+[comparison figure](go2w_source_yaw_2026-10-11.png) and
+[optional bounded evidence](go2w_source_yaw_2026-10-11_evidence.zip) retain exact
+identities, measurements, state/action traces and initialized/reset readbacks.
+The maintained evaluator now offers `source_yaw`; environment, observation and
+control execution use the current Go2-W code. No policy, normalizer, canonical
+asset, training or ordinary playback dynamics changed.
+
+All eight nominal cases used one robot/seed1, a fresh explicit reset with exactly
+one zero-action20ms tick, then 2s zero / 4s yaw / 2s zero. First Actor phase is
+.025 and yaw-onset phase approximately .525. No command-change phase reset,
+noise, DR, pushes, delay, resampling, outer feedback or braking override applies.
+The comparisons below use aligned **post-step50Hz** samples; the older receiving
+summary used200Hz and therefore has slightly different means.
+
+| Requested yaw, rad/s | Genesis last1s | PhysX last1s | Genesis full4s RMSE | PhysX full4s RMSE |
+| --- | --- | --- | --- | --- |
+| +.6 | +.6005 | +.3368 | .0408 | .2776 |
+| -.6 | -.6047 | -.3372 | .0459 | .2831 |
+| +.8 | +.8081 | +.5038 | .0375 | .2996 |
+| -.8 | -.8020 | -.5224 | .0476 | .3022 |
+
+These four cases match the retained receiving reset/schedule/phase. Genesis
+also reaches +.3286/-.3097 and +.9975/-.9940 for requests +/- .3 and +/-1;
+the corresponding PhysX evidence has **different retained conditioning** and
+is descriptive, not an exact eight-case comparison. No falls or automatic
+resets occurred. Wheel actions did not clip; leg compliance and some leg
+clipping remain. PhysX wheel speeds are comparable to or higher than source
+speeds despite its smaller body rotation, so wheel target lag alone is an
+inadequate explanation.
+
+Only the permitted two +/- .8 sensitivity cases changed wheel effective
+friction1 ->.7. Readbacks verified ground/nonwheel ratios and all other
+properties unchanged. Source late yaw became +.8079/-.8070, changing by
+-.00025/-.00508rad/s; the receiving **paired-sequence** sensitivity changed by
+about+.09979/-.09998rad/s. The paired receiving conditioning is distinct from
+the fresh source sensitivity. Nominal friction remains1; .7 is not a calibration.
+Installed Genesis uses max-combined friction, pyramidal constraints, Newton,
+approximate_implicitfast, convex contact and no contact patch. Equal scalar
+friction does not establish equivalent contact mechanics; see the installed
+source hashes and [PhysX contact-friction documentation](https://nvidia-omniverse.github.io/PhysX/physx/5.4.1/docs/RigidBodyDynamics.html#friction-and-restitution).
+
+The residual points to **cross-engine contact/actuation response**, with contact
+response the leading discriminator. Missing source learned yaw tracking is not
+supported for these holds. The exact solver/drive cause remains unresolved.
+Existing public Genesis getters supplied contact points, normals and full
+world-frame force vectors for four bounded1s200Hz yaw windows. PhysX tangential
+forces and material-point tire slip remain unavailable; normal loads are not
+substitutes. No new contact instrumentation framework was introduced.
+
+Stopping remains a source limitation: +.8 reverses heading by .06972rad after
+release, while +1 reverses by .07563rad and does not satisfy the stated sustained
+settling rule within2s. Nominal stop XY displacements are .94–7.14mm, with actual
+paths and transients retained. This comparison is not hardware or full-envelope
+qualification, and it provides no GUI/batched-training throughput claim.
+
+Effective settings remain armature .01kg m²; legs40/1, wheels0/1; zero passive
+stiffness/damping/frictionloss; leg action scales .30/.35/.40rad, wheels18rad/s;
+action bound1 and wheel target cap20rad/s; 200Hz physics/50Hz Actor and .8s phase.
+The existing laptop environment is Genesis1.4.1, Torch2.9.1+cu130, RTX5060 Laptop;
+the original desktop used Torch2.9.0. Display was headless.
+
+From the repository root, use a fresh output directory:
+
+```powershell
+conda run -n genesis-gpu python -X utf8 -m robot_gym.scripts.evaluate --task go2w --eval_mode source_yaw --headless --diagnostic_trace --output evaluation/source_yaw_owner
+```
+
+Omit `--diagnostic_trace` to skip the optional200Hz window; paired50Hz evidence
+remains bounded. `--source_yaw_friction .7` selects only the two permitted
+sensitivity cases, not the nominal curve. `source_yaw` fixes the handoff and
+schedule and rejects policy/phase/delay overrides.
+
+Validation:14 focused CPU tests passed, plus all10 trace audits;90 shared
+recorded inputs agree between CPU and GPU export inference within3.58e-7.
+An additional36 recorded PhysX inputs reproduce the receiving issued actions
+within4.18e-7 using this same frozen export.
+An existing FK test mixed old expected heights/URDF with the current joint pose;
+its fixture now uses the measured asset and .427741656m support height.
+Budget: **2 native launches,10 rollouts,8.02s each including reset**,80.24s total
+simulation including factory warmups,295.5866s cumulative native process time.
+Limits were6 launches/10 rollouts/15s each/1800s process time. No training,
+re-export, package edit, Linux execution or navigation-repository write occurred.
+
+**One next action:** replay the recorded Genesis +/- .8 named joint-target
+sequence in a bounded nominal PhysX case and compare joint response plus
+tangential contact forces. Removing Actor feedback as a confound can separate
+plant response before any contact/actuator change. No training is proposed.
+
 Current workflow: [frozen reference and phase-guided V3](#frozen-reference-and-phase-guided-v3-2026-10-03).
 Use [saved-config replay](#shared-pipeline-cleanup-2026-10-02) for existing runs.
 Older dated entries below preserve historical evidence and commands; their former

@@ -52,12 +52,14 @@ class DiagnosticsTests(unittest.TestCase):
 
     def test_fk_uses_cpu_even_if_torch_default_device_changes(self):
         cfg = GO2WCfg()
+        from robot_gym.utils.urdf_reader import URDFReader
+        measured_urdf = URDFReader(cfg.asset.robot_file).robot_file_path_absolute
         with torch.device("meta"):
             heights = nominal_support_heights(
-                URDF, cfg.init_state.default_joint_angles, cfg.asset.foot_link_names
+                measured_urdf, cfg.init_state.default_joint_angles, cfg.asset.foot_link_names
             )
         np.testing.assert_allclose(
-            heights, [0.431848824, 0.431848824, 0.433668286, 0.433668286], atol=1e-7
+            heights, [0.4277416561558192] * 4, atol=1e-7
         )
 
     def test_contact_total_is_invariant_to_point_splitting(self):

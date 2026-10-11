@@ -169,9 +169,10 @@ def loaded_properties(env):
 class ReferenceCapture(PhysicsDiagnostics):
     """Read-only bounded 200 Hz capture through the existing substep hook."""
 
-    def __init__(self, env):
+    def __init__(self, env, contact_details=False):
         super().__init__(env)
         self.rows = []
+        self.contact_details = contact_details
 
     def after_substep(self):
         super().after_substep()
@@ -199,6 +200,12 @@ class ReferenceCapture(PhysicsDiagnostics):
             "clearance": cylinder_clearance(pos, wheel_quat, *self.geometry),
             "nonwheel_normal_force": (force * (valid & robot_side & ~wheel_side)).sum(dim=1, keepdim=True),
         }
+        if self.contact_details:
+            # Existing public getter, world axes. Missing fields stay absent.
+            # Padded entries are meaningful only where contact_valid_mask is true.
+            for key in ("position", "normal", "force_a", "force_b", "link_a", "link_b", "valid_mask"):
+                if key in contacts:
+                    values["contact_" + key] = contacts[key]
         self.rows.append({k: v[0].detach().clone() for k, v in values.items()})
 
 
