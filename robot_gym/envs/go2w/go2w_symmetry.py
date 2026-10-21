@@ -72,15 +72,29 @@ def _env_maps(env, device):
 def mirror_observations(env, obs):
     """Reflect body inputs and signed geometry, never absolute world coordinates."""
     from .straight_motion import CRITIC_REFERENCE_FIELDS
-    if not isinstance(obs, TensorDictBase) or set(obs.keys()) not in ({"policy"}, {"policy", "critic"}):
+    allowed = {"policy", "critic", "estimator_history", "velocity_target"}
+    if not isinstance(obs, TensorDictBase) or not set(obs.keys()) <= allowed:
         raise ValueError(
             "Go2-W symmetry expects policy and optional relative-state critic groups"
         )
+    mirrored = obs.clone(recurse=False)
+    device = obs.device or next(iter(obs.values())).device
+    perm, sign, _, _ = _env_maps(env, device)
+    if "estimator_history" in obs:
+        # Same polar/axial, joint and phase reflection at EVERY history timestep.
+        feature_perm = torch.cat((perm[3:] - 3, perm.new_tensor([53, 54])))
+        feature_sign = torch.cat((sign[3:], sign.new_tensor([-1, -1])))
+        mirrored["estimator_history"] = obs["estimator_history"].index_select(-1, feature_perm) * feature_sign
+    if "velocity_target" in obs:
+        mirrored["velocity_target"] = obs["velocity_target"] * obs["velocity_target"].new_tensor([1, -1, 1])
+    if "policy" not in obs:
+        if set(obs.keys()) != {"estimator_history", "velocity_target"}:
+            raise ValueError("Symmetry requires policy or paired estimator history/target groups")
+        return mirrored
     policy = obs["policy"]
     if policy.ndim != 2 or policy.shape[-1] != env.num_obs:
         raise ValueError("Go2-W symmetry observation dimension differs from the environment")
     perm, sign, _, _ = _env_maps(env, policy.device)
-    mirrored = obs.clone(recurse=False)
     mirrored["policy"] = policy.index_select(-1, perm) * sign
     if env.num_obs == 58:
         mirrored["policy"] = torch.cat((mirrored["policy"], -policy[:, 56:58]), dim=-1)

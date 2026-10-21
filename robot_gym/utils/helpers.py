@@ -121,6 +121,8 @@ def update_cfg_from_args(env_cfg, cfg_train, args):
     if env_cfg is not None and env_cfg.asset.name != task_registry.env_cfgs[args.task].asset.name:
         raise ValueError(f"Configuration asset {env_cfg.asset.name!r} conflicts with task {args.task!r}")
     task_registry.get_task_class(args.task).configure(env_cfg, cfg_train, args)
+    from robot_gym.utils.velocity_estimator import configure
+    configure(env_cfg, args)
     # seed
     if env_cfg is not None:
         # num envs
@@ -151,6 +153,17 @@ def get_args():
     parser = argparse.ArgumentParser(description="RL Policy")
 
     custom_parameters = [
+        {"name": "--estimator_init", "action": "store_true", "help": "Initialize a new estimator from a full actor checkpoint; requires --resume"},
+        {"name": "--estimator_stage", "choices": ["warmup", "finetune"], "help": "Explicit stage; omitted restores the saved stage"},
+        {"name": "--velocity_source", "choices": ["truth", "estimated"], "help": "Replay input; estimator checkpoints default to estimated from startup"},
+        {"name": "--sensor_delay_steps", "type": int, "help": "Estimator-path sensor delay in policy ticks; unmeasured sensitivity setting"},
+        {"name": "--sensor_hold_steps", "type": int, "help": "Estimator-path coherent sensor acquisition interval"},
+        {"name": "--training_seconds", "type": float, "default": 1800, "help": "Estimator training wall-time budget including previous stages (seconds)"},
+        {"name": "--estimator_screen", "action": "store_true", "help": "Matched estimator screen through the shared evaluation entry point"},
+        {"name": "--comparison_checkpoint", "help": "Immutable full parent checkpoint for fine-tuned pair screening"},
+        {"name": "--onnx", "action": "store_true", "help": "Also export ONNX and validate recorded histories with ONNX Runtime"},
+        {"name": "--parity_histories", "help": "Screen NPZ containing recorded histories for ONNX parity"},
+        {"name": "--pygame", "action": "store_true", "help": "Optional shared keyboard command window for play"},
         {"name": "--no_export", "action": "store_true", "help": "Compatibility: keep replay export disabled (the default)"},
         {"name": "--training_diagnostics", "action": "store_true", "help": "Opt-in RSL-RL and unclipped reward JSONL diagnostics"},
         {"name": "--output", "default": "evaluation", "help": "Evaluation output directory"},
@@ -192,6 +205,12 @@ def get_args():
         parser.error("--episode_length_s must be finite and positive")
     if args.export and args.no_export:
         parser.error("--export and --no_export conflict")
+    if args.onnx and not args.export:
+        parser.error("--onnx requires --export")
+    if args.estimator_init and (not args.resume or args.estimator_stage == 'finetune'):
+        parser.error("--estimator_init requires --resume and the warmup stage")
+    if not np.isfinite(args.training_seconds) or args.training_seconds <= 0:
+        parser.error("--training_seconds must be finite and positive")
 
     args.sim_device = args.rl_device
 

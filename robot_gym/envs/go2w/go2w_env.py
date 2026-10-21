@@ -275,7 +275,39 @@ class Go2WEnv(Go2Env):
             'application': 'Fixed horizontal force per event at base-link COM; zero external torque',
             'impulse': 'Force norm times sampled physics ticks times physics dt; reset may truncate an event',
         }
+        metadata['command_envelope'] = {
+            'required': class_to_dict(self.cfg.commands.ranges),
+            'navigation_handoff_yaw_rad_s': [-1.25, 1.25],
+            'reserve_yaw_rad_s': sampling['reserve_ranges']['ang_vel_yaw'],
+            'status': 'Required yaw +/-1.0 differs from navigation +/-1.25. Reserve draws do not establish a tested envelope; see matched screen.'}
+        metadata['hardware_mapping'] = ('Policy order interleaves each wheel; the SDK example groups 12 legs then 4 wheels. '
+                                        'Deployment integration must verify motor permutation.')
+        metadata['action_semantics'] = ('Bounded dimensionless actions become P-leg position targets and V-wheel speed targets, '
+                                       'not final motor torques')
         return metadata
+
+    def velocity_estimator_spec(self):
+        """Wheel angles stay excluded; all wheel speeds and issued actions remain."""
+        legs, joints = len(self.leg_action_indices), self.num_actions
+        blocks = [("body_gyro", 3, "rad/s", self.obs_scales.ang_vel),
+                  ("projected_gravity", 3, "unit vector", 1.),
+                  ("command", 3, "m/s, m/s, rad/s", self.commands_scale.tolist()),
+                  ("leg_position_offset", legs, "rad", self.obs_scales.dof_pos),
+                  ("joint_velocity", joints, "rad/s", self.obs_scales.dof_vel),
+                  ("previous_issued_clipped_action", joints, "dimensionless", 1.),
+                  ("demand_phase", 2, "dimensionless", 1.)]
+        fields, start = [], 0
+        for name, count, units, scale in blocks:
+            fields.append(dict(name=name, start=start, stop=start+count, units=units, scale=scale))
+            start += count
+        if start + 3 != self.num_obs:
+            raise ValueError("Go2-W estimator requires the saved demand-phase actor contract")
+        live = [i for b in fields if b['name'] in ('command', 'previous_issued_clipped_action', 'demand_phase')
+                for i in range(b['start'], b['stop'])]
+        return dict(feature_indices=list(range(3, self.num_obs)), velocity_indices=[0, 1, 2],
+                    live_feature_indices=live, fields=fields, velocity_scale=float(self.obs_scales.lin_vel),
+                    target="body-frame linear velocity at authored base-link origin, m/s",
+                    policy_dt=self.dt, feature_joint_order=list(self.joint_names))
 
     def update_task_state(self):
         self.straight_reference.advance(self.base_pos, self.base_quat, self.dt)
@@ -630,7 +662,8 @@ class Go2WEnv(Go2Env):
         return demand(self.commands)
 
     def compute_observations(self):
-        # Keep this construction explicit so simulator velocity can later be replaced by an estimate.
+        # Truth remains available for supervision, critic and rewards. Substitution
+        # happens in the inference/PPO composition, never in base_lin_vel.
         self.obs_buf = torch.cat(
             (
                 self.base_lin_vel * self.obs_scales.lin_vel,
@@ -647,11 +680,15 @@ class Go2WEnv(Go2Env):
         from .phase import clock_observation
         clock = clock_observation(self.phase, self.commands, self.cfg.phase_observation_mode)
         self.obs_buf = torch.cat((self.obs_buf, clock), dim=-1)
-        if self.add_noise:
+        clean = self.obs_buf
+        measured = self.measured_observations(clean)
+        if measured is not None:
+            self.obs_buf = measured
+        elif self.add_noise:
             self.obs_buf += (
                 2 * torch.rand_like(self.obs_buf) - 1
             ) * self.noise_scale_vec
-        self.privileged_obs_buf = torch.cat((self.obs_buf, self.straight_reference.critic_features(
+        self.privileged_obs_buf = torch.cat((clean if measured is not None else self.obs_buf, self.straight_reference.critic_features(
             self.command_steps_left, self.command_resampling_enabled, self.dt)), dim=-1)
 
     def _get_noise_scale_vec(self, cfg):

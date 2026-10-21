@@ -20,6 +20,8 @@ It is inspired by the structure of Unitree RL pipelines but fully adapted to:
 - Integrated logging via **Weights & Biases**
 - Multiple environments (flat + uneven terrain)
 - Bounded TorchScript export with embedded observation normalization
+- Optional history MLP for base linear velocity, frozen-policy warmup, native PPO
+  fine-tuning, matched simulation screening and complete estimator+actor ONNX export
 
 ---
 ## Results 
@@ -167,6 +169,13 @@ logs/<experiment>/<run>/exported/model_<checkpoint>/policy_1.pt
 `--no_export` remains accepted for compatibility; export is disabled by default.
 
 ### Observations
+
+Go2-W can replace its three simulator-velocity actor inputs with a learned estimate.
+This is opt-in: existing saved runs, Dodo and Go2 retain their current behavior.
+The estimator uses five policy-rate frames of onboard measurements and controller
+state; critic/reward truth remains separate. See the [velocity estimator guide](docs/velocity_estimator.md)
+for exact parent/candidate identities, commands, measured pilot results and export
+interface. This is a simulation preparation path, not demonstrated sim2real.
 
 Typical observation vector:
 

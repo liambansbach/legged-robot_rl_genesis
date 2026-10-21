@@ -45,6 +45,20 @@ class BaseTask:
     def export_metadata(self):
         return {}
 
+    def velocity_estimator_spec(self):
+        """Opt-in tasks declare deployable slots, controller slots and target frame."""
+        raise ValueError("This task has not declared a velocity-estimator feature contract")
+
+    def measured_observations(self, clean):
+        """Separate clean simulator state from a coherent simulated onboard sample."""
+        history = getattr(self, "sensor_history", None)
+        if history is None:
+            return None
+        scale = self.noise_scale_vec if self.add_noise else torch.zeros_like(self.noise_scale_vec)
+        measured = history.observe(clean, scale, self.common_step_counter)
+        self.velocity_target = self.base_lin_vel.clone()
+        return measured
+
     def update_task_state(self):
         """Update derived task state after termination checks and before rewards."""
 
@@ -107,6 +121,9 @@ class BaseTask:
         obs = {"policy": self.obs_buf}
         if self.privileged_obs_buf is not None:
             obs["critic"] = self.privileged_obs_buf
+        if getattr(self, "sensor_history", None) is not None:
+            obs["estimator_history"] = self.sensor_history.history
+            obs["velocity_target"] = self.velocity_target
         return TensorDict(obs, batch_size=[self.num_envs], device=self.device)
 
     def get_privileged_observations(self):

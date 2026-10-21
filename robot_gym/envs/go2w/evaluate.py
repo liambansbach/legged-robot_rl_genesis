@@ -420,7 +420,8 @@ def evaluate(args):
     runner, train_cfg = task_registry.make_alg_runner(
         env, args=args, train_cfg=train_cfg, save_config=False
     )
-    policy = runner.get_inference_policy(device=env.device)
+    from robot_gym.utils.velocity_estimator import inference_policy
+    policy = inference_policy(runner, env, getattr(args, "velocity_source", None))
     out.mkdir(parents=True, exist_ok=True)
     if use_physics_diagnostics(args):
         env.physics_diagnostics = PhysicsDiagnostics(env)

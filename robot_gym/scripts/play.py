@@ -48,7 +48,8 @@ def play(args):
             env.enable_zero_command_brake()
         env.reset()
         runner, _ = task_registry.make_alg_runner(env, args=args, train_cfg=train_cfg, save_config=False)
-        policy = runner.get_inference_policy(device=env.device)
+        from robot_gym.utils.velocity_estimator import inference_policy
+        policy = inference_policy(runner, env, getattr(args, "velocity_source", None))
         env.compute_observations()
         obs = env.get_observations()
         print(f"Session: {args.steps} policy ticks ({args.steps * env.dt:g} s); "
@@ -56,12 +57,20 @@ def play(args):
         if should_export_policy(args):
             from robot_gym.utils.export import export_policy
             output = checkpoint.parent / "exported" / checkpoint.stem
-            export_policy(runner, env, output)
+            export_policy(runner, env, output, onnx=args.onnx, parity_histories=args.parity_histories)
             print(f"Exported policy: {output}", flush=True)
         with torch.no_grad():
+            controller = None
+            if args.pygame:
+                from robot_gym.utils.keyboard_controller import KeyboardController
+                controller = KeyboardController()
             for _ in range(args.steps):
                 if not args.headless and not env.sim.viewer.is_alive():
                     break
+                if controller is not None:
+                    env.set_fixed_command(controller.command())
+                    env.compute_observations()
+                    obs = env.get_observations()
                 obs, _, _, _ = env.step(policy(obs).detach())
     except KeyboardInterrupt:
         print("Replay interrupted.", flush=True)
@@ -69,6 +78,8 @@ def play(args):
         if "Viewer closed" not in str(error):
             raise
     finally:
+        if 'controller' in locals() and controller is not None:
+            controller.close()
         from robot_gym.envs.base.base_task import BaseTask
         if BaseTask._gs_initialized:
             gs.destroy()
