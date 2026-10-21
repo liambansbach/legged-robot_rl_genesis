@@ -337,6 +337,16 @@ def use_physics_diagnostics(args):
     return True
 
 
+def validate_velocity_mode(cfg, args):
+    """Reject actor-slot interventions that have no defined history intervention."""
+    from robot_gym.utils.velocity_estimator import selected_velocity_source
+    source = selected_velocity_source(cfg, getattr(args, "velocity_source", None))
+    if source == "estimated" and args.eval_mode == "sensor_sustained":
+        raise ValueError("sensor_sustained phase counterfactuals require actor-only truth input; "
+                         "use transfer_screen or --estimator_screen for estimated inference")
+    return source
+
+
 def evaluate(args):
     if args.eval_mode == "source_yaw":
         from .source_yaw import evaluate_source_yaw
@@ -365,6 +375,7 @@ def evaluate(args):
     if noise_pushes and args.eval_mode != "precision_dr":
         raise ValueError("Saved noise/push stress settings require precision_dr")
     cfg, train_cfg, checkpoint = task_registry.resolve_replay(args)
+    velocity_source = validate_velocity_mode(cfg, args)
     out = Path(args.output)
     if out.exists() and any(out.iterdir()):
         raise ValueError(f"Refusing to overwrite evaluation evidence: {out}")
@@ -423,7 +434,8 @@ def evaluate(args):
     runner, train_cfg = task_registry.make_alg_runner(
         env, args=args, train_cfg=train_cfg, save_config=False
     )
-    policy = runner.get_inference_policy(device=env.device)
+    from robot_gym.utils.velocity_estimator import inference_policy
+    policy = inference_policy(runner, env, getattr(args, "velocity_source", None))
     out.mkdir(parents=True, exist_ok=True)
     if use_physics_diagnostics(args):
         env.physics_diagnostics = PhysicsDiagnostics(env)
@@ -441,6 +453,7 @@ def evaluate(args):
             class_to_dict(train_cfg),
             {
                 "cli": vars(args),
+                "velocity_source": velocity_source,
                 "config_changes": config_differences(original_cfg, class_to_dict(cfg)),
             },
             reference,
@@ -460,6 +473,7 @@ def evaluate(args):
                                           high_rate_cases=trace_cases,
                                           rolling_phase_zero=rolling_phase_zero, phase_transition=phase_transition))
         shutdown = perf_counter()
+        report["velocity_source"] = velocity_source
         gs.destroy()
         report["wall_clock_s"].update(startup=startup, shutdown=perf_counter() - shutdown,
                                       total=perf_counter() - PROCESS_STARTED)
@@ -484,6 +498,7 @@ def evaluate(args):
         gs.destroy()
         return
     report = {
+        "velocity_source": velocity_source,
         "dt": env.dt,
         "seed": args.seed if args.seed is not None else train_cfg.seed,
         "checkpoint": str(runner.checkpoint_path),

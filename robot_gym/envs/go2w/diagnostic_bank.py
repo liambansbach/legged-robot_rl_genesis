@@ -613,7 +613,8 @@ def evaluate_bank(env, runner, args, out):
     write_json(out / "manifest.json", metadata)
     write_json(out / "condition_properties.json", loaded_properties(env))
     verify_selective_reset(env, out)
-    policy = runner.get_inference_policy(device=env.device)
+    from robot_gym.utils.velocity_estimator import inference_policy
+    policy = inference_policy(runner, env, getattr(args, "velocity_source", None))
     hold = max(
         300, args.steps
     )  # >=6 s per phase, regardless of short nominal smoke steps.
@@ -636,6 +637,7 @@ def evaluate_bank(env, runner, args, out):
     report = {
         "dt": env.dt,
         "conditions": conditions,
+        "velocity_source": env.velocity_source,
         "tests": {},
         "tracking_axes": ["body_vx", "body_vy", "body_yaw_rate"],
         "nominal_joint_pose_required_base_height_per_wheel_m": nominal_support_heights(
@@ -1057,7 +1059,8 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
     import xml.etree.ElementTree as ET
 
     tree = ET.parse(env.urdf_reader.robot_file_path_absolute).getroot()
-    metadata = {"joint_order": env.joint_names, "wheel_order": env.cfg.asset.foot_link_names,
+    metadata = {"velocity_source": getattr(env, "velocity_source", "truth"),
+                "joint_order": env.joint_names, "wheel_order": env.cfg.asset.foot_link_names,
                 "leg_indices": env.leg_action_indices, "wheel_indices": env.wheel_action_indices,
                 "wheel_joint_axes": [[float(x) for x in tree.find(f"joint[@name='{env.joint_names[i]}']/axis").get("xyz").split()]
                                      for i in env.wheel_action_indices],

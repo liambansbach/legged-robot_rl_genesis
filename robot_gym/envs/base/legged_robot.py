@@ -44,6 +44,13 @@ class LeggedRobot(BaseTask):
 
         self._init_buffers()
 
+        from robot_gym.utils.velocity_estimator import enabled, SensorHistory
+        self.sensor_history = None
+        if enabled(self.cfg):
+            self.sensor_history = SensorHistory(self.num_envs, self.velocity_estimator_spec(),
+                                                self.cfg.velocity_estimator, self.device)
+            self.velocity_target = self.base_lin_vel.clone()
+
         self._prepare_reward_function()
         self.init_done = True
 
@@ -172,6 +179,9 @@ class LeggedRobot(BaseTask):
 
         if len(env_ids) == 0:
             return
+
+        if getattr(self, "sensor_history", None) is not None:
+            self.sensor_history.reset(env_ids)
         
         # Reset physics
         if self.cfg.commands.curriculum and self.common_step_counter >= self.next_curriculum_step:
@@ -258,8 +268,10 @@ class LeggedRobot(BaseTask):
                                     self.dof_vel * self.obs_scales.dof_vel,
                                     self.actions
                                     ),dim=-1)
-        # add noise if needed
-        if self.add_noise:
+        measured = self.measured_observations(self.obs_buf)
+        if measured is not None:
+            self.obs_buf = measured
+        elif self.add_noise:
             self.obs_buf += (2 * torch.rand_like(self.obs_buf) - 1) * self.noise_scale_vec
 
         # print velocities every 50 steps for debugging during play mode

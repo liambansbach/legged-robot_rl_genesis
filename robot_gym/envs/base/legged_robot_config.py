@@ -1,6 +1,7 @@
 from .base_config import BaseConfig
 
 class LeggedRobotCfg(BaseConfig):
+    velocity_estimator = None  # Missing saved fields also mean disabled.
     class env:
         record_command_families = False
         capture_transitions = False  # opt-in deterministic evaluation traces

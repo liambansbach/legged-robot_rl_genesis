@@ -69,7 +69,8 @@ def play(args):
             env.enable_zero_command_brake()
         env.reset()
         runner, _ = task_registry.make_alg_runner(env, args=args, train_cfg=train_cfg, save_config=False)
-        policy = runner.get_inference_policy(device=env.device)
+        from robot_gym.utils.velocity_estimator import inference_policy
+        policy = inference_policy(runner, env, getattr(args, "velocity_source", None))
         env.compute_observations()
         obs = env.get_observations()
         session = "until Esc or window closure" if steps is None else f"{steps} policy ticks ({steps * env.dt:g} s)"
@@ -77,8 +78,9 @@ def play(args):
               f"episode timeout: {env.max_episode_length * env.dt:g} s. Falls still reset.", flush=True)
         if should_export_policy(args):
             from robot_gym.utils.export import export_policy
-            output = checkpoint.parent / "exported" / checkpoint.stem
-            export_policy(runner, env, output)
+            from pathlib import Path
+            output = Path(args.export_dir) if args.export_dir else checkpoint.parent / "exported" / checkpoint.stem
+            export_policy(runner, env, output, onnx=args.onnx, parity_histories=args.parity_histories)
             print(f"Exported policy: {output}", flush=True)
         with torch.no_grad():
             tick = 0

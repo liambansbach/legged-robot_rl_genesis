@@ -91,6 +91,7 @@ def _own_fields(config):
 
 
 class GO2WCfg(BaseConfig):
+    velocity_estimator = None
     def __init__(self):
         super().__init__()
         _own_fields(self)
@@ -517,6 +518,7 @@ def restore_saved_config(saved):
 
     data = copy.deepcopy(saved)
     env = data["env_cfg"]
+    env.setdefault("velocity_estimator", None)
     validate_schema(env)
     if env['config_version'] == 2:
         # Resolve the implicit historical formula, without changing its coefficients.

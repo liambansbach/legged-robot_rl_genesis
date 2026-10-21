@@ -51,6 +51,15 @@ class ReplayTests(unittest.TestCase):
                 self.assertFalse(restored.noise.add_noise)
                 args.load_run, args.run_name = None, str(path)
                 self.assertEqual(task_registry.resolve_replay(args)[2], checkpoint)
+                # The shipped early checkpoints identify their omitted distribution
+                # name through native Gaussian state; saved numeric settings win.
+                saved['train_cfg']['actor']['distribution_cfg'] = dict(init_std=.23, std_type='scalar')
+                (path / 'config.yaml').write_text(yaml.safe_dump(task_registry._make_yaml_safe(saved)))
+                torch.save({'actor_state_dict': {'distribution.std_param': torch.full((cfg.env.num_actions,), .23)}}, checkpoint)
+                legacy, legacy_training, _ = task_registry.resolve_replay(args)
+                self.assertIsNone(legacy.velocity_estimator)
+                self.assertEqual(legacy_training.actor.distribution_cfg,
+                                 dict(class_name='GaussianDistribution', init_std=.23, std_type='scalar'))
 
 
     def test_export_default_and_explicit_selection(self):

@@ -183,6 +183,8 @@ def metrics(data, yaw, contract, failure):
 
 def evaluate_source_yaw(args):
     started = perf_counter()
+    if getattr(args, "velocity_source", None) == "estimated":
+        raise ValueError("source_yaw is the frozen truth-input reference; use --estimator_screen for the composed pair")
     if args.task != "go2w" or args.num_envs not in (None, 1) or args.seed not in (None, 1):
         raise ValueError("Frozen source yaw comparison requires Go2-W, one robot, seed1")
     if any((args.export, args.resume, args.manual_control, args.eval_noise_pushes,

@@ -115,6 +115,15 @@ class TaskRegistry:
             env_cfg, train_cfg = defaults, training_defaults
             update_class_from_dict(env_cfg, saved["env_cfg"])
             update_class_from_dict(train_cfg, saved["train_cfg"])
+            # Early Dodo/Go2 saves lost this name when RSL-RL consumed the dict.
+            # Restore only the identifiable native Gaussian; keep all saved values.
+            distribution = train_cfg.actor.distribution_cfg
+            if (isinstance(distribution, dict) and set(distribution) == {"init_std", "std_type"}
+                    and distribution["std_type"] == "scalar"):
+                state = torch.load(checkpoint, map_location="cpu", weights_only=False)["actor_state_dict"]
+                if [key for key in state if key.startswith("distribution.")] == ["distribution.std_param"]:
+                    distribution["class_name"] = "GaussianDistribution"
+                    print("Restored legacy GaussianDistribution name from saved std_param; other settings unchanged.", flush=True)
         args._replay_restored = True
         args.resolved_checkpoint = str(checkpoint)
         update_cfg_from_args(env_cfg, train_cfg, args)
@@ -294,6 +303,17 @@ class TaskRegistry:
         train_cfg_dict.setdefault("torch_compile_mode", None)
         train_cfg_dict["run_name"] = effective_run_name
 
+        from robot_gym.utils.velocity_estimator import enabled
+        if enabled(env.cfg):
+            groups = train_cfg_dict["obs_groups"]
+            if groups.get("actor") != ["policy"] or groups.get("critic") != ["critic"]:
+                raise ValueError("Estimator tasks need explicit policy actor and separate truth critic groups")
+            train_cfg_dict["algorithm"].update(
+                class_name="robot_gym.utils.estimator_ppo:EstimatorPPO",
+                estimator_config=copy.deepcopy(env.cfg.velocity_estimator),
+                estimator_spec=env.velocity_estimator_spec(),
+                observation_limit=env.cfg.normalization.clip_observations)
+
         if str(train_cfg_dict.get("logger", "")).lower() == "wandb":
             train_cfg_dict["logger"] = {"class_name": "WandbLogWriter", "project_name": train_cfg.runner.wandb_project}
 
@@ -324,6 +344,13 @@ class TaskRegistry:
         runner.add_git_repo_to_log(__file__)
 
         runner.checkpoint_path = resume_path
+        if enabled(env.cfg):
+            runner.alg.allow_estimator_init = getattr(args, "estimator_init", False)
+            runner.alg.requested_stage = getattr(args, "estimator_stage", None)
+            if not save_config and runner.alg.allow_estimator_init:
+                raise ValueError("--estimator_init is training-only; replay requires trained estimator weights")
+            if save_config and (resume_path is None or not args.resume):
+                raise ValueError("Estimator training requires a full parent checkpoint with --resume")
         env.setup_runner(runner)
         if resume_path is not None: 
             print(f"Loading model from: {resume_path}")
@@ -334,6 +361,11 @@ class TaskRegistry:
 
         if save_config:
             env.finalize_runner_loading(runner, train_cfg, args)
+            if enabled(env.cfg):
+                runner.alg.start_stage()
+                if runner.alg.stage == "finetune":
+                    train_cfg.algorithm.learning_rate = runner.alg.learning_rate
+                    train_cfg.algorithm.schedule = "fixed"
 
         if save_config and args.training_diagnostics:
             env.install_training_diagnostics(runner, log_dir)

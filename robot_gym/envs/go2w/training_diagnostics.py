@@ -95,12 +95,17 @@ class TrainingDiagnostics:
     def __init__(self, runner, env, path):
         self.runner, self.env, self.path = runner, env, Path(path)
         alg = runner.alg
-        source = inspect.getsource(type(alg).update)
+        # Optional local algorithms delegate policy optimization to native PPO.
+        from rsl_rl.algorithms import PPO
+        from robot_gym.utils.estimator_ppo import EstimatorPPO
+        source = inspect.getsource(PPO.update)
+        if getattr(alg, 'stage', None) == 'warmup':
+            raise ValueError("Warmup has no PPO diagnostics; estimator errors are logged by the native runner")
         required = (
             "get_kl_divergence(batch.old_distribution_params, distribution_params)",
             "actions_log_prob - torch.squeeze(batch.old_actions_log_prob)",
         )
-        if type(alg).__name__ != "PPO" or any(s not in source for s in required):
+        if type(alg) not in (PPO, EstimatorPPO) or any(s not in source for s in required):
             raise ValueError(
                 "Unsupported installed PPO path for diagnostics; inspect its batch/KL interfaces"
             )
