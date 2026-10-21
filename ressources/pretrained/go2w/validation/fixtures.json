@@ -1,0 +1,50 @@
+{
+  "checkpoint_sha256": "c35c5b3861a0f7d0de1975a96e80dc6d45831ecad225b5a82d8031e63e95d9bf",
+  "actor_tensor_sha256": "fdf0b45cc7104e69efd3b028734b1acc8745d1183d78230794a1f9128a54bfd3",
+  "estimator_tensor_sha256": "58d8c942a33b47bddb545ed254906ca44fb845696783aefa273ae9af514199c0",
+  "parity_samples": {
+    "sources": [
+      {
+        "file_name": "nominal_frozen_estimated.npz",
+        "source_sha256": "e354fe718e7c8d562e09fd0b9e873b58d0527cd46a43679afc22727b135231e7",
+        "checkpoint_sha256": "c35c5b3861a0f7d0de1975a96e80dc6d45831ecad225b5a82d8031e63e95d9bf",
+        "actor_tensor_sha256": "fdf0b45cc7104e69efd3b028734b1acc8745d1183d78230794a1f9128a54bfd3",
+        "estimator_tensor_sha256": "58d8c942a33b47bddb545ed254906ca44fb845696783aefa273ae9af514199c0",
+        "velocity_source": "estimated"
+      },
+      {
+        "file_name": "sensor_stress_frozen_estimated.npz",
+        "source_sha256": "af5875f04d1ef94e52afc447fc2626062317fc8a6627462da726d026b39e9e43",
+        "checkpoint_sha256": "c35c5b3861a0f7d0de1975a96e80dc6d45831ecad225b5a82d8031e63e95d9bf",
+        "actor_tensor_sha256": "fdf0b45cc7104e69efd3b028734b1acc8745d1183d78230794a1f9128a54bfd3",
+        "estimator_tensor_sha256": "58d8c942a33b47bddb545ed254906ca44fb845696783aefa273ae9af514199c0",
+        "velocity_source": "estimated"
+      }
+    ],
+    "extraction": "First300 contiguous policy ticks, all12 cases, nominal then stress along batch dimension. 300x24 frames flattened time-major; 7200 histories. Includes all command signs and first stop, not the late push.",
+    "source_subset_sha256": "bb78c21ff92e072ce3c55446253296ca0b07877adc374271ac0cf87d4877d7a0",
+    "expected_outputs": "CPU eager selected model; cross-checked against original GPU trial actions/estimates, TorchScript and ORT.",
+    "tolerance": {
+      "atol": 2e-05,
+      "rtol": 2e-05
+    },
+    "history_tolerance": {
+      "atol": 1e-06,
+      "rtol": 0
+    }
+  },
+  "lifecycle_samples": {
+    "source": "New nominal native smoke from this selected checkpoint and copied measured URDF",
+    "environments": 2,
+    "ticks": 150,
+    "commands": "zero untiltick25, then(.2,0,.3) untiltick100, thenzero; refresh every5ticks",
+    "reset": "Row0 reset_idx at tick75; no extra physics step; row1 history unchanged; measured first frame reacquired; first explicit-reset phase .025, same-tick row0 reset phase0"
+  },
+  "reference_samples": {
+    "source_sha256": "66d99e73e3345b468e7ef368cc6f71ae18f4fd36dfbcdfba194f488eddf09950",
+    "extraction": "Every40th record from the original5360-record reference fixture;134 samples; expected outputs preserved.",
+    "native_cpu_atol": 2e-06,
+    "gpu_recorded_atol": 5e-05,
+    "rtol": 0
+  }
+}

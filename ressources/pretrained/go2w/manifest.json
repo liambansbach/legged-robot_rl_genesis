@@ -1,0 +1,289 @@
+{
+  "schema_version": 1,
+  "interface_version": 3,
+  "status": "Development baseline for diagnostic Sim2Sim; stopping limitations unresolved; not hardware-qualified",
+  "default_policy": "policy.onnx",
+  "equivalent_torchscript": "estimated_policy.pt",
+  "contract": "contract.json",
+  "hash_algorithm": "SHA256 raw file bytes; no newline normalization",
+  "manifest_scope": "All payloads except this self-describing manifest; final publication commit is provided by Git.",
+  "selected": {
+    "checkpoint": "checkpoint/model_2197.pt",
+    "checkpoint_sha256": "c35c5b3861a0f7d0de1975a96e80dc6d45831ecad225b5a82d8031e63e95d9bf",
+    "saved_config": "checkpoint/config.yaml",
+    "actor_tensor_sha256": "fdf0b45cc7104e69efd3b028734b1acc8745d1183d78230794a1f9128a54bfd3",
+    "estimator_tensor_sha256": "58d8c942a33b47bddb545ed254906ca44fb845696783aefa273ae9af514199c0",
+    "stage_counters": {
+      "warmup_collections": 199,
+      "finetune_updates": 0,
+      "supervised_steps": 3184
+    }
+  },
+  "reference": {
+    "actor": "reference/policy.pt",
+    "checkpoint": "reference/model_1999.pt",
+    "saved_config": "reference/config.yaml",
+    "role": "Same original actor with privileged truth velocity; diagnostic only",
+    "native_parent_state_bitwise_equal": true
+  },
+  "robot": {
+    "urdf": "robot/urdf/go2w_measured_ed8dc93.urdf",
+    "source_path": "ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf",
+    "sha256": "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c",
+    "dependency_closure": [
+      "robot/dae/base.dae",
+      "robot/dae/calf.stl",
+      "robot/dae/calf_mirror.stl",
+      "robot/dae/hip.dae",
+      "robot/dae/left_wheel.dae",
+      "robot/dae/right_wheel.dae",
+      "robot/dae/rs_base.stl",
+      "robot/dae/rs_D456_Solid.STL",
+      "robot/dae/rs_flange.stl",
+      "robot/dae/rs_flange_mirror.stl",
+      "robot/dae/rs_mount.stl",
+      "robot/dae/thigh.dae",
+      "robot/dae/thigh_mirror.dae",
+      "robot/urdf/go2w_measured_ed8dc93.urdf"
+    ]
+  },
+  "source": {
+    "repository": "https://github.com/liambansbach/legged-robot_rl_genesis",
+    "export_base_commit": "7d1f87c87fe1b190b4278fe870c69d6c652a3ce5",
+    "export_had_local_changes": true,
+    "export_python_tree_sha256": "b759823c1c55e21679ac1cdcb5694d91f61eaadf674ef9833694194c20ed3dc0",
+    "tensor_hash_definition": "Sorted state_dict keys: UTF8 name followed by contiguous CPU tensor numpy bytes; SHA256. Includes saved normalization buffers.",
+    "configs": "Original saved configs remain byte-exact provenance, including historical source paths. Explicit native --load_run overrides selection; inference never reads configs."
+  },
+  "framework_versions": {
+    "torch": "2.9.0+cu130",
+    "genesis-world": "1.4.1",
+    "rsl-rl-lib": "5.5.1",
+    "python": "3.11.14",
+    "numpy": "2.2.6"
+  },
+  "onnx_opset": 17,
+  "onnx_runtime_validation": "1.31.0",
+  "external_input": {
+    "name": "history",
+    "shape": [
+      "batch",
+      5,
+      55
+    ],
+    "dtype": "float32"
+  },
+  "outputs": [
+    {
+      "name": "clipped_actions",
+      "shape": [
+        "batch",
+        16
+      ],
+      "dtype": "float32",
+      "bounds": [
+        -1.0,
+        1.0
+      ],
+      "units": "dimensionless"
+    },
+    {
+      "name": "velocity_m_s",
+      "shape": [
+        "batch",
+        3
+      ],
+      "dtype": "float32",
+      "units": "m/s",
+      "components": [
+        "vx",
+        "vy",
+        "vz"
+      ],
+      "reference": "authored base_link origin in body axes"
+    }
+  ],
+  "no_training": true,
+  "files": {
+    "check_policy.py": {
+      "bytes": 6324,
+      "sha256": "d2718ce6d518de31b25123fa47785654babd3f800561a0de951761e31403c2fe",
+      "role": "Standalone package checker"
+    },
+    "checkpoint/config.yaml": {
+      "bytes": 15664,
+      "sha256": "9759e979d6ce981a85b1098f52206fc8878f90250684713d55fc92ce3401c389",
+      "role": "Selected complete frozen training state or immutable saved configuration"
+    },
+    "checkpoint/model_2197.pt": {
+      "bytes": 5598847,
+      "sha256": "c35c5b3861a0f7d0de1975a96e80dc6d45831ecad225b5a82d8031e63e95d9bf",
+      "role": "Selected complete frozen training state or immutable saved configuration"
+    },
+    "contract.json": {
+      "bytes": 21790,
+      "sha256": "59ac5a13547a14fdd331a2073eb0965320e442a652a055861da1c6bd300f0f87",
+      "role": "Versioned inference and actuation semantics"
+    },
+    "deployment_history.py": {
+      "bytes": 5394,
+      "sha256": "666db464fdf9f48eddb588e3c13f88bb1854a207c951b288689e91a55a01e5f2",
+      "role": "Portable NumPy history and phase helper copied from shared exporter"
+    },
+    "estimated_policy.pt": {
+      "bytes": 1089874,
+      "sha256": "88915aa70bda7e57585679f5cb2d5434deca69581d4d057be78d7f9234f96c98",
+      "role": "TorchScript of the same default composition"
+    },
+    "parity_samples.npz": {
+      "bytes": 1551213,
+      "sha256": "334e68370037cc56efb0c399ea3553dbc394a72076f3ffa0c7ea5b20a9ef9ab3",
+      "role": "Recorded frozen history subset with saved eager outputs"
+    },
+    "policy.onnx": {
+      "bytes": 1067542,
+      "sha256": "5117e7a57c39426a1da6d6ceedb2c242d6642e6598ca80663b669e1619fc9c60",
+      "role": "Default composed frozen estimator and actor"
+    },
+    "README.md": {
+      "bytes": 15050,
+      "sha256": "c87831f731b661e27711fb80bd7df85228e19a42f78a7c084917e6b4d5150d03",
+      "role": "Receiving-project handoff"
+    },
+    "reference/config.yaml": {
+      "bytes": 16024,
+      "sha256": "ba66e6cb6b156d6dfd1e08a0e9802314ceac3443934463ceb4331f89d885b72a",
+      "role": "Privileged original parent reference only"
+    },
+    "reference/contract.json": {
+      "bytes": 17010,
+      "sha256": "b8592d7a800a59fd9815b2e521731c6d06ab9de10a3e06e60a89d4c68390b8d2",
+      "role": "Privileged original parent reference only"
+    },
+    "reference/model_1999.pt": {
+      "bytes": 4761013,
+      "sha256": "2f8f3a96ad7fdf83c2966b44d10fc76ac274d9d81130a470af881f81a5980bf6",
+      "role": "Privileged original parent reference only"
+    },
+    "reference/parity_samples.npz": {
+      "bytes": 44125,
+      "sha256": "48ff9318da52f0fe2d2ddc3932e6d991f687a02ed21e2ccf258828ee3cad5115",
+      "role": "Privileged original parent reference only"
+    },
+    "reference/policy.pt": {
+      "bytes": 804134,
+      "sha256": "639a443f3da3d9fa15d9e532b85959df55c7bd5618564797740adb66b1d2bfcb",
+      "role": "Privileged original parent reference only"
+    },
+    "robot/dae/base.dae": {
+      "bytes": 10727615,
+      "sha256": "f777940215d5072dfb047726282455dff00c58655675148c21c79b3e606bfd7a",
+      "role": "Portable measured robot dependency"
+    },
+    "robot/dae/calf.stl": {
+      "bytes": 2247484,
+      "sha256": "2aee434b80da010deebb11c8538d593f7901a169cc34916350902746e591437e",
+      "role": "Portable measured robot dependency"
+    },
+    "robot/dae/calf_mirror.stl": {
+      "bytes": 1652384,
+      "sha256": "528b471bfc60b6e72dbb162b34eefebced994bea82aaf58eda91f090219cd911",
+      "role": "Portable measured robot dependency"
+    },
+    "robot/dae/hip.dae": {
+      "bytes": 4666550,
+      "sha256": "1f1a020683056677d73682c6783907bb13c8a9c14b2736c7cce2a630523e0597",
+      "role": "Portable measured robot dependency"
+    },
+    "robot/dae/left_wheel.dae": {
+      "bytes": 1395054,
+      "sha256": "92223a7a73d65173a87ab8a548fe0d881c8e6068ce5276311313a5bbbdb5c0c2",
+      "role": "Portable measured robot dependency"
+    },
+    "robot/dae/right_wheel.dae": {
+      "bytes": 1410634,
+      "sha256": "5e93c77d1450a15be7c707805341457047c405f0f6e3c2e300a79ea127521471",
+      "role": "Portable measured robot dependency"
+    },
+    "robot/dae/rs_base.stl": {
+      "bytes": 51484,
+      "sha256": "7c0bdfd04cd638ab3ca3884b6c3a26b7659e9f2456fee49fc957c90376257dba",
+      "role": "Portable measured robot dependency"
+    },
+    "robot/dae/rs_D456_Solid.STL": {
+      "bytes": 1225784,
+      "sha256": "19f4ce23ade9cf22957a86d0cc5f8532753a7ee278a57a183d5192b514005449",
+      "role": "Portable measured robot dependency"
+    },
+    "robot/dae/rs_flange.stl": {
+      "bytes": 72884,
+      "sha256": "b3514b5447dbec8d3734df150349d4398d21549edc6b96f1534699a104762491",
+      "role": "Portable measured robot dependency"
+    },
+    "robot/dae/rs_flange_mirror.stl": {
+      "bytes": 72884,
+      "sha256": "f8a0c1ca086ac0768e787a86e273306505bb4201844affdcfe3801f74e93954d",
+      "role": "Portable measured robot dependency"
+    },
+    "robot/dae/rs_mount.stl": {
+      "bytes": 31484,
+      "sha256": "8045ffe330b055a20ca72141408b8012cc01e568b77f4dd08796c0bfdf0dc938",
+      "role": "Portable measured robot dependency"
+    },
+    "robot/dae/thigh.dae": {
+      "bytes": 3884265,
+      "sha256": "167a6c6545f792f9e7ea53abe7e66dae4d72b53e0ef532ae9903a1f7907b384f",
+      "role": "Portable measured robot dependency"
+    },
+    "robot/dae/thigh_mirror.dae": {
+      "bytes": 3896704,
+      "sha256": "ab1d3b0ef1184735e79bd53c011c4f668a731a23b532d37e07ef74e65201bce2",
+      "role": "Portable measured robot dependency"
+    },
+    "robot/urdf/go2w_measured_ed8dc93.urdf": {
+      "bytes": 40784,
+      "sha256": "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c",
+      "role": "Portable measured robot dependency"
+    },
+    "validation/comparison.json": {
+      "bytes": 184887,
+      "sha256": "69c9c25147d1ceaaa861ab26cffe889cfa37c1983d3bea8a5fb15d09e78d3dbc",
+      "role": "Declared simulation evidence, replay or parity fixture"
+    },
+    "validation/fixtures.json": {
+      "bytes": 2750,
+      "sha256": "aff754a1efc327a638a93c98e2286c9f6f355365d9f9e6be9a79f41a7f2a9d25",
+      "role": "Declared simulation evidence, replay or parity fixture"
+    },
+    "validation/lifecycle_samples.npz": {
+      "bytes": 63771,
+      "sha256": "45175fca94904bdd925697008f0b4f6a7d69cd0d69fb4a254118aebd22f144ad",
+      "role": "Declared simulation evidence, replay or parity fixture"
+    },
+    "validation/native_smoke.json": {
+      "bytes": 2477,
+      "sha256": "ab5cb9a717c61a974064dd99d890dd069aadd92ffcd6680d46fceb1b105a0168",
+      "role": "Declared simulation evidence, replay or parity fixture"
+    },
+    "validation/nominal_dynamics.json": {
+      "bytes": 50112,
+      "sha256": "7a1186efa70af9ff7eb2e00c46dc46062264dfba6f49e3f0d8bba552a62c2c4a",
+      "role": "Declared simulation evidence, replay or parity fixture"
+    },
+    "validation/parity.json": {
+      "bytes": 675,
+      "sha256": "f8ae21921f933557576e237ef5dbc55f69455301144a1b86b785ebcbf573e04f",
+      "role": "Declared simulation evidence, replay or parity fixture"
+    },
+    "validation/replay.json": {
+      "bytes": 15212,
+      "sha256": "49c8944d9ba75bc3596375b4e17cd1a4438e4d39dbf8b44ff028988c27487ae5",
+      "role": "Declared simulation evidence, replay or parity fixture"
+    },
+    "validation/source_yaw_summary.json": {
+      "bytes": 1756,
+      "sha256": "2f309b6ec00805b19f0274a994ddafca49025eb7249bff92a630914f84639955",
+      "role": "Declared simulation evidence, replay or parity fixture"
+    }
+  }
+}

@@ -71,6 +71,7 @@ def play(args):
         runner, _ = task_registry.make_alg_runner(env, args=args, train_cfg=train_cfg, save_config=False)
         from robot_gym.utils.velocity_estimator import inference_policy
         policy = inference_policy(runner, env, getattr(args, "velocity_source", None))
+        print(f"Replay velocity source: {env.velocity_source}. Viewer velocity arrows show simulator truth.", flush=True)
         env.compute_observations()
         obs = env.get_observations()
         session = "until Esc or window closure" if steps is None else f"{steps} policy ticks ({steps * env.dt:g} s)"

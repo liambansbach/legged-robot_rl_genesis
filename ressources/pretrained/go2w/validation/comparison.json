@@ -1,0 +1,4769 @@
+{
+  "status": "Development baseline for diagnostic Sim2Sim; stopping limitations unresolved; not hardware-qualified",
+  "extraction": "Frozen and truth rows only, copied from the existing three-way screen. No new closed-loop panel. Original files unchanged.",
+  "source_metrics_sha256": "792ed6d63f2e985dc4dc956f4b062c4912eb3cf578d9b2bd97b1f4a2062a06a7",
+  "source_summary_sha256": "216decddb267e8b76c64977e55d67008afec3d957fb884578538d18c87213dcf",
+  "source_outer_checkpoint_sha256": "8c06103a914084bd99870e63f5496a2d9ab768e11d57fc6f56b5920f5403c639",
+  "provenance_warning": "The original top-level checkpoint is the fine-tuned candidate. Frozen rows are bound individually by checkpoint and tensor hashes; only *_frozen comparisons apply here.",
+  "criteria": {
+    "tracking_rmse_ratio": 1.15,
+    "tracking_rmse_allowance": [
+      0.03,
+      0.03,
+      0.08
+    ],
+    "stop_path_ratio": 1.25,
+    "stop_path_allowance_m": 0.03,
+    "drift_allowance_m_s": 0.02,
+    "tilt_allowance_rad": 0.05,
+    "height_drop_allowance_m": 0.02,
+    "saturation_allowance": 0.05,
+    "additional_falls": 0,
+    "additional_abnormal_contact_ticks": 0
+  },
+  "criteria_status": "proposed simulation screening tolerances",
+  "definitions": {
+    "stop_definitions": "component RMS = sqrt(mean(v_xy**2)); planar-speed RMS = sqrt(mean(vx**2+vy**2)); final windows are last 1 s",
+    "settling": "planar <=.02 m/s and abs(body yaw rate)<=.03 rad/s continuously to window end for >=.25 s; diagnostic only",
+    "noise_assumptions": "Synthetic uniform sensor noise, not measured IMU statistics. No extra sensor bias. Nominal physics in both conditions."
+  },
+  "results": {
+    "nominal_truth": {
+      "identity": {
+        "file_name": "nominal_truth.npz",
+        "source_sha256": "1fc1733429356e2a0cab7eebe9d95c9ac4efafd405a517a84382578a1ed8e589",
+        "checkpoint_sha256": "2f8f3a96ad7fdf83c2966b44d10fc76ac274d9d81130a470af881f81a5980bf6",
+        "actor_tensor_sha256": "fdf0b45cc7104e69efd3b028734b1acc8745d1183d78230794a1f9128a54bfd3",
+        "estimator_tensor_sha256": null,
+        "velocity_source": "truth"
+      },
+      "aggregate": {
+        "tracking_rmse": [
+          0.023801574483513832,
+          0.008575222454965115,
+          0.024006251245737076
+        ],
+        "max_ordinary_stop_path_m": 0.11860103905200958,
+        "max_ordinary_heading_change_rad": 0.051088735461235046,
+        "max_ordinary_planar_rms_m_s": 0.00498881284147501,
+        "max_ordinary_yaw_rms_rad_s": 0.0013396362774074078,
+        "max_final_or_recovery_path_m": 0.047112837433815,
+        "max_final_or_recovery_heading_rad": 0.051985979080200195,
+        "max_final_or_recovery_planar_rms_m_s": 0.0017214317340403795,
+        "max_final_or_recovery_yaw_rms_rad_s": 0.0007109987200237811,
+        "unsettled_ordinary": 0,
+        "unsettled_final_or_recovery": 0,
+        "max_final_wheel_rms_rad_s": 0.025308821350336075,
+        "zero_wheel_rms_rad_s": 0.1647394390255653,
+        "leg_slew_rms_rad_s": 0.7500481149957291,
+        "wheel_slew_rms_rad_s2": 17.40522702908334,
+        "saturation": 0.002820512820512821,
+        "max_tilt": 0.07889712601900101,
+        "roll_pitch_rms": [
+          0.008775077363112761,
+          0.011271159646732065
+        ],
+        "vertical_rms": 0.03599128491681808,
+        "falls": 0,
+        "contacts": 0,
+        "valid_samples": 15600
+      },
+      "per_case": {
+        "stand": {
+          "tracking_rmse": [
+            0.0013459983747452497,
+            0.00011533284850884229,
+            0.0007483558729290962
+          ],
+          "stop_path_m": [
+            0.004162169061601162,
+            0.003392179496586323
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0003680457884911448,
+            0.00022205118148121983
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.0005204954068176448,
+            0.0003140277985949069
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.004162169061601162,
+              "heading_change_rad": 0.0043481942266225815,
+              "final_yaw_rate_rms_rad_s": 0.0005705895600840449,
+              "final_component_drift_rms_m_s": 0.0003680457884911448,
+              "final_planar_speed_rms_m_s": 0.0005204954068176448,
+              "residual_planar_speed_m_s": 0.0005203660693950951,
+              "settled_after_s": 0.02,
+              "final_wheel_speed_rms_rad_s": 0.019765565171837807,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.003392179496586323,
+              "heading_change_rad": 0.00445174053311348,
+              "final_yaw_rate_rms_rad_s": 0.0004901823704130948,
+              "final_component_drift_rms_m_s": 0.00022205118148121983,
+              "final_planar_speed_rms_m_s": 0.0003140277985949069,
+              "residual_planar_speed_m_s": 0.0003140260523650795,
+              "settled_after_s": 0.02,
+              "final_wheel_speed_rms_rad_s": 0.015023462474346161,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.0013459983747452497,
+            0.00011533284850884229,
+            0.0007483558729290962
+          ],
+          "max_tilt_rad": 0.014021086506545544,
+          "min_height_m": 0.41562050580978394,
+          "saturation_fraction": 0.0,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.031058289110660553,
+          "action_rate_rms_per_s": 0.09641573578119278,
+          "leg_target_slew_rms_rad_s": 0.04131115600466728,
+          "wheel_target_slew_rms_rad_s2": 0.46366190910339355,
+          "roll_pitch_rms_rad": [
+            0.0003095885331276804,
+            0.007765909656882286
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.00011981026909779757,
+            0.007136514410376549
+          ],
+          "vertical_velocity_rms_m_s": 0.006103948224335909,
+          "velocity_source": "truth"
+        },
+        "forward": {
+          "tracking_rmse": [
+            0.07512978464365005,
+            0.00019958555640187114,
+            0.0010883541544899344
+          ],
+          "stop_path_m": [
+            0.11860103905200958,
+            0.03672918677330017
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0005690142861567438,
+            9.693641914054751e-05
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.0008047076989896595,
+            0.00013708879123441875
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.11860103905200958,
+              "heading_change_rad": 0.006411945912986994,
+              "final_yaw_rate_rms_rad_s": 0.0006476574344560504,
+              "final_component_drift_rms_m_s": 0.0005690142861567438,
+              "final_planar_speed_rms_m_s": 0.0008047076989896595,
+              "residual_planar_speed_m_s": 0.000804142386186868,
+              "settled_after_s": 0.32,
+              "final_wheel_speed_rms_rad_s": 0.022000303491950035,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.03672918677330017,
+              "heading_change_rad": 0.006719106342643499,
+              "final_yaw_rate_rms_rad_s": 0.0005529834888875484,
+              "final_component_drift_rms_m_s": 9.693641914054751e-05,
+              "final_planar_speed_rms_m_s": 0.00013708879123441875,
+              "residual_planar_speed_m_s": 0.0001366837532259524,
+              "settled_after_s": 0.22,
+              "final_wheel_speed_rms_rad_s": 0.01622585766017437,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.05148426443338394,
+            0.00019958555640187114,
+            0.0010883541544899344
+          ],
+          "max_tilt_rad": 0.026042355224490166,
+          "min_height_m": 0.41432738304138184,
+          "saturation_fraction": 0.0029326923076923076,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.1864071786403656,
+          "action_rate_rms_per_s": 1.6804351806640625,
+          "leg_target_slew_rms_rad_s": 0.6125777959823608,
+          "wheel_target_slew_rms_rad_s2": 28.71434211730957,
+          "roll_pitch_rms_rad": [
+            0.0004592672339640558,
+            0.010130034759640694
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.001962400274351239,
+            0.03518712893128395
+          ],
+          "vertical_velocity_rms_m_s": 0.01411355473101139,
+          "velocity_source": "truth"
+        },
+        "reverse": {
+          "tracking_rmse": [
+            0.01515392865985632,
+            0.0001941426598932594,
+            0.0008604978793300688
+          ],
+          "stop_path_m": [
+            0.024005908519029617,
+            0.01401317398995161
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0004334176774136722,
+            0.00022953581355977803
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.0006129452376626432,
+            0.00032461268710903823
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.024005908519029617,
+              "heading_change_rad": 0.004616693593561649,
+              "final_yaw_rate_rms_rad_s": 0.0005316911265254021,
+              "final_component_drift_rms_m_s": 0.0004334176774136722,
+              "final_planar_speed_rms_m_s": 0.0006129452376626432,
+              "residual_planar_speed_m_s": 0.0006127058295533061,
+              "settled_after_s": 0.18,
+              "final_wheel_speed_rms_rad_s": 0.02007959596812725,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.01401317398995161,
+              "heading_change_rad": 0.00452941469848156,
+              "final_yaw_rate_rms_rad_s": 0.0004886850947514176,
+              "final_component_drift_rms_m_s": 0.00022953581355977803,
+              "final_planar_speed_rms_m_s": 0.00032461268710903823,
+              "residual_planar_speed_m_s": 0.0003246082051191479,
+              "settled_after_s": 0.16,
+              "final_wheel_speed_rms_rad_s": 0.014993607997894287,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.010941972956061363,
+            0.0001941426598932594,
+            0.0008604978793300688
+          ],
+          "max_tilt_rad": 0.017180681228637695,
+          "min_height_m": 0.4154488444328308,
+          "saturation_fraction": 9.615384615384615e-05,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.09175221621990204,
+          "action_rate_rms_per_s": 0.9432191252708435,
+          "leg_target_slew_rms_rad_s": 0.367816686630249,
+          "wheel_target_slew_rms_rad_s2": 11.676191329956055,
+          "roll_pitch_rms_rad": [
+            0.0003542603808455169,
+            0.008885379880666733
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.0007937989430502057,
+            0.011275178752839565
+          ],
+          "vertical_velocity_rms_m_s": 0.007224424742162228,
+          "velocity_source": "truth"
+        },
+        "lateral_positive": {
+          "tracking_rmse": [
+            0.006711504887789488,
+            0.01651178114116192,
+            0.031117070466279984
+          ],
+          "stop_path_m": [
+            0.05695529654622078,
+            0.047112837433815
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.003527623601257801,
+            0.0012172359274700284
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.00498881284147501,
+            0.0017214317340403795
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.05695529654622078,
+              "heading_change_rad": 0.01446993462741375,
+              "final_yaw_rate_rms_rad_s": 0.0011942991986870766,
+              "final_component_drift_rms_m_s": 0.003527623601257801,
+              "final_planar_speed_rms_m_s": 0.00498881284147501,
+              "residual_planar_speed_m_s": 0.00498043792322278,
+              "settled_after_s": 0.26,
+              "final_wheel_speed_rms_rad_s": 0.05161786451935768,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.047112837433815,
+              "heading_change_rad": 0.0001875646412372589,
+              "final_yaw_rate_rms_rad_s": 0.0005771982250735164,
+              "final_component_drift_rms_m_s": 0.0012172359274700284,
+              "final_planar_speed_rms_m_s": 0.0017214317340403795,
+              "residual_planar_speed_m_s": 0.0017195672262459993,
+              "settled_after_s": 0.16,
+              "final_wheel_speed_rms_rad_s": 0.025308821350336075,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.006711504887789488,
+            0.009782003238797188,
+            0.031117070466279984
+          ],
+          "max_tilt_rad": 0.0676761269569397,
+          "min_height_m": 0.40350887179374695,
+          "saturation_fraction": 0.012451923076923077,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.16771017014980316,
+          "action_rate_rms_per_s": 2.730992555618286,
+          "leg_target_slew_rms_rad_s": 1.1005257368087769,
+          "wheel_target_slew_rms_rad_s2": 20.762245178222656,
+          "roll_pitch_rms_rad": [
+            0.01026169117540121,
+            0.021881526336073875
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.0873757153749466,
+            0.14236174523830414
+          ],
+          "vertical_velocity_rms_m_s": 0.048944029957056046,
+          "velocity_source": "truth"
+        },
+        "lateral_negative": {
+          "tracking_rmse": [
+            0.006343172863125801,
+            0.01686868444085121,
+            0.02872558683156967
+          ],
+          "stop_path_m": [
+            0.04240165278315544,
+            0.031101642176508904
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0015687227714806795,
+            0.0004796057764906436
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.002218509092926979,
+            0.0006782649434171617
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.04240165278315544,
+              "heading_change_rad": 0.04196863994002342,
+              "final_yaw_rate_rms_rad_s": 0.00014849010040052235,
+              "final_component_drift_rms_m_s": 0.0015687227714806795,
+              "final_planar_speed_rms_m_s": 0.002218509092926979,
+              "residual_planar_speed_m_s": 0.002214648760855198,
+              "settled_after_s": 0.24,
+              "final_wheel_speed_rms_rad_s": 0.024929063394665718,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.031101642176508904,
+              "heading_change_rad": 0.02212820202112198,
+              "final_yaw_rate_rms_rad_s": 0.0007109987200237811,
+              "final_component_drift_rms_m_s": 0.0004796057764906436,
+              "final_planar_speed_rms_m_s": 0.0006782649434171617,
+              "residual_planar_speed_m_s": 0.000675870687700808,
+              "settled_after_s": 0.34,
+              "final_wheel_speed_rms_rad_s": 0.01653774455189705,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.006343172863125801,
+            0.010329661890864372,
+            0.02872558683156967
+          ],
+          "max_tilt_rad": 0.07889712601900101,
+          "min_height_m": 0.4037925601005554,
+          "saturation_fraction": 0.010576923076923078,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.23689337074756622,
+          "action_rate_rms_per_s": 2.7896673679351807,
+          "leg_target_slew_rms_rad_s": 1.1257175207138062,
+          "wheel_target_slew_rms_rad_s2": 21.107662200927734,
+          "roll_pitch_rms_rad": [
+            0.010308616794645786,
+            0.014618204906582832
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.0876353532075882,
+            0.14034120738506317
+          ],
+          "vertical_velocity_rms_m_s": 0.049393296241760254,
+          "velocity_source": "truth"
+        },
+        "yaw_positive": {
+          "tracking_rmse": [
+            0.005249413661658764,
+            0.005323418416082859,
+            0.03918252885341644
+          ],
+          "stop_path_m": [
+            0.011554387398064137,
+            0.011184867471456528
+          ],
+          "final_stop_drift_rms_m_s": [
+            6.380382546922192e-05,
+            6.657429184997454e-05
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            9.023224265547469e-05,
+            9.415026579517871e-05
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.011554387398064137,
+              "heading_change_rad": -0.0031647682189941406,
+              "final_yaw_rate_rms_rad_s": 0.0005742423236370087,
+              "final_component_drift_rms_m_s": 6.380382546922192e-05,
+              "final_planar_speed_rms_m_s": 9.023224265547469e-05,
+              "residual_planar_speed_m_s": 8.880061068339273e-05,
+              "settled_after_s": 1.46,
+              "final_wheel_speed_rms_rad_s": 0.012585187330842018,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.011184867471456528,
+              "heading_change_rad": -0.030112504959106445,
+              "final_yaw_rate_rms_rad_s": 0.0005150102078914642,
+              "final_component_drift_rms_m_s": 6.657429184997454e-05,
+              "final_planar_speed_rms_m_s": 9.415026579517871e-05,
+              "residual_planar_speed_m_s": 9.348668390884995e-05,
+              "settled_after_s": 0.8200000000000001,
+              "final_wheel_speed_rms_rad_s": 0.013968780636787415,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.005249413661658764,
+            0.005323418416082859,
+            0.027881579473614693
+          ],
+          "max_tilt_rad": 0.062486838549375534,
+          "min_height_m": 0.3976132273674011,
+          "saturation_fraction": 0.0019230769230769232,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.21271374821662903,
+          "action_rate_rms_per_s": 2.511356830596924,
+          "leg_target_slew_rms_rad_s": 1.0168523788452148,
+          "wheel_target_slew_rms_rad_s2": 21.898977279663086,
+          "roll_pitch_rms_rad": [
+            0.012099169194698334,
+            0.009197722189128399
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.07155890017747879,
+            0.12021604180335999
+          ],
+          "vertical_velocity_rms_m_s": 0.054269276559352875,
+          "velocity_source": "truth"
+        },
+        "yaw_negative": {
+          "tracking_rmse": [
+            0.005016128532588482,
+            0.005548016633838415,
+            0.030412139371037483
+          ],
+          "stop_path_m": [
+            0.019496524706482887,
+            0.009405525401234627
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0010340794688090682,
+            0.0003269508306402713
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.0014624091563746333,
+            0.0004623782879207283
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.019496524706482887,
+              "heading_change_rad": -0.01704883575439453,
+              "final_yaw_rate_rms_rad_s": 0.0013396362774074078,
+              "final_component_drift_rms_m_s": 0.0010340794688090682,
+              "final_planar_speed_rms_m_s": 0.0014624091563746333,
+              "residual_planar_speed_m_s": 0.0014603087911382318,
+              "settled_after_s": 0.32,
+              "final_wheel_speed_rms_rad_s": 0.031399499624967575,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.009405525401234627,
+              "heading_change_rad": 0.051985979080200195,
+              "final_yaw_rate_rms_rad_s": 0.0005939093534834683,
+              "final_component_drift_rms_m_s": 0.0003269508306402713,
+              "final_planar_speed_rms_m_s": 0.0004623782879207283,
+              "residual_planar_speed_m_s": 0.0004622848064173013,
+              "settled_after_s": 0.6,
+              "final_wheel_speed_rms_rad_s": 0.019119741395115852,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.005016128532588482,
+            0.005548016633838415,
+            0.015889493748545647
+          ],
+          "max_tilt_rad": 0.05969914048910141,
+          "min_height_m": 0.397348016500473,
+          "saturation_fraction": 0.00125,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.2092091590166092,
+          "action_rate_rms_per_s": 2.5010006427764893,
+          "leg_target_slew_rms_rad_s": 1.0048227310180664,
+          "wheel_target_slew_rms_rad_s2": 22.40733528137207,
+          "roll_pitch_rms_rad": [
+            0.011815863661468029,
+            0.011141251772642136
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.06899826973676682,
+            0.11923567950725555
+          ],
+          "vertical_velocity_rms_m_s": 0.05722399055957794,
+          "velocity_source": "truth"
+        },
+        "mixed": {
+          "tracking_rmse": [
+            0.026758922263979912,
+            0.011656706221401691,
+            0.02747175842523575
+          ],
+          "stop_path_m": [
+            0.0630849152803421,
+            0.044793788343667984
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.002579811727628112,
+            0.0008887434960342944
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.003648404497653246,
+            0.0012568730162456632
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.0630849152803421,
+              "heading_change_rad": -0.0372697114944458,
+              "final_yaw_rate_rms_rad_s": 0.0005243477644398808,
+              "final_component_drift_rms_m_s": 0.002579811727628112,
+              "final_planar_speed_rms_m_s": 0.003648404497653246,
+              "residual_planar_speed_m_s": 0.0036435923539102077,
+              "settled_after_s": 0.42,
+              "final_wheel_speed_rms_rad_s": 0.043053895235061646,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.044793788343667984,
+              "heading_change_rad": 0.01981985569000244,
+              "final_yaw_rate_rms_rad_s": 0.0005174916586838663,
+              "final_component_drift_rms_m_s": 0.0008887434960342944,
+              "final_planar_speed_rms_m_s": 0.0012568730162456632,
+              "residual_planar_speed_m_s": 0.0012557049049064517,
+              "settled_after_s": 0.3,
+              "final_wheel_speed_rms_rad_s": 0.02212495543062687,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.017447443678975105,
+            0.004906993824988604,
+            0.01119939610362053
+          ],
+          "max_tilt_rad": 0.06370306760072708,
+          "min_height_m": 0.401605486869812,
+          "saturation_fraction": 0.0045673076923076926,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.24477796256542206,
+          "action_rate_rms_per_s": 2.680197238922119,
+          "leg_target_slew_rms_rad_s": 1.0681582689285278,
+          "wheel_target_slew_rms_rad_s2": 25.361087799072266,
+          "roll_pitch_rms_rad": [
+            0.01832929626107216,
+            0.011751683428883553
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.08998790383338928,
+            0.13544927537441254
+          ],
+          "vertical_velocity_rms_m_s": 0.05485159531235695,
+          "velocity_source": "truth"
+        },
+        "precision_forward": {
+          "tracking_rmse": [
+            0.004338110331445932,
+            0.00010951731383102015,
+            0.0006947013316676021
+          ],
+          "stop_path_m": [
+            0.009068842977285385,
+            0.006046919152140617
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0003532526607159525,
+            0.0002220351598225534
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.000499574700370431,
+            0.00031400512671098113
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.009068842977285385,
+              "heading_change_rad": 0.0042436858639121056,
+              "final_yaw_rate_rms_rad_s": 0.0005898906383663416,
+              "final_component_drift_rms_m_s": 0.0003532526607159525,
+              "final_planar_speed_rms_m_s": 0.000499574700370431,
+              "residual_planar_speed_m_s": 0.0004994539776816964,
+              "settled_after_s": 0.1,
+              "final_wheel_speed_rms_rad_s": 0.01967887207865715,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.006046919152140617,
+              "heading_change_rad": 0.004433825612068176,
+              "final_yaw_rate_rms_rad_s": 0.0004894520970992744,
+              "final_component_drift_rms_m_s": 0.0002220351598225534,
+              "final_planar_speed_rms_m_s": 0.00031400512671098113,
+              "residual_planar_speed_m_s": 0.00031400335137732327,
+              "settled_after_s": 0.06,
+              "final_wheel_speed_rms_rad_s": 0.015017630532383919,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.0028557749465107918,
+            0.00010951731383102015,
+            0.0006947013316676021
+          ],
+          "max_tilt_rad": 0.014021086506545544,
+          "min_height_m": 0.41561853885650635,
+          "saturation_fraction": 0.0,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.03505504131317139,
+          "action_rate_rms_per_s": 0.33933088183403015,
+          "leg_target_slew_rms_rad_s": 0.13334986567497253,
+          "wheel_target_slew_rms_rad_s2": 3.965824842453003,
+          "roll_pitch_rms_rad": [
+            0.0002906847221311182,
+            0.0075880391523242
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.00023387963301502168,
+            0.0074397423304617405
+          ],
+          "vertical_velocity_rms_m_s": 0.006120885722339153,
+          "velocity_source": "truth"
+        },
+        "precision_lateral_positive": {
+          "tracking_rmse": [
+            0.0034794528037309647,
+            0.008178445510566235,
+            0.01905774511396885
+          ],
+          "stop_path_m": [
+            0.009364297613501549,
+            0.020755402743816376
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0004004664660897106,
+            0.00011517760867718607
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.0005663450574502349,
+            0.00016288574261125177
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.009364297613501549,
+              "heading_change_rad": -0.011236278340220451,
+              "final_yaw_rate_rms_rad_s": 0.000385599909350276,
+              "final_component_drift_rms_m_s": 0.0004004664660897106,
+              "final_planar_speed_rms_m_s": 0.0005663450574502349,
+              "residual_planar_speed_m_s": 0.0005660296301357448,
+              "settled_after_s": 0.1,
+              "final_wheel_speed_rms_rad_s": 0.01918056420981884,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.020755402743816376,
+              "heading_change_rad": 0.006706870160996914,
+              "final_yaw_rate_rms_rad_s": 0.0005785528337582946,
+              "final_component_drift_rms_m_s": 0.00011517760867718607,
+              "final_planar_speed_rms_m_s": 0.00016288574261125177,
+              "residual_planar_speed_m_s": 0.0001624893193366006,
+              "settled_after_s": 0.02,
+              "final_wheel_speed_rms_rad_s": 0.015114082023501396,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.0034794528037309647,
+            0.0026778257451951504,
+            0.01905774511396885
+          ],
+          "max_tilt_rad": 0.04996274784207344,
+          "min_height_m": 0.4083356261253357,
+          "saturation_fraction": 0.0,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.14440231025218964,
+          "action_rate_rms_per_s": 1.244783878326416,
+          "leg_target_slew_rms_rad_s": 0.511348307132721,
+          "wheel_target_slew_rms_rad_s2": 8.532093048095703,
+          "roll_pitch_rms_rad": [
+            0.005874049384146929,
+            0.008878836408257484
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.03269157558679581,
+            0.06256230920553207
+          ],
+          "vertical_velocity_rms_m_s": 0.02313784882426262,
+          "velocity_source": "truth"
+        },
+        "precision_lateral_negative": {
+          "tracking_rmse": [
+            0.0031727554742246866,
+            0.007530598435550928,
+            0.018753668293356895
+          ],
+          "stop_path_m": [
+            0.010966122150421143,
+            0.02082289196550846
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.00039329571882262826,
+            7.845301297493279e-05
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.0005562040605582297,
+            0.00011094933142885566
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.010966122150421143,
+              "heading_change_rad": -0.011155674234032631,
+              "final_yaw_rate_rms_rad_s": 0.0007528314017690718,
+              "final_component_drift_rms_m_s": 0.00039329571882262826,
+              "final_planar_speed_rms_m_s": 0.0005562040605582297,
+              "residual_planar_speed_m_s": 0.0005536203389056027,
+              "settled_after_s": 0.08,
+              "final_wheel_speed_rms_rad_s": 0.016894683241844177,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.02082289196550846,
+              "heading_change_rad": -0.007406651973724365,
+              "final_yaw_rate_rms_rad_s": 0.00047416327288374305,
+              "final_component_drift_rms_m_s": 7.845301297493279e-05,
+              "final_planar_speed_rms_m_s": 0.00011094933142885566,
+              "residual_planar_speed_m_s": 0.00011016230564564466,
+              "settled_after_s": 0.02,
+              "final_wheel_speed_rms_rad_s": 0.014932774938642979,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.0031727554742246866,
+            0.0031359882559627295,
+            0.018753668293356895
+          ],
+          "max_tilt_rad": 0.040575213730335236,
+          "min_height_m": 0.40836301445961,
+          "saturation_fraction": 4.807692307692308e-05,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.14126361906528473,
+          "action_rate_rms_per_s": 1.2535340785980225,
+          "leg_target_slew_rms_rad_s": 0.5144632458686829,
+          "wheel_target_slew_rms_rad_s2": 8.740775108337402,
+          "roll_pitch_rms_rad": [
+            0.0059141963720321655,
+            0.008074590004980564
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.02898130565881729,
+            0.06133221834897995
+          ],
+          "vertical_velocity_rms_m_s": 0.02372513711452484,
+          "velocity_source": "truth"
+        },
+        "precision_yaw": {
+          "tracking_rmse": [
+            0.005240437109023333,
+            0.0025579030625522137,
+            0.034496258944272995
+          ],
+          "stop_path_m": [
+            0.011194181628525257,
+            0.011276151984930038
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0001848572283051908,
+            0.0001556383358547464
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.00026142760179936886,
+            0.00022010583779774606
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.011194181628525257,
+              "heading_change_rad": -0.051088735461235046,
+              "final_yaw_rate_rms_rad_s": 0.0009689012076705694,
+              "final_component_drift_rms_m_s": 0.0001848572283051908,
+              "final_planar_speed_rms_m_s": 0.00026142760179936886,
+              "residual_planar_speed_m_s": 0.0002599035215098411,
+              "settled_after_s": 0.58,
+              "final_wheel_speed_rms_rad_s": 0.01744643971323967,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.011276151984930038,
+              "heading_change_rad": -0.027274221181869507,
+              "final_yaw_rate_rms_rad_s": 0.0004846292140427977,
+              "final_component_drift_rms_m_s": 0.0001556383358547464,
+              "final_planar_speed_rms_m_s": 0.00022010583779774606,
+              "residual_planar_speed_m_s": 0.00022002647165209055,
+              "settled_after_s": 0.6,
+              "final_wheel_speed_rms_rad_s": 0.015301176346838474,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.005240437109023333,
+            0.0025579030625522137,
+            0.01264999806880951
+          ],
+          "max_tilt_rad": 0.018962835893034935,
+          "min_height_m": 0.41452252864837646,
+          "saturation_fraction": 0.0,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.0795295238494873,
+          "action_rate_rms_per_s": 0.43211790919303894,
+          "leg_target_slew_rms_rad_s": 0.17796264588832855,
+          "wheel_target_slew_rms_rad_s2": 2.805860757827759,
+          "roll_pitch_rms_rad": [
+            0.004526293370872736,
+            0.006454433314502239
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.009586108848452568,
+            0.00957742240279913
+          ],
+          "vertical_velocity_rms_m_s": 0.007514517288655043,
+          "velocity_source": "truth"
+        }
+      }
+    },
+    "nominal_frozen_estimated": {
+      "identity": {
+        "file_name": "nominal_frozen_estimated.npz",
+        "source_sha256": "e354fe718e7c8d562e09fd0b9e873b58d0527cd46a43679afc22727b135231e7",
+        "checkpoint_sha256": "c35c5b3861a0f7d0de1975a96e80dc6d45831ecad225b5a82d8031e63e95d9bf",
+        "actor_tensor_sha256": "fdf0b45cc7104e69efd3b028734b1acc8745d1183d78230794a1f9128a54bfd3",
+        "estimator_tensor_sha256": "58d8c942a33b47bddb545ed254906ca44fb845696783aefa273ae9af514199c0",
+        "velocity_source": "estimated"
+      },
+      "aggregate": {
+        "tracking_rmse": [
+          0.02471037022769451,
+          0.009502137079834938,
+          0.02404569275677204
+        ],
+        "estimator_rmse": [
+          0.013713778927922249,
+          0.00650907913222909,
+          0.0063788630068302155
+        ],
+        "estimator_bias": [
+          -0.008296492509543896,
+          -0.0001106791605707258,
+          0.0003782717976719141
+        ],
+        "estimator_p95": [
+          0.026225335896015167,
+          0.013909165747463703,
+          0.008491676300764084
+        ],
+        "estimator_max": [
+          0.1571069359779358,
+          0.09367094933986664,
+          0.17706789076328278
+        ],
+        "max_ordinary_stop_path_m": 0.14905890822410583,
+        "max_ordinary_heading_change_rad": 0.05399546027183533,
+        "max_ordinary_planar_rms_m_s": 0.005598891992121935,
+        "max_ordinary_yaw_rms_rad_s": 0.001216794247739017,
+        "max_final_or_recovery_path_m": 0.08407488465309143,
+        "max_final_or_recovery_heading_rad": 0.05206155776977539,
+        "max_final_or_recovery_planar_rms_m_s": 0.004482877440750599,
+        "max_final_or_recovery_yaw_rms_rad_s": 0.0007264817832037807,
+        "unsettled_ordinary": 0,
+        "unsettled_final_or_recovery": 0,
+        "max_final_wheel_rms_rad_s": 0.04779113456606865,
+        "zero_wheel_rms_rad_s": 0.1785990713407125,
+        "leg_slew_rms_rad_s": 0.7436671788683497,
+        "wheel_slew_rms_rad_s2": 17.49855889228707,
+        "saturation": 0.0027964743589743587,
+        "max_tilt": 0.08254241943359375,
+        "roll_pitch_rms": [
+          0.009174250774902547,
+          0.011814794407822531
+        ],
+        "vertical_rms": 0.03630871213931016,
+        "falls": 0,
+        "contacts": 0,
+        "valid_samples": 15600
+      },
+      "per_case": {
+        "stand": {
+          "estimator_bias_m_s": [
+            -0.006849364377558231,
+            -9.148653043666855e-05,
+            0.0014898517401888967
+          ],
+          "estimator_rmse_m_s": [
+            0.007142388727515936,
+            0.0013245334848761559,
+            0.00523958308622241
+          ],
+          "estimator_p95_abs_m_s": [
+            0.008146220818161964,
+            0.0018505953485146165,
+            0.0019470942206680775
+          ],
+          "estimator_max_abs_m_s": [
+            0.029498469084501266,
+            0.023827118799090385,
+            0.17706789076328278
+          ],
+          "estimator_lag_s": [
+            null,
+            null,
+            0.02
+          ],
+          "tracking_rmse": [
+            0.0037829747889190912,
+            0.00022821706079412252,
+            0.0007716559339314699
+          ],
+          "stop_path_m": [
+            0.019106898456811905,
+            0.036117326468229294
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0024937258567661047,
+            0.002541636349633336
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.0035266608465462923,
+            0.0035944166593253613
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.019106898456811905,
+              "heading_change_rad": 0.004212555009871721,
+              "final_yaw_rate_rms_rad_s": 0.000654888222925365,
+              "final_component_drift_rms_m_s": 0.0024937258567661047,
+              "final_planar_speed_rms_m_s": 0.0035266608465462923,
+              "residual_planar_speed_m_s": 0.003526621498167515,
+              "settled_after_s": 0.02,
+              "final_wheel_speed_rms_rad_s": 0.03744244948029518,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.036117326468229294,
+              "heading_change_rad": 0.004487493075430393,
+              "final_yaw_rate_rms_rad_s": 0.00046366083552129567,
+              "final_component_drift_rms_m_s": 0.002541636349633336,
+              "final_planar_speed_rms_m_s": 0.0035944166593253613,
+              "residual_planar_speed_m_s": 0.0035944150295108557,
+              "settled_after_s": 0.02,
+              "final_wheel_speed_rms_rad_s": 0.04119513928890228,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.0037829747889190912,
+            0.00022821706079412252,
+            0.0007716559339314699
+          ],
+          "max_tilt_rad": 0.013727364130318165,
+          "min_height_m": 0.415641725063324,
+          "saturation_fraction": 0.0,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.04281643405556679,
+          "action_rate_rms_per_s": 0.09844761341810226,
+          "leg_target_slew_rms_rad_s": 0.03966427966952324,
+          "wheel_target_slew_rms_rad_s2": 0.8009828329086304,
+          "roll_pitch_rms_rad": [
+            0.00030774256447330117,
+            0.008522829040884972
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.000285911577520892,
+            0.007111543323844671
+          ],
+          "vertical_velocity_rms_m_s": 0.006767414975911379,
+          "velocity_source": "estimated"
+        },
+        "forward": {
+          "estimator_bias_m_s": [
+            -0.006835061591118574,
+            0.000446406367700547,
+            0.00046654578181914985
+          ],
+          "estimator_rmse_m_s": [
+            0.016812989488244057,
+            0.003716390347108245,
+            0.006040481384843588
+          ],
+          "estimator_p95_abs_m_s": [
+            0.037942808121442795,
+            0.006012893747538328,
+            0.007099524140357971
+          ],
+          "estimator_max_abs_m_s": [
+            0.09812779724597931,
+            0.040134578943252563,
+            0.17706789076328278
+          ],
+          "estimator_lag_s": [
+            0.0,
+            null,
+            0.02
+          ],
+          "tracking_rmse": [
+            0.07514648884534836,
+            0.0014985864982008934,
+            0.0031181075610220432
+          ],
+          "stop_path_m": [
+            0.14905890822410583,
+            0.08407488465309143
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0026502825785428286,
+            0.0027478784322738647
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.0037480657920241356,
+            0.0038860866334289312
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.14905890822410583,
+              "heading_change_rad": 0.011323661543428898,
+              "final_yaw_rate_rms_rad_s": 0.0002339687489438802,
+              "final_component_drift_rms_m_s": 0.0026502825785428286,
+              "final_planar_speed_rms_m_s": 0.0037480657920241356,
+              "residual_planar_speed_m_s": 0.0037479496095329523,
+              "settled_after_s": 0.62,
+              "final_wheel_speed_rms_rad_s": 0.04011780768632889,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.08407488465309143,
+              "heading_change_rad": 0.006874329410493374,
+              "final_yaw_rate_rms_rad_s": 0.0005502860876731575,
+              "final_component_drift_rms_m_s": 0.0027478784322738647,
+              "final_planar_speed_rms_m_s": 0.0038860866334289312,
+              "residual_planar_speed_m_s": 0.0038860675413161516,
+              "settled_after_s": 0.52,
+              "final_wheel_speed_rms_rad_s": 0.04267270117998123,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.05225222185254097,
+            0.0014985864982008934,
+            0.0031181075610220432
+          ],
+          "max_tilt_rad": 0.027328982949256897,
+          "min_height_m": 0.41443079710006714,
+          "saturation_fraction": 0.002692307692307692,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.2200489491224289,
+          "action_rate_rms_per_s": 1.6765245199203491,
+          "leg_target_slew_rms_rad_s": 0.6097633838653564,
+          "wheel_target_slew_rms_rad_s2": 28.576337814331055,
+          "roll_pitch_rms_rad": [
+            0.001338455593213439,
+            0.010879875160753727
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.005701346322894096,
+            0.03532673791050911
+          ],
+          "vertical_velocity_rms_m_s": 0.014283835887908936,
+          "velocity_source": "estimated"
+        },
+        "reverse": {
+          "estimator_bias_m_s": [
+            -0.012808960862457752,
+            0.0004725063336081803,
+            0.0011280251201242208
+          ],
+          "estimator_rmse_m_s": [
+            0.019397586584091187,
+            0.0025194480549544096,
+            0.005698852706700563
+          ],
+          "estimator_p95_abs_m_s": [
+            0.03553837537765503,
+            0.004723220132291317,
+            0.003978945314884186
+          ],
+          "estimator_max_abs_m_s": [
+            0.1571069359779358,
+            0.023827118799090385,
+            0.17706789076328278
+          ],
+          "estimator_lag_s": [
+            0.04,
+            null,
+            0.02
+          ],
+          "tracking_rmse": [
+            0.01547082420438528,
+            0.0008029407472349703,
+            0.0011576783144846559
+          ],
+          "stop_path_m": [
+            0.03644418716430664,
+            0.0403449647128582
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0025823230389505625,
+            0.0025395695120096207
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.003651956096291542,
+            0.003591493470594287
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.03644418716430664,
+              "heading_change_rad": 0.005509468726813793,
+              "final_yaw_rate_rms_rad_s": 0.0004156834620516747,
+              "final_component_drift_rms_m_s": 0.0025823230389505625,
+              "final_planar_speed_rms_m_s": 0.003651956096291542,
+              "residual_planar_speed_m_s": 0.0036519267596304417,
+              "settled_after_s": 0.24,
+              "final_wheel_speed_rms_rad_s": 0.03927275165915489,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.0403449647128582,
+              "heading_change_rad": 0.004116274416446686,
+              "final_yaw_rate_rms_rad_s": 0.0004571983590722084,
+              "final_component_drift_rms_m_s": 0.0025395695120096207,
+              "final_planar_speed_rms_m_s": 0.003591493470594287,
+              "residual_planar_speed_m_s": 0.003591488813981414,
+              "settled_after_s": 0.1,
+              "final_wheel_speed_rms_rad_s": 0.04121183231472969,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.009327953681349754,
+            0.0008029407472349703,
+            0.0011576783144846559
+          ],
+          "max_tilt_rad": 0.021606191992759705,
+          "min_height_m": 0.41557642817497253,
+          "saturation_fraction": 9.615384615384615e-05,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.07786112278699875,
+          "action_rate_rms_per_s": 0.9265387058258057,
+          "leg_target_slew_rms_rad_s": 0.36111921072006226,
+          "wheel_target_slew_rms_rad_s2": 11.549434661865234,
+          "roll_pitch_rms_rad": [
+            0.0007297492702491581,
+            0.010428027249872684
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.0012424561427906156,
+            0.01247340627014637
+          ],
+          "vertical_velocity_rms_m_s": 0.00866137258708477,
+          "velocity_source": "estimated"
+        },
+        "lateral_positive": {
+          "estimator_bias_m_s": [
+            -0.00887303613126278,
+            -0.00013791464152745903,
+            -0.0005320312338881195
+          ],
+          "estimator_rmse_m_s": [
+            0.01404628437012434,
+            0.010917688719928265,
+            0.007692147046327591
+          ],
+          "estimator_p95_abs_m_s": [
+            0.029088472947478294,
+            0.022634370252490044,
+            0.013275704346597195
+          ],
+          "estimator_max_abs_m_s": [
+            0.05571321025490761,
+            0.09367094933986664,
+            0.17706789076328278
+          ],
+          "estimator_lag_s": [
+            0.2,
+            0.02,
+            0.0
+          ],
+          "tracking_rmse": [
+            0.011331269517540932,
+            0.0170156080275774,
+            0.03089156001806259
+          ],
+          "stop_path_m": [
+            0.05228624865412712,
+            0.03729340806603432
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0008605626062490046,
+            0.0016176230274140835
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.0012170192785561085,
+            0.0022876644507050514
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.05228624865412712,
+              "heading_change_rad": 0.03188525512814522,
+              "final_yaw_rate_rms_rad_s": 0.001216794247739017,
+              "final_component_drift_rms_m_s": 0.0008605626062490046,
+              "final_planar_speed_rms_m_s": 0.0012170192785561085,
+              "residual_planar_speed_m_s": 0.001147788017988205,
+              "settled_after_s": 0.7000000000000001,
+              "final_wheel_speed_rms_rad_s": 0.019427409395575523,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.03729340806603432,
+              "heading_change_rad": 0.001678568311035633,
+              "final_yaw_rate_rms_rad_s": 0.0006100378814153373,
+              "final_component_drift_rms_m_s": 0.0016176230274140835,
+              "final_planar_speed_rms_m_s": 0.0022876644507050514,
+              "residual_planar_speed_m_s": 0.002286130329594016,
+              "settled_after_s": 0.52,
+              "final_wheel_speed_rms_rad_s": 0.02831392176449299,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.011331269517540932,
+            0.009244137443602085,
+            0.03089156001806259
+          ],
+          "max_tilt_rad": 0.08254241943359375,
+          "min_height_m": 0.4037274420261383,
+          "saturation_fraction": 0.011778846153846154,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.1803615242242813,
+          "action_rate_rms_per_s": 2.712723970413208,
+          "leg_target_slew_rms_rad_s": 1.0887854099273682,
+          "wheel_target_slew_rms_rad_s2": 21.111875534057617,
+          "roll_pitch_rms_rad": [
+            0.010460862889885902,
+            0.021724654361605644
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.0947292149066925,
+            0.13608862459659576
+          ],
+          "vertical_velocity_rms_m_s": 0.0503976009786129,
+          "velocity_source": "estimated"
+        },
+        "lateral_negative": {
+          "estimator_bias_m_s": [
+            -0.005636963061988354,
+            0.0006285931449383497,
+            -0.0008866721182130277
+          ],
+          "estimator_rmse_m_s": [
+            0.011970915831625462,
+            0.009586415253579617,
+            0.007889319211244583
+          ],
+          "estimator_p95_abs_m_s": [
+            0.02290060929954052,
+            0.020897166803479195,
+            0.01447033416479826
+          ],
+          "estimator_max_abs_m_s": [
+            0.06590017676353455,
+            0.08873283863067627,
+            0.17706789076328278
+          ],
+          "estimator_lag_s": [
+            0.2,
+            0.0,
+            0.0
+          ],
+          "tracking_rmse": [
+            0.011796960607171059,
+            0.017494283616542816,
+            0.0294360239058733
+          ],
+          "stop_path_m": [
+            0.07456076145172119,
+            0.0662035122513771
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.003959014546126127,
+            0.003169872798025608
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.005598891992121935,
+            0.004482877440750599
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.07456076145172119,
+              "heading_change_rad": 0.035623788833618164,
+              "final_yaw_rate_rms_rad_s": 0.0003231183218304068,
+              "final_component_drift_rms_m_s": 0.003959014546126127,
+              "final_planar_speed_rms_m_s": 0.005598891992121935,
+              "residual_planar_speed_m_s": 0.005598542746156454,
+              "settled_after_s": 0.54,
+              "final_wheel_speed_rms_rad_s": 0.054718952625989914,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.0662035122513771,
+              "heading_change_rad": 0.024540439248085022,
+              "final_yaw_rate_rms_rad_s": 0.0007264817832037807,
+              "final_component_drift_rms_m_s": 0.003169872798025608,
+              "final_planar_speed_rms_m_s": 0.004482877440750599,
+              "residual_planar_speed_m_s": 0.004482779186218977,
+              "settled_after_s": 0.32,
+              "final_wheel_speed_rms_rad_s": 0.04779113456606865,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.011796960607171059,
+            0.00985791813582182,
+            0.0294360239058733
+          ],
+          "max_tilt_rad": 0.0729057639837265,
+          "min_height_m": 0.4038322865962982,
+          "saturation_fraction": 0.010625,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.24984602630138397,
+          "action_rate_rms_per_s": 2.747239112854004,
+          "leg_target_slew_rms_rad_s": 1.1022670269012451,
+          "wheel_target_slew_rms_rad_s2": 21.39443016052246,
+          "roll_pitch_rms_rad": [
+            0.010617188178002834,
+            0.015107108280062675
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.09176716208457947,
+            0.1365472674369812
+          ],
+          "vertical_velocity_rms_m_s": 0.049770232290029526,
+          "velocity_source": "estimated"
+        },
+        "yaw_positive": {
+          "estimator_bias_m_s": [
+            -0.009472758509218693,
+            -0.0007196671795099974,
+            0.0003325433353893459
+          ],
+          "estimator_rmse_m_s": [
+            0.011039918288588524,
+            0.004876313731074333,
+            0.006815449334681034
+          ],
+          "estimator_p95_abs_m_s": [
+            0.021058350801467896,
+            0.011424193158745766,
+            0.011113151907920837
+          ],
+          "estimator_max_abs_m_s": [
+            0.0377206914126873,
+            0.027765944600105286,
+            0.17706789076328278
+          ],
+          "estimator_lag_s": [
+            0.02,
+            0.0,
+            0.0
+          ],
+          "tracking_rmse": [
+            0.01105817873030901,
+            0.006653855089098215,
+            0.039054062217473984
+          ],
+          "stop_path_m": [
+            0.045200079679489136,
+            0.0574190691113472
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0033314195461571217,
+            0.002808159217238426
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.004711338318884373,
+            0.003971336875110865
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.045200079679489136,
+              "heading_change_rad": -0.004387617111206055,
+              "final_yaw_rate_rms_rad_s": 0.0005155369290150702,
+              "final_component_drift_rms_m_s": 0.0033314195461571217,
+              "final_planar_speed_rms_m_s": 0.004711338318884373,
+              "residual_planar_speed_m_s": 0.0047112419269979,
+              "settled_after_s": 1.48,
+              "final_wheel_speed_rms_rad_s": 0.05688021704554558,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.0574190691113472,
+              "heading_change_rad": -0.02747631072998047,
+              "final_yaw_rate_rms_rad_s": 0.000467013189336285,
+              "final_component_drift_rms_m_s": 0.002808159217238426,
+              "final_planar_speed_rms_m_s": 0.003971336875110865,
+              "residual_planar_speed_m_s": 0.003971317782998085,
+              "settled_after_s": 0.8200000000000001,
+              "final_wheel_speed_rms_rad_s": 0.04557934030890465,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.01105817873030901,
+            0.006653855089098215,
+            0.028032418340444565
+          ],
+          "max_tilt_rad": 0.06781566888093948,
+          "min_height_m": 0.3971285820007324,
+          "saturation_fraction": 0.0017788461538461539,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.23717853426933289,
+          "action_rate_rms_per_s": 2.5074946880340576,
+          "leg_target_slew_rms_rad_s": 1.0137282609939575,
+          "wheel_target_slew_rms_rad_s2": 22.142663955688477,
+          "roll_pitch_rms_rad": [
+            0.012101138941943645,
+            0.009937809780240059
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.07202893495559692,
+            0.11644226312637329
+          ],
+          "vertical_velocity_rms_m_s": 0.05538901686668396,
+          "velocity_source": "estimated"
+        },
+        "yaw_negative": {
+          "estimator_bias_m_s": [
+            -0.00799831748008728,
+            -0.001088069169782102,
+            -0.0002490071055945009
+          ],
+          "estimator_rmse_m_s": [
+            0.01123892329633236,
+            0.00612954655662179,
+            0.006571349687874317
+          ],
+          "estimator_p95_abs_m_s": [
+            0.021912241354584694,
+            0.01359441690146923,
+            0.009632855653762817
+          ],
+          "estimator_max_abs_m_s": [
+            0.04264695569872856,
+            0.047646623104810715,
+            0.17706789076328278
+          ],
+          "estimator_lag_s": [
+            0.04,
+            0.02,
+            0.0
+          ],
+          "tracking_rmse": [
+            0.01044279895722866,
+            0.007465280592441559,
+            0.02948252484202385
+          ],
+          "stop_path_m": [
+            0.03417957201600075,
+            0.03673249110579491
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.001524498569779098,
+            0.0025048472452908754
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.002155966591089964,
+            0.003542388789355755
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.03417957201600075,
+              "heading_change_rad": -0.019109487533569336,
+              "final_yaw_rate_rms_rad_s": 0.0006396192475222051,
+              "final_component_drift_rms_m_s": 0.001524498569779098,
+              "final_planar_speed_rms_m_s": 0.002155966591089964,
+              "residual_planar_speed_m_s": 0.002151865977793932,
+              "settled_after_s": 0.5,
+              "final_wheel_speed_rms_rad_s": 0.023527594283223152,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.03673249110579491,
+              "heading_change_rad": 0.05206155776977539,
+              "final_yaw_rate_rms_rad_s": 0.0006647615227848291,
+              "final_component_drift_rms_m_s": 0.0025048472452908754,
+              "final_planar_speed_rms_m_s": 0.003542388789355755,
+              "residual_planar_speed_m_s": 0.0035423520021140575,
+              "settled_after_s": 0.6,
+              "final_wheel_speed_rms_rad_s": 0.03791245445609093,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.01044279895722866,
+            0.007465280592441559,
+            0.01518975105136633
+          ],
+          "max_tilt_rad": 0.06591714918613434,
+          "min_height_m": 0.39699670672416687,
+          "saturation_fraction": 0.0016346153846153845,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.23134638369083405,
+          "action_rate_rms_per_s": 2.488985061645508,
+          "leg_target_slew_rms_rad_s": 1.0000131130218506,
+          "wheel_target_slew_rms_rad_s2": 22.73605728149414,
+          "roll_pitch_rms_rad": [
+            0.013724502176046371,
+            0.012389371171593666
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.07551510632038116,
+            0.1325245499610901
+          ],
+          "vertical_velocity_rms_m_s": 0.05751490220427513,
+          "velocity_source": "estimated"
+        },
+        "mixed": {
+          "estimator_bias_m_s": [
+            -0.00802719034254551,
+            -0.00120067922398448,
+            0.00019556167535483837
+          ],
+          "estimator_rmse_m_s": [
+            0.022308429703116417,
+            0.01108168438076973,
+            0.007526005618274212
+          ],
+          "estimator_p95_abs_m_s": [
+            0.051115937530994415,
+            0.026734935119748116,
+            0.012830378487706184
+          ],
+          "estimator_max_abs_m_s": [
+            0.1539572775363922,
+            0.06934531033039093,
+            0.17706789076328278
+          ],
+          "estimator_lag_s": [
+            0.04,
+            0.0,
+            0.0
+          ],
+          "tracking_rmse": [
+            0.024524834007024765,
+            0.013520920649170876,
+            0.029079176485538483
+          ],
+          "stop_path_m": [
+            0.06318074464797974,
+            0.044389910995960236
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0010763643076643348,
+            0.00194315065164119
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.0015222089132294059,
+            0.002748030237853527
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.06318074464797974,
+              "heading_change_rad": -0.04306948184967041,
+              "final_yaw_rate_rms_rad_s": 0.0010101437801495194,
+              "final_component_drift_rms_m_s": 0.0010763643076643348,
+              "final_planar_speed_rms_m_s": 0.0015222089132294059,
+              "residual_planar_speed_m_s": 0.0014886740827932954,
+              "settled_after_s": 1.3800000000000001,
+              "final_wheel_speed_rms_rad_s": 0.023870965465903282,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.044389910995960236,
+              "heading_change_rad": 0.031015634536743164,
+              "final_yaw_rate_rms_rad_s": 0.0005595033871941268,
+              "final_component_drift_rms_m_s": 0.00194315065164119,
+              "final_planar_speed_rms_m_s": 0.002748030237853527,
+              "residual_planar_speed_m_s": 0.0027476358227431774,
+              "settled_after_s": 0.86,
+              "final_wheel_speed_rms_rad_s": 0.0323328897356987,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.015583711676299572,
+            0.006953189615160227,
+            0.012337302789092064
+          ],
+          "max_tilt_rad": 0.07555347681045532,
+          "min_height_m": 0.4014458656311035,
+          "saturation_fraction": 0.00485576923076923,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.23859421908855438,
+          "action_rate_rms_per_s": 2.6795051097869873,
+          "leg_target_slew_rms_rad_s": 1.0683585405349731,
+          "wheel_target_slew_rms_rad_s2": 25.345111846923828,
+          "roll_pitch_rms_rad": [
+            0.01899985410273075,
+            0.01121499203145504
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.09049380570650101,
+            0.142994225025177
+          ],
+          "vertical_velocity_rms_m_s": 0.05343480035662651,
+          "velocity_source": "estimated"
+        },
+        "precision_forward": {
+          "estimator_bias_m_s": [
+            -0.006414478179067373,
+            -0.0005014216294512153,
+            0.0017277796287089586
+          ],
+          "estimator_rmse_m_s": [
+            0.010895723477005959,
+            0.0016078735934570432,
+            0.005421848967671394
+          ],
+          "estimator_p95_abs_m_s": [
+            0.01933492161333561,
+            0.0024857609532773495,
+            0.0046503846533596516
+          ],
+          "estimator_max_abs_m_s": [
+            0.039853766560554504,
+            0.023827118799090385,
+            0.17706789076328278
+          ],
+          "estimator_lag_s": [
+            0.02,
+            null,
+            0.02
+          ],
+          "tracking_rmse": [
+            0.00716849509626627,
+            0.0002979037235490978,
+            0.0008230748935602605
+          ],
+          "stop_path_m": [
+            0.022767141461372375,
+            0.038469649851322174
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.002473419066518545,
+            0.002537284977734089
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.003497942816466093,
+            0.0035882629454135895
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.022767141461372375,
+              "heading_change_rad": 0.003539297729730606,
+              "final_yaw_rate_rms_rad_s": 0.0007166757131926715,
+              "final_component_drift_rms_m_s": 0.002473419066518545,
+              "final_planar_speed_rms_m_s": 0.003497942816466093,
+              "residual_planar_speed_m_s": 0.0034978592302650213,
+              "settled_after_s": 0.06,
+              "final_wheel_speed_rms_rad_s": 0.03696518391370773,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.038469649851322174,
+              "heading_change_rad": 0.00533295888453722,
+              "final_yaw_rate_rms_rad_s": 0.00046382314758375287,
+              "final_component_drift_rms_m_s": 0.002537284977734089,
+              "final_planar_speed_rms_m_s": 0.0035882629454135895,
+              "residual_planar_speed_m_s": 0.003588260617107153,
+              "settled_after_s": 0.1,
+              "final_wheel_speed_rms_rad_s": 0.041142068803310394,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.0041076974011957645,
+            0.0002979037235490978,
+            0.0008230748935602605
+          ],
+          "max_tilt_rad": 0.013727364130318165,
+          "min_height_m": 0.4156354069709778,
+          "saturation_fraction": 0.0,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.05185247212648392,
+          "action_rate_rms_per_s": 0.3093607723712921,
+          "leg_target_slew_rms_rad_s": 0.11980343610048294,
+          "wheel_target_slew_rms_rad_s2": 3.901313066482544,
+          "roll_pitch_rms_rad": [
+            0.00032499030930921435,
+            0.008311971090734005
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.0004022388602606952,
+            0.0074561238288879395
+          ],
+          "vertical_velocity_rms_m_s": 0.006790730636566877,
+          "velocity_source": "estimated"
+        },
+        "precision_lateral_positive": {
+          "estimator_bias_m_s": [
+            -0.008887620642781258,
+            0.00034598360070958734,
+            0.0002078028628602624
+          ],
+          "estimator_rmse_m_s": [
+            0.010571330785751343,
+            0.006583391223102808,
+            0.0057395510375499725
+          ],
+          "estimator_p95_abs_m_s": [
+            0.019628042355179787,
+            0.015085886232554913,
+            0.0066206129267811775
+          ],
+          "estimator_max_abs_m_s": [
+            0.032934363931417465,
+            0.02827957272529602,
+            0.17706789076328278
+          ],
+          "estimator_lag_s": [
+            null,
+            0.0,
+            0.0
+          ],
+          "tracking_rmse": [
+            0.008744655176997185,
+            0.009929531253874302,
+            0.018035879358649254
+          ],
+          "stop_path_m": [
+            0.030653469264507294,
+            0.04914563521742821
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0027168095111846924,
+            0.002692654961720109
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.003842148929834366,
+            0.003807989414781332
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.030653469264507294,
+              "heading_change_rad": -0.0062881456688046455,
+              "final_yaw_rate_rms_rad_s": 0.00019341033475939184,
+              "final_component_drift_rms_m_s": 0.0027168095111846924,
+              "final_planar_speed_rms_m_s": 0.003842148929834366,
+              "residual_planar_speed_m_s": 0.0038418620824813843,
+              "settled_after_s": 0.12,
+              "final_wheel_speed_rms_rad_s": 0.04168877378106117,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.04914563521742821,
+              "heading_change_rad": 0.006870756857097149,
+              "final_yaw_rate_rms_rad_s": 0.0005104230949655175,
+              "final_component_drift_rms_m_s": 0.002692654961720109,
+              "final_planar_speed_rms_m_s": 0.003807989414781332,
+              "residual_planar_speed_m_s": 0.0038079696241766214,
+              "settled_after_s": 0.02,
+              "final_wheel_speed_rms_rad_s": 0.0429564006626606,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.008744655176997185,
+            0.0029833149164915085,
+            0.018035879358649254
+          ],
+          "max_tilt_rad": 0.05566316470503807,
+          "min_height_m": 0.40854963660240173,
+          "saturation_fraction": 0.0,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.1584583818912506,
+          "action_rate_rms_per_s": 1.2340384721755981,
+          "leg_target_slew_rms_rad_s": 0.5061061978340149,
+          "wheel_target_slew_rms_rad_s2": 8.537516593933105,
+          "roll_pitch_rms_rad": [
+            0.005879787262529135,
+            0.009877377189695835
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.033138345927000046,
+            0.06576734781265259
+          ],
+          "vertical_velocity_rms_m_s": 0.023604916408658028,
+          "velocity_source": "estimated"
+        },
+        "precision_lateral_negative": {
+          "estimator_bias_m_s": [
+            -0.008371135219931602,
+            0.0011997870169579983,
+            0.0002175707049900666
+          ],
+          "estimator_rmse_m_s": [
+            0.010764654725790024,
+            0.006056898273527622,
+            0.00573680829256773
+          ],
+          "estimator_p95_abs_m_s": [
+            0.020327292382717133,
+            0.013911465182900429,
+            0.006292326841503382
+          ],
+          "estimator_max_abs_m_s": [
+            0.048046860843896866,
+            0.023827118799090385,
+            0.17706789076328278
+          ],
+          "estimator_lag_s": [
+            null,
+            0.0,
+            0.0
+          ],
+          "tracking_rmse": [
+            0.008978095836937428,
+            0.009744112379848957,
+            0.01836645044386387
+          ],
+          "stop_path_m": [
+            0.03229253739118576,
+            0.05997748672962189
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0031002797186374664,
+            0.002757601672783494
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.004384457599371672,
+            0.003899837378412485
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.03229253739118576,
+              "heading_change_rad": -0.011365965008735657,
+              "final_yaw_rate_rms_rad_s": 0.000786120886914432,
+              "final_component_drift_rms_m_s": 0.0031002797186374664,
+              "final_planar_speed_rms_m_s": 0.004384457599371672,
+              "residual_planar_speed_m_s": 0.0043844301253557205,
+              "settled_after_s": 0.12,
+              "final_wheel_speed_rms_rad_s": 0.04555588960647583,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.05997748672962189,
+              "heading_change_rad": -0.008984344080090523,
+              "final_yaw_rate_rms_rad_s": 0.0004752550448756665,
+              "final_component_drift_rms_m_s": 0.002757601672783494,
+              "final_planar_speed_rms_m_s": 0.003899837378412485,
+              "residual_planar_speed_m_s": 0.0038997866213321686,
+              "settled_after_s": 0.22,
+              "final_wheel_speed_rms_rad_s": 0.043928612023591995,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.008978095836937428,
+            0.004072774201631546,
+            0.01836645044386387
+          ],
+          "max_tilt_rad": 0.04822460561990738,
+          "min_height_m": 0.40799060463905334,
+          "saturation_fraction": 9.615384615384615e-05,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.1595182716846466,
+          "action_rate_rms_per_s": 1.2466199398040771,
+          "leg_target_slew_rms_rad_s": 0.511122465133667,
+          "wheel_target_slew_rms_rad_s2": 8.624421119689941,
+          "roll_pitch_rms_rad": [
+            0.005990232806652784,
+            0.008759697899222374
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.030961021780967712,
+            0.06276210397481918
+          ],
+          "vertical_velocity_rms_m_s": 0.02399316616356373,
+          "velocity_source": "estimated"
+        },
+        "precision_yaw": {
+          "estimator_bias_m_s": [
+            -0.009382999502122402,
+            -0.0006821813294664025,
+            0.00044129142770543694
+          ],
+          "estimator_rmse_m_s": [
+            0.010679232887923717,
+            0.0029400072526186705,
+            0.005378515459597111
+          ],
+          "estimator_p95_abs_m_s": [
+            0.021522149443626404,
+            0.006203071214258671,
+            0.004819015506654978
+          ],
+          "estimator_max_abs_m_s": [
+            0.029498469084501266,
+            0.023827118799090385,
+            0.17706789076328278
+          ],
+          "estimator_lag_s": [
+            null,
+            null,
+            0.02
+          ],
+          "tracking_rmse": [
+            0.010855232365429401,
+            0.0029211770743131638,
+            0.034687936305999756
+          ],
+          "stop_path_m": [
+            0.04127868637442589,
+            0.055071987211704254
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0026607452891767025,
+            0.002655406715348363
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.0037628619465976954,
+            0.003755312180146575
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.04127868637442589,
+              "heading_change_rad": -0.05399546027183533,
+              "final_yaw_rate_rms_rad_s": 0.0009160769986920059,
+              "final_component_drift_rms_m_s": 0.0026607452891767025,
+              "final_planar_speed_rms_m_s": 0.0037628619465976954,
+              "residual_planar_speed_m_s": 0.0037622544914484024,
+              "settled_after_s": 0.58,
+              "final_wheel_speed_rms_rad_s": 0.038589268922805786,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "final_stop": {
+              "censored": false,
+              "path_m": 0.055071987211704254,
+              "heading_change_rad": -0.027681559324264526,
+              "final_yaw_rate_rms_rad_s": 0.00047999966773204505,
+              "final_component_drift_rms_m_s": 0.002655406715348363,
+              "final_planar_speed_rms_m_s": 0.003755312180146575,
+              "residual_planar_speed_m_s": 0.0037552970461547375,
+              "settled_after_s": 0.62,
+              "final_wheel_speed_rms_rad_s": 0.04236668348312378,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.010855232365429401,
+            0.0029211770743131638,
+            0.012882268987596035
+          ],
+          "max_tilt_rad": 0.017883582040667534,
+          "min_height_m": 0.4144113063812256,
+          "saturation_fraction": 0.0,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.10749538242816925,
+          "action_rate_rms_per_s": 0.43175938725471497,
+          "leg_target_slew_rms_rad_s": 0.17733803391456604,
+          "wheel_target_slew_rms_rad_s2": 2.869337320327759,
+          "roll_pitch_rms_rad": [
+            0.004367505200207233,
+            0.007329164072871208
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.00979456678032875,
+            0.008854161016643047
+          ],
+          "vertical_velocity_rms_m_s": 0.008238221518695354,
+          "velocity_source": "estimated"
+        }
+      }
+    },
+    "sensor_stress_truth": {
+      "identity": {
+        "file_name": "sensor_stress_truth.npz",
+        "source_sha256": "6d5c6362a7f4a9476a2a3b13ef116d2554be736e61da4b2d1c5b64d17bd9fbcb",
+        "checkpoint_sha256": "2f8f3a96ad7fdf83c2966b44d10fc76ac274d9d81130a470af881f81a5980bf6",
+        "actor_tensor_sha256": "fdf0b45cc7104e69efd3b028734b1acc8745d1183d78230794a1f9128a54bfd3",
+        "estimator_tensor_sha256": null,
+        "velocity_source": "truth"
+      },
+      "aggregate": {
+        "tracking_rmse": [
+          0.024933716282248497,
+          0.010792091488838196,
+          0.04276784136891365
+        ],
+        "max_ordinary_stop_path_m": 0.14402362704277039,
+        "max_ordinary_heading_change_rad": 0.04656700789928436,
+        "max_ordinary_planar_rms_m_s": 0.00816637184470892,
+        "max_ordinary_yaw_rms_rad_s": 0.03571391850709915,
+        "max_final_or_recovery_path_m": 0.05637446418404579,
+        "max_final_or_recovery_heading_rad": 0.028634414076805115,
+        "max_final_or_recovery_planar_rms_m_s": 0.008615195751190186,
+        "max_final_or_recovery_yaw_rms_rad_s": 0.03897291421890259,
+        "unsettled_ordinary": 12,
+        "unsettled_final_or_recovery": 12,
+        "max_final_wheel_rms_rad_s": 0.151654452085495,
+        "zero_wheel_rms_rad_s": 0.21633950407352598,
+        "leg_slew_rms_rad_s": 0.9356130953496651,
+        "wheel_slew_rms_rad_s2": 20.946952624820003,
+        "saturation": 0.0017668269230769233,
+        "max_tilt": 0.05922744795680046,
+        "roll_pitch_rms": [
+          0.0076915851230517345,
+          0.01016023848624312
+        ],
+        "vertical_rms": 0.02719278881906937,
+        "falls": 0,
+        "contacts": 0,
+        "valid_samples": 15600
+      },
+      "per_case": {
+        "stand": {
+          "tracking_rmse": [
+            0.008143465965986252,
+            0.006601542700082064,
+            0.029994025826454163
+          ],
+          "stop_path_m": [
+            0.0319976732134819,
+            0.024004675447940826,
+            0.05329818278551102
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0044571515172719955,
+            0.003832808928564191,
+            0.005390360485762358
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.006303364410996437,
+            0.005420410539954901,
+            0.007623120676726103
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.0319976732134819,
+              "heading_change_rad": 0.010930221527814865,
+              "final_yaw_rate_rms_rad_s": 0.03571391850709915,
+              "final_component_drift_rms_m_s": 0.0044571515172719955,
+              "final_planar_speed_rms_m_s": 0.006303364410996437,
+              "residual_planar_speed_m_s": 0.0015511488309130073,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.11857787519693375,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.024004675447940826,
+              "heading_change_rad": 0.004401486366987228,
+              "final_yaw_rate_rms_rad_s": 0.029476286843419075,
+              "final_component_drift_rms_m_s": 0.003832808928564191,
+              "final_planar_speed_rms_m_s": 0.005420410539954901,
+              "residual_planar_speed_m_s": 0.0007875539595261216,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.12655030190944672,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.05329818278551102,
+              "heading_change_rad": 0.0004371264949440956,
+              "final_yaw_rate_rms_rad_s": 0.027136139571666718,
+              "final_component_drift_rms_m_s": 0.005390360485762358,
+              "final_planar_speed_rms_m_s": 0.007623120676726103,
+              "residual_planar_speed_m_s": 0.0027912508230656385,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.12749606370925903,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.008143465965986252,
+            0.006601542700082064,
+            0.029994025826454163
+          ],
+          "max_tilt_rad": 0.017662744969129562,
+          "min_height_m": 0.414943128824234,
+          "saturation_fraction": 0.0,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.13731952011585236,
+          "action_rate_rms_per_s": 1.2995362281799316,
+          "leg_target_slew_rms_rad_s": 0.5217569470405579,
+          "wheel_target_slew_rms_rad_s2": 9.348928451538086,
+          "roll_pitch_rms_rad": [
+            0.0025069531984627247,
+            0.007714277133345604
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.04695237800478935,
+            0.027715058997273445
+          ],
+          "vertical_velocity_rms_m_s": 0.007840419188141823,
+          "velocity_source": "truth"
+        },
+        "forward": {
+          "tracking_rmse": [
+            0.0750906690955162,
+            0.006676174700260162,
+            0.02932806685566902
+          ],
+          "stop_path_m": [
+            0.14402362704277039,
+            0.058657824993133545,
+            0.049933236092329025
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.005774496588855982,
+            0.005965425167232752,
+            0.005604077596217394
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.00816637184470892,
+            0.008436385542154312,
+            0.007925363257527351
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.14402362704277039,
+              "heading_change_rad": 0.02269849181175232,
+              "final_yaw_rate_rms_rad_s": 0.025420036166906357,
+              "final_component_drift_rms_m_s": 0.005774496588855982,
+              "final_planar_speed_rms_m_s": 0.00816637184470892,
+              "residual_planar_speed_m_s": 0.002358932513743639,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.12475886195898056,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.058657824993133545,
+              "heading_change_rad": 0.0015351641923189163,
+              "final_yaw_rate_rms_rad_s": 0.02877902239561081,
+              "final_component_drift_rms_m_s": 0.005965425167232752,
+              "final_planar_speed_rms_m_s": 0.008436385542154312,
+              "residual_planar_speed_m_s": 0.002083005616441369,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.12391109764575958,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.049933236092329025,
+              "heading_change_rad": 0.007085650227963924,
+              "final_yaw_rate_rms_rad_s": 0.029608746990561485,
+              "final_component_drift_rms_m_s": 0.005604077596217394,
+              "final_planar_speed_rms_m_s": 0.007925363257527351,
+              "residual_planar_speed_m_s": 0.0010607002768665552,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.12370400130748749,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.05190540477633476,
+            0.006676174700260162,
+            0.02932806685566902
+          ],
+          "max_tilt_rad": 0.022875448688864708,
+          "min_height_m": 0.4140937030315399,
+          "saturation_fraction": 0.0028846153846153848,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.23210667073726654,
+          "action_rate_rms_per_s": 2.134084939956665,
+          "leg_target_slew_rms_rad_s": 0.8088630437850952,
+          "wheel_target_slew_rms_rad_s2": 30.165830612182617,
+          "roll_pitch_rms_rad": [
+            0.0024787045549601316,
+            0.010345827788114548
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.04616343230009079,
+            0.044778842478990555
+          ],
+          "vertical_velocity_rms_m_s": 0.01442040503025055,
+          "velocity_source": "truth"
+        },
+        "reverse": {
+          "tracking_rmse": [
+            0.015859050676226616,
+            0.006700166501104832,
+            0.028907446190714836
+          ],
+          "stop_path_m": [
+            0.05041687190532684,
+            0.03168017789721489,
+            0.0526147186756134
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.004388527479022741,
+            0.005402573384344578,
+            0.004725998267531395
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.0062063150107860565,
+            0.007640392519533634,
+            0.0066835712641477585
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.05041687190532684,
+              "heading_change_rad": 0.011666221544146538,
+              "final_yaw_rate_rms_rad_s": 0.028624020516872406,
+              "final_component_drift_rms_m_s": 0.004388527479022741,
+              "final_planar_speed_rms_m_s": 0.0062063150107860565,
+              "residual_planar_speed_m_s": 0.00332868960686028,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.11404426395893097,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.03168017789721489,
+              "heading_change_rad": 0.00989579688757658,
+              "final_yaw_rate_rms_rad_s": 0.03390851989388466,
+              "final_component_drift_rms_m_s": 0.005402573384344578,
+              "final_planar_speed_rms_m_s": 0.007640392519533634,
+              "residual_planar_speed_m_s": 0.00344445719383657,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.12867216765880585,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.0526147186756134,
+              "heading_change_rad": -0.003927422687411308,
+              "final_yaw_rate_rms_rad_s": 0.028486602008342743,
+              "final_component_drift_rms_m_s": 0.004725998267531395,
+              "final_planar_speed_rms_m_s": 0.0066835712641477585,
+              "residual_planar_speed_m_s": 0.0002801952650770545,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1284264475107193,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.01252218708395958,
+            0.006700166501104832,
+            0.028907446190714836
+          ],
+          "max_tilt_rad": 0.018691712990403175,
+          "min_height_m": 0.41485437750816345,
+          "saturation_fraction": 9.615384615384615e-05,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.16917724907398224,
+          "action_rate_rms_per_s": 1.5825222730636597,
+          "leg_target_slew_rms_rad_s": 0.6281646490097046,
+          "wheel_target_slew_rms_rad_s2": 14.985724449157715,
+          "roll_pitch_rms_rad": [
+            0.0020042231772094965,
+            0.008891958743333817
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.04476265236735344,
+            0.031063226982951164
+          ],
+          "vertical_velocity_rms_m_s": 0.008929535746574402,
+          "velocity_source": "truth"
+        },
+        "lateral_positive": {
+          "tracking_rmse": [
+            0.00948793813586235,
+            0.017295358702540398,
+            0.0478254109621048
+          ],
+          "stop_path_m": [
+            0.052486103028059006,
+            0.04250128194689751,
+            0.05188325047492981
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.004368959926068783,
+            0.0057899425737559795,
+            0.005704741925001144
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.006178642623126507,
+            0.008188214153051376,
+            0.008067723363637924
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.052486103028059006,
+              "heading_change_rad": -0.0031659603118896484,
+              "final_yaw_rate_rms_rad_s": 0.026885779574513435,
+              "final_component_drift_rms_m_s": 0.004368959926068783,
+              "final_planar_speed_rms_m_s": 0.006178642623126507,
+              "residual_planar_speed_m_s": 0.001382110407575965,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1104651466012001,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.04250128194689751,
+              "heading_change_rad": 0.00764913484454155,
+              "final_yaw_rate_rms_rad_s": 0.021213065832853317,
+              "final_component_drift_rms_m_s": 0.0057899425737559795,
+              "final_planar_speed_rms_m_s": 0.008188214153051376,
+              "residual_planar_speed_m_s": 0.004829549230635166,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.15513263642787933,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.05188325047492981,
+              "heading_change_rad": 0.00914202630519867,
+              "final_yaw_rate_rms_rad_s": 0.024326588958501816,
+              "final_component_drift_rms_m_s": 0.005704741925001144,
+              "final_planar_speed_rms_m_s": 0.008067723363637924,
+              "residual_planar_speed_m_s": 0.003309552790597081,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1346520483493805,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.00948793813586235,
+            0.01089358702301979,
+            0.0478254109621048
+          ],
+          "max_tilt_rad": 0.05922744795680046,
+          "min_height_m": 0.4055851399898529,
+          "saturation_fraction": 0.0069711538461538465,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.2000456154346466,
+          "action_rate_rms_per_s": 3.2397022247314453,
+          "leg_target_slew_rms_rad_s": 1.287468433380127,
+          "wheel_target_slew_rms_rad_s2": 26.507802963256836,
+          "roll_pitch_rms_rad": [
+            0.009729783982038498,
+            0.01829512044787407
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.11314639449119568,
+            0.10385996103286743
+          ],
+          "vertical_velocity_rms_m_s": 0.036575108766555786,
+          "velocity_source": "truth"
+        },
+        "lateral_negative": {
+          "tracking_rmse": [
+            0.010929820127785206,
+            0.016955295577645302,
+            0.05151573196053505
+          ],
+          "stop_path_m": [
+            0.05800383910536766,
+            0.033636655658483505,
+            0.05403938516974449
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.004404185339808464,
+            0.004412486683577299,
+            0.00440613180398941
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.0062284586019814014,
+            0.0062401993200182915,
+            0.006231211591511965
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.05800383910536766,
+              "heading_change_rad": 0.03583095222711563,
+              "final_yaw_rate_rms_rad_s": 0.027141520753502846,
+              "final_component_drift_rms_m_s": 0.004404185339808464,
+              "final_planar_speed_rms_m_s": 0.0062284586019814014,
+              "residual_planar_speed_m_s": 0.0017045196145772934,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.15052400529384613,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.033636655658483505,
+              "heading_change_rad": 0.025783948600292206,
+              "final_yaw_rate_rms_rad_s": 0.03056188113987446,
+              "final_component_drift_rms_m_s": 0.004412486683577299,
+              "final_planar_speed_rms_m_s": 0.0062401993200182915,
+              "residual_planar_speed_m_s": 0.0029197181575000286,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.11181996017694473,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.05403938516974449,
+              "heading_change_rad": -0.011912614107131958,
+              "final_yaw_rate_rms_rad_s": 0.03106108494102955,
+              "final_component_drift_rms_m_s": 0.00440613180398941,
+              "final_planar_speed_rms_m_s": 0.006231211591511965,
+              "residual_planar_speed_m_s": 0.002366894157603383,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.151654452085495,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.010929820127785206,
+            0.010866068303585052,
+            0.05151573196053505
+          ],
+          "max_tilt_rad": 0.057208046317100525,
+          "min_height_m": 0.4044489562511444,
+          "saturation_fraction": 0.005096153846153846,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.27723607420921326,
+          "action_rate_rms_per_s": 3.2170841693878174,
+          "leg_target_slew_rms_rad_s": 1.2831662893295288,
+          "wheel_target_slew_rms_rad_s2": 25.3786563873291,
+          "roll_pitch_rms_rad": [
+            0.008937076665461063,
+            0.011102862656116486
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.10865256935358047,
+            0.09480232745409012
+          ],
+          "vertical_velocity_rms_m_s": 0.035138845443725586,
+          "velocity_source": "truth"
+        },
+        "yaw_positive": {
+          "tracking_rmse": [
+            0.007339654956012964,
+            0.01150066964328289,
+            0.0534302182495594
+          ],
+          "stop_path_m": [
+            0.03490690886974335,
+            0.03200396150350571,
+            0.0533442348241806
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.004401291720569134,
+            0.005365794990211725,
+            0.00548571115359664
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.006224366370588541,
+            0.007588380016386509,
+            0.007757967337965965
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.03490690886974335,
+              "heading_change_rad": -0.01079249382019043,
+              "final_yaw_rate_rms_rad_s": 0.029209954664111137,
+              "final_component_drift_rms_m_s": 0.004401291720569134,
+              "final_planar_speed_rms_m_s": 0.006224366370588541,
+              "residual_planar_speed_m_s": 0.0014635547995567322,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.12238476425409317,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.03200396150350571,
+              "heading_change_rad": -0.029668807983398438,
+              "final_yaw_rate_rms_rad_s": 0.0299677774310112,
+              "final_component_drift_rms_m_s": 0.005365794990211725,
+              "final_planar_speed_rms_m_s": 0.007588380016386509,
+              "residual_planar_speed_m_s": 0.003615673165768385,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1247192919254303,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.0533442348241806,
+              "heading_change_rad": 0.004466533660888672,
+              "final_yaw_rate_rms_rad_s": 0.027128934860229492,
+              "final_component_drift_rms_m_s": 0.00548571115359664,
+              "final_planar_speed_rms_m_s": 0.007757967337965965,
+              "residual_planar_speed_m_s": 0.001268907799385488,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.13823546469211578,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.007339654956012964,
+            0.01150066964328289,
+            0.030585728585720062
+          ],
+          "max_tilt_rad": 0.03867281600832939,
+          "min_height_m": 0.4014928340911865,
+          "saturation_fraction": 0.002403846153846154,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.2839236855506897,
+          "action_rate_rms_per_s": 2.9145517349243164,
+          "leg_target_slew_rms_rad_s": 1.167064905166626,
+          "wheel_target_slew_rms_rad_s2": 26.244356155395508,
+          "roll_pitch_rms_rad": [
+            0.008800813928246498,
+            0.007800686173141003
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.09233362227678299,
+            0.07895783334970474
+          ],
+          "vertical_velocity_rms_m_s": 0.04157361760735512,
+          "velocity_source": "truth"
+        },
+        "yaw_negative": {
+          "tracking_rmse": [
+            0.011131337843835354,
+            0.007263320032507181,
+            0.058458417654037476
+          ],
+          "stop_path_m": [
+            0.039769500494003296,
+            0.02699122205376625,
+            0.054500408470630646
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.004442234523594379,
+            0.004933184944093227,
+            0.005288507789373398
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.006282268092036247,
+            0.006976576521992683,
+            0.007479079533368349
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.039769500494003296,
+              "heading_change_rad": -0.010847091674804688,
+              "final_yaw_rate_rms_rad_s": 0.02538100816309452,
+              "final_component_drift_rms_m_s": 0.004442234523594379,
+              "final_planar_speed_rms_m_s": 0.006282268092036247,
+              "residual_planar_speed_m_s": 0.002712731249630451,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1346176415681839,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.02699122205376625,
+              "heading_change_rad": 0.046437740325927734,
+              "final_yaw_rate_rms_rad_s": 0.020873047411441803,
+              "final_component_drift_rms_m_s": 0.004933184944093227,
+              "final_planar_speed_rms_m_s": 0.006976576521992683,
+              "residual_planar_speed_m_s": 0.00029636285034939647,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.11145267635583878,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.054500408470630646,
+              "heading_change_rad": -0.0039055347442626953,
+              "final_yaw_rate_rms_rad_s": 0.028111528605222702,
+              "final_component_drift_rms_m_s": 0.005288507789373398,
+              "final_planar_speed_rms_m_s": 0.007479079533368349,
+              "residual_planar_speed_m_s": 0.0012197316391393542,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.12045110762119293,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.011131337843835354,
+            0.007263320032507181,
+            0.0354451909661293
+          ],
+          "max_tilt_rad": 0.039038874208927155,
+          "min_height_m": 0.4003060758113861,
+          "saturation_fraction": 0.0014423076923076924,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.2656601369380951,
+          "action_rate_rms_per_s": 2.9439337253570557,
+          "leg_target_slew_rms_rad_s": 1.1736966371536255,
+          "wheel_target_slew_rms_rad_s2": 25.878437042236328,
+          "roll_pitch_rms_rad": [
+            0.009270017966628075,
+            0.009338672272861004
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.08563105762004852,
+            0.0747198835015297
+          ],
+          "vertical_velocity_rms_m_s": 0.04431566596031189,
+          "velocity_source": "truth"
+        },
+        "mixed": {
+          "tracking_rmse": [
+            0.027753256261348724,
+            0.014623582363128662,
+            0.04943152889609337
+          ],
+          "stop_path_m": [
+            0.07278557121753693,
+            0.03908167779445648,
+            0.056340958923101425
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.004553582984954119,
+            0.004204979166388512,
+            0.0054428065195679665
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.006439738906919956,
+            0.005946738179773092,
+            0.007697290740907192
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.07278557121753693,
+              "heading_change_rad": -0.005730628967285156,
+              "final_yaw_rate_rms_rad_s": 0.029344553127884865,
+              "final_component_drift_rms_m_s": 0.004553582984954119,
+              "final_planar_speed_rms_m_s": 0.006439738906919956,
+              "residual_planar_speed_m_s": 0.0022338430862873793,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.13502714037895203,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.03908167779445648,
+              "heading_change_rad": 0.035269737243652344,
+              "final_yaw_rate_rms_rad_s": 0.02446036972105503,
+              "final_component_drift_rms_m_s": 0.004204979166388512,
+              "final_planar_speed_rms_m_s": 0.005946738179773092,
+              "residual_planar_speed_m_s": 0.0015804741997271776,
+              "settled_after_s": 4.08,
+              "final_wheel_speed_rms_rad_s": 0.12598346173763275,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.056340958923101425,
+              "heading_change_rad": 0.012513160705566406,
+              "final_yaw_rate_rms_rad_s": 0.03897291421890259,
+              "final_component_drift_rms_m_s": 0.0054428065195679665,
+              "final_planar_speed_rms_m_s": 0.007697290740907192,
+              "residual_planar_speed_m_s": 0.0011879965895786881,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1435869038105011,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.018077610060572624,
+            0.009509206749498844,
+            0.028702441602945328
+          ],
+          "max_tilt_rad": 0.059171099215745926,
+          "min_height_m": 0.4048003852367401,
+          "saturation_fraction": 0.0020192307692307693,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.2600087821483612,
+          "action_rate_rms_per_s": 3.037888526916504,
+          "leg_target_slew_rms_rad_s": 1.2062327861785889,
+          "wheel_target_slew_rms_rad_s2": 27.44332504272461,
+          "roll_pitch_rms_rad": [
+            0.015898708254098892,
+            0.010490305721759796
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.10316844284534454,
+            0.09627468138933182
+          ],
+          "vertical_velocity_rms_m_s": 0.03894994780421257,
+          "velocity_source": "truth"
+        },
+        "precision_forward": {
+          "tracking_rmse": [
+            0.009302708320319653,
+            0.006512037478387356,
+            0.02912476845085621
+          ],
+          "stop_path_m": [
+            0.03633880615234375,
+            0.024458128958940506,
+            0.05024678260087967
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.004943080246448517,
+            0.004567000549286604,
+            0.0054407874122262
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.006990571040660143,
+            0.006458714138716459,
+            0.007694436237215996
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.03633880615234375,
+              "heading_change_rad": -8.466094732284546e-05,
+              "final_yaw_rate_rms_rad_s": 0.033058688044548035,
+              "final_component_drift_rms_m_s": 0.004943080246448517,
+              "final_planar_speed_rms_m_s": 0.006990571040660143,
+              "residual_planar_speed_m_s": 0.0017791884019970894,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.12744274735450745,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.024458128958940506,
+              "heading_change_rad": 0.008136780932545662,
+              "final_yaw_rate_rms_rad_s": 0.02634267881512642,
+              "final_component_drift_rms_m_s": 0.004567000549286604,
+              "final_planar_speed_rms_m_s": 0.006458714138716459,
+              "residual_planar_speed_m_s": 0.001544368569739163,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.13042820990085602,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.05024678260087967,
+              "heading_change_rad": -0.028634414076805115,
+              "final_yaw_rate_rms_rad_s": 0.031711358577013016,
+              "final_component_drift_rms_m_s": 0.0054407874122262,
+              "final_planar_speed_rms_m_s": 0.007694436237215996,
+              "residual_planar_speed_m_s": 0.001401331159286201,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1450096070766449,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.008357670158147812,
+            0.006512037478387356,
+            0.02912476845085621
+          ],
+          "max_tilt_rad": 0.0162509698420763,
+          "min_height_m": 0.41494980454444885,
+          "saturation_fraction": 0.0,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.14529730379581451,
+          "action_rate_rms_per_s": 1.3401856422424316,
+          "leg_target_slew_rms_rad_s": 0.538117527961731,
+          "wheel_target_slew_rms_rad_s2": 10.223380088806152,
+          "roll_pitch_rms_rad": [
+            0.0022657345980405807,
+            0.0078510120511055
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.04527395963668823,
+            0.028082262724637985
+          ],
+          "vertical_velocity_rms_m_s": 0.007884974591434002,
+          "velocity_source": "truth"
+        },
+        "precision_lateral_positive": {
+          "tracking_rmse": [
+            0.00866647344082594,
+            0.010172695852816105,
+            0.038818757981061935
+          ],
+          "stop_path_m": [
+            0.03636280447244644,
+            0.03245589882135391,
+            0.05637446418404579
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.004891107324510813,
+            0.0045028370805084705,
+            0.006091863848268986
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.006917070597410202,
+            0.006367973051965237,
+            0.008615195751190186
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.03636280447244644,
+              "heading_change_rad": -0.0044434526935219765,
+              "final_yaw_rate_rms_rad_s": 0.02987283654510975,
+              "final_component_drift_rms_m_s": 0.004891107324510813,
+              "final_planar_speed_rms_m_s": 0.006917070597410202,
+              "residual_planar_speed_m_s": 0.0012867890764027834,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.12917259335517883,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.03245589882135391,
+              "heading_change_rad": 0.004136174451559782,
+              "final_yaw_rate_rms_rad_s": 0.030323226004838943,
+              "final_component_drift_rms_m_s": 0.0045028370805084705,
+              "final_planar_speed_rms_m_s": 0.006367973051965237,
+              "residual_planar_speed_m_s": 0.0013413410633802414,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.11999277770519257,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.05637446418404579,
+              "heading_change_rad": -0.007259725127369165,
+              "final_yaw_rate_rms_rad_s": 0.024731267243623734,
+              "final_component_drift_rms_m_s": 0.006091863848268986,
+              "final_planar_speed_rms_m_s": 0.008615195751190186,
+              "residual_planar_speed_m_s": 0.0020680874586105347,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1369589865207672,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.00866647344082594,
+            0.006777666043490171,
+            0.038818757981061935
+          ],
+          "max_tilt_rad": 0.04584306478500366,
+          "min_height_m": 0.41022011637687683,
+          "saturation_fraction": 9.615384615384615e-05,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.19512027502059937,
+          "action_rate_rms_per_s": 1.8571624755859375,
+          "leg_target_slew_rms_rad_s": 0.7496387362480164,
+          "wheel_target_slew_rms_rad_s2": 13.916464805603027,
+          "roll_pitch_rms_rad": [
+            0.0062994807958602905,
+            0.009797771461308002
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.06005699187517166,
+            0.05192292481660843
+          ],
+          "vertical_velocity_rms_m_s": 0.0167157631367445,
+          "velocity_source": "truth"
+        },
+        "precision_lateral_negative": {
+          "tracking_rmse": [
+            0.009286929853260517,
+            0.009743135422468185,
+            0.0344180129468441
+          ],
+          "stop_path_m": [
+            0.0373818464577198,
+            0.03194224834442139,
+            0.05155351012945175
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.003325417172163725,
+            0.004726727027446032,
+            0.004487871658056974
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.00470284977927804,
+            0.006684602238237858,
+            0.0063468087464571
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.0373818464577198,
+              "heading_change_rad": -0.0009731054306030273,
+              "final_yaw_rate_rms_rad_s": 0.02646833099424839,
+              "final_component_drift_rms_m_s": 0.003325417172163725,
+              "final_planar_speed_rms_m_s": 0.00470284977927804,
+              "residual_planar_speed_m_s": 0.001971239224076271,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1287846714258194,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.03194224834442139,
+              "heading_change_rad": 0.004672713577747345,
+              "final_yaw_rate_rms_rad_s": 0.02329663559794426,
+              "final_component_drift_rms_m_s": 0.004726727027446032,
+              "final_planar_speed_rms_m_s": 0.006684602238237858,
+              "residual_planar_speed_m_s": 0.0006893270765431225,
+              "settled_after_s": 4.16,
+              "final_wheel_speed_rms_rad_s": 0.12355589866638184,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.05155351012945175,
+              "heading_change_rad": -0.010482825338840485,
+              "final_yaw_rate_rms_rad_s": 0.030988609418272972,
+              "final_component_drift_rms_m_s": 0.004487871658056974,
+              "final_planar_speed_rms_m_s": 0.0063468087464571,
+              "residual_planar_speed_m_s": 0.0015012024668976665,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.12228655070066452,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.009286929853260517,
+            0.0064780330285429955,
+            0.0344180129468441
+          ],
+          "max_tilt_rad": 0.04245674982666969,
+          "min_height_m": 0.4095603823661804,
+          "saturation_fraction": 0.0001923076923076923,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.19816826283931732,
+          "action_rate_rms_per_s": 1.808639645576477,
+          "leg_target_slew_rms_rad_s": 0.7286949753761292,
+          "wheel_target_slew_rms_rad_s2": 13.557686805725098,
+          "roll_pitch_rms_rad": [
+            0.006017914041876793,
+            0.008693483658134937
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.05485958978533745,
+            0.0507945716381073
+          ],
+          "vertical_velocity_rms_m_s": 0.017886100336909294,
+          "velocity_source": "truth"
+        },
+        "precision_yaw": {
+          "tracking_rmse": [
+            0.009924454614520073,
+            0.006187854800373316,
+            0.04644523561000824
+          ],
+          "stop_path_m": [
+            0.0336838960647583,
+            0.029786046594381332,
+            0.05137206241488457
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0040138838812708855,
+            0.003889886662364006,
+            0.005030992906540632
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.005676489323377609,
+            0.005501130595803261,
+            0.007114898879081011
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.0336838960647583,
+              "heading_change_rad": -0.04656700789928436,
+              "final_yaw_rate_rms_rad_s": 0.030389240011572838,
+              "final_component_drift_rms_m_s": 0.0040138838812708855,
+              "final_planar_speed_rms_m_s": 0.005676489323377609,
+              "residual_planar_speed_m_s": 0.0023416706826537848,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.12523731589317322,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.029786046594381332,
+              "heading_change_rad": -0.043694645166397095,
+              "final_yaw_rate_rms_rad_s": 0.026659831404685974,
+              "final_component_drift_rms_m_s": 0.003889886662364006,
+              "final_planar_speed_rms_m_s": 0.005501130595803261,
+              "residual_planar_speed_m_s": 0.0021321061067283154,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.15557339787483215,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.05137206241488457,
+              "heading_change_rad": 0.009301483631134033,
+              "final_yaw_rate_rms_rad_s": 0.029436390846967697,
+              "final_component_drift_rms_m_s": 0.005030992906540632,
+              "final_planar_speed_rms_m_s": 0.007114898879081011,
+              "residual_planar_speed_m_s": 0.0011658917646855116,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.13012632727622986,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.009924454614520073,
+            0.006187854800373316,
+            0.029042255133390427
+          ],
+          "max_tilt_rad": 0.020896606147289276,
+          "min_height_m": 0.41427165269851685,
+          "saturation_fraction": 0.0,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.16173361241817474,
+          "action_rate_rms_per_s": 1.3687050342559814,
+          "leg_target_slew_rms_rad_s": 0.5496946573257446,
+          "wheel_target_slew_rms_rad_s2": 10.149588584899902,
+          "roll_pitch_rms_rad": [
+            0.0046638245694339275,
+            0.006621768232434988
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.04419758915901184,
+            0.03096313402056694
+          ],
+          "vertical_velocity_rms_m_s": 0.008994150906801224,
+          "velocity_source": "truth"
+        }
+      }
+    },
+    "sensor_stress_frozen_estimated": {
+      "identity": {
+        "file_name": "sensor_stress_frozen_estimated.npz",
+        "source_sha256": "af5875f04d1ef94e52afc447fc2626062317fc8a6627462da726d026b39e9e43",
+        "checkpoint_sha256": "c35c5b3861a0f7d0de1975a96e80dc6d45831ecad225b5a82d8031e63e95d9bf",
+        "actor_tensor_sha256": "fdf0b45cc7104e69efd3b028734b1acc8745d1183d78230794a1f9128a54bfd3",
+        "estimator_tensor_sha256": "58d8c942a33b47bddb545ed254906ca44fb845696783aefa273ae9af514199c0",
+        "velocity_source": "estimated"
+      },
+      "aggregate": {
+        "tracking_rmse": [
+          0.028771985322237015,
+          0.012649216689169407,
+          0.04348866268992424
+        ],
+        "estimator_rmse": [
+          0.02152264304459095,
+          0.013401759788393974,
+          0.01814589649438858
+        ],
+        "estimator_bias": [
+          -0.008351459167897701,
+          0.00024133373517543077,
+          -0.00045707813114859164
+        ],
+        "estimator_p95": [
+          0.03719351440668106,
+          0.025334704667329788,
+          0.041055914014577866
+        ],
+        "estimator_max": [
+          0.2654755115509033,
+          0.24321934580802917,
+          0.184292733669281
+        ],
+        "max_ordinary_stop_path_m": 0.15675830841064453,
+        "max_ordinary_heading_change_rad": 0.05489793419837952,
+        "max_ordinary_planar_rms_m_s": 0.015593983232975006,
+        "max_ordinary_yaw_rms_rad_s": 0.035242050886154175,
+        "max_final_or_recovery_path_m": 0.10528846830129623,
+        "max_final_or_recovery_heading_rad": 0.02912990376353264,
+        "max_final_or_recovery_planar_rms_m_s": 0.01369697879999876,
+        "max_final_or_recovery_yaw_rms_rad_s": 0.0392107255756855,
+        "unsettled_ordinary": 12,
+        "unsettled_final_or_recovery": 12,
+        "max_final_wheel_rms_rad_s": 0.1865580528974533,
+        "zero_wheel_rms_rad_s": 0.23788099371628366,
+        "leg_slew_rms_rad_s": 0.9346212062102235,
+        "wheel_slew_rms_rad_s2": 21.142670498939577,
+        "saturation": 0.001750801282051282,
+        "max_tilt": 0.07348945736885071,
+        "roll_pitch_rms": [
+          0.007498235425592738,
+          0.010653994936416911
+        ],
+        "vertical_rms": 0.02838077865688701,
+        "falls": 0,
+        "contacts": 0,
+        "valid_samples": 15600
+      },
+      "per_case": {
+        "stand": {
+          "estimator_bias_m_s": [
+            -0.008292186073958874,
+            0.00022192916367202997,
+            -1.2733609764836729e-05
+          ],
+          "estimator_rmse_m_s": [
+            0.01633705385029316,
+            0.007976079359650612,
+            0.00988630298525095
+          ],
+          "estimator_p95_abs_m_s": [
+            0.023516438901424408,
+            0.013974825851619244,
+            0.0137041499838233
+          ],
+          "estimator_max_abs_m_s": [
+            0.1593933403491974,
+            0.06705863773822784,
+            0.184292733669281
+          ],
+          "estimator_lag_s": [
+            0.04,
+            null,
+            0.04
+          ],
+          "tracking_rmse": [
+            0.015987854450941086,
+            0.008219963870942593,
+            0.0306419525295496
+          ],
+          "stop_path_m": [
+            0.051864221692085266,
+            0.03642107546329498,
+            0.08991198241710663
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.006920903455466032,
+            0.0056082564406096935,
+            0.007799222134053707
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.009787634946405888,
+            0.007931273430585861,
+            0.01102976594120264
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.051864221692085266,
+              "heading_change_rad": 0.011673536151647568,
+              "final_yaw_rate_rms_rad_s": 0.035242050886154175,
+              "final_component_drift_rms_m_s": 0.006920903455466032,
+              "final_planar_speed_rms_m_s": 0.009787634946405888,
+              "residual_planar_speed_m_s": 0.0040397485718131065,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.12423203885555267,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.03642107546329498,
+              "heading_change_rad": 0.0045830137096345425,
+              "final_yaw_rate_rms_rad_s": 0.030096648260951042,
+              "final_component_drift_rms_m_s": 0.0056082564406096935,
+              "final_planar_speed_rms_m_s": 0.007931273430585861,
+              "residual_planar_speed_m_s": 0.002308947267010808,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.13142915070056915,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.08991198241710663,
+              "heading_change_rad": 6.533460691571236e-05,
+              "final_yaw_rate_rms_rad_s": 0.02769935131072998,
+              "final_component_drift_rms_m_s": 0.007799222134053707,
+              "final_planar_speed_rms_m_s": 0.01102976594120264,
+              "residual_planar_speed_m_s": 0.0033954656682908535,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.13394702970981598,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.015987854450941086,
+            0.008219963870942593,
+            0.0306419525295496
+          ],
+          "max_tilt_rad": 0.02129894122481346,
+          "min_height_m": 0.41489139199256897,
+          "saturation_fraction": 0.0,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.16547814011573792,
+          "action_rate_rms_per_s": 1.3310738801956177,
+          "leg_target_slew_rms_rad_s": 0.5349453091621399,
+          "wheel_target_slew_rms_rad_s2": 9.441264152526855,
+          "roll_pitch_rms_rad": [
+            0.002603366505354643,
+            0.008557957597076893
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.047540515661239624,
+            0.02899031527340412
+          ],
+          "vertical_velocity_rms_m_s": 0.009379858151078224,
+          "velocity_source": "estimated"
+        },
+        "forward": {
+          "estimator_bias_m_s": [
+            -0.004338100086897612,
+            0.0010851981351152062,
+            -0.0003687228891067207
+          ],
+          "estimator_rmse_m_s": [
+            0.022534091025590897,
+            0.009444798342883587,
+            0.012878120876848698
+          ],
+          "estimator_p95_abs_m_s": [
+            0.044138796627521515,
+            0.019136954098939896,
+            0.01992555521428585
+          ],
+          "estimator_max_abs_m_s": [
+            0.18767595291137695,
+            0.052675049751996994,
+            0.17735368013381958
+          ],
+          "estimator_lag_s": [
+            0.02,
+            0.04,
+            0.04
+          ],
+          "tracking_rmse": [
+            0.07465189695358276,
+            0.008236494846642017,
+            0.031124958768486977
+          ],
+          "stop_path_m": [
+            0.15675830841064453,
+            0.07290752232074738,
+            0.07952822744846344
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.008041850291192532,
+            0.010210685431957245,
+            0.007592256646603346
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.011372894048690796,
+            0.014440091326832771,
+            0.010737072676420212
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.15675830841064453,
+              "heading_change_rad": 0.026014406234025955,
+              "final_yaw_rate_rms_rad_s": 0.02475702203810215,
+              "final_component_drift_rms_m_s": 0.008041850291192532,
+              "final_planar_speed_rms_m_s": 0.011372894048690796,
+              "residual_planar_speed_m_s": 0.0032471856102347374,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.11775914579629898,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.07290752232074738,
+              "heading_change_rad": 0.003242356702685356,
+              "final_yaw_rate_rms_rad_s": 0.02941695973277092,
+              "final_component_drift_rms_m_s": 0.010210685431957245,
+              "final_planar_speed_rms_m_s": 0.014440091326832771,
+              "residual_planar_speed_m_s": 0.007902090437710285,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.13006113469600677,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.07952822744846344,
+              "heading_change_rad": 0.007533645257353783,
+              "final_yaw_rate_rms_rad_s": 0.030648447573184967,
+              "final_component_drift_rms_m_s": 0.007592256646603346,
+              "final_planar_speed_rms_m_s": 0.010737072676420212,
+              "residual_planar_speed_m_s": 0.00371394120156765,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.14820238947868347,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.051778461784124374,
+            0.008236494846642017,
+            0.031124958768486977
+          ],
+          "max_tilt_rad": 0.022788546979427338,
+          "min_height_m": 0.4142897427082062,
+          "saturation_fraction": 0.0030288461538461537,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.243615061044693,
+          "action_rate_rms_per_s": 2.153874397277832,
+          "leg_target_slew_rms_rad_s": 0.8169124722480774,
+          "wheel_target_slew_rms_rad_s2": 30.041135787963867,
+          "roll_pitch_rms_rad": [
+            0.002800900721922517,
+            0.010930570773780346
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.04747946560382843,
+            0.04350338876247406
+          ],
+          "vertical_velocity_rms_m_s": 0.015832794830203056,
+          "velocity_source": "estimated"
+        },
+        "reverse": {
+          "estimator_bias_m_s": [
+            -0.011814681813120842,
+            0.0004750867956317961,
+            0.00039756522164680064
+          ],
+          "estimator_rmse_m_s": [
+            0.02716369740664959,
+            0.008727917447686195,
+            0.011223149485886097
+          ],
+          "estimator_p95_abs_m_s": [
+            0.04334395006299019,
+            0.015470122918486595,
+            0.016200760379433632
+          ],
+          "estimator_max_abs_m_s": [
+            0.21032927930355072,
+            0.06754448264837265,
+            0.17101924121379852
+          ],
+          "estimator_lag_s": [
+            0.04,
+            0.04,
+            0.04
+          ],
+          "tracking_rmse": [
+            0.022261321544647217,
+            0.00820145383477211,
+            0.029448507353663445
+          ],
+          "stop_path_m": [
+            0.08219712972640991,
+            0.04561145603656769,
+            0.09298419952392578
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.008754339069128036,
+            0.008257749490439892,
+            0.007328036706894636
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.012380504980683327,
+            0.011678219772875309,
+            0.010363409295678139
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.08219712972640991,
+              "heading_change_rad": 0.013354973867535591,
+              "final_yaw_rate_rms_rad_s": 0.029033396393060684,
+              "final_component_drift_rms_m_s": 0.008754339069128036,
+              "final_planar_speed_rms_m_s": 0.012380504980683327,
+              "residual_planar_speed_m_s": 0.010538648813962936,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1334237903356552,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.04561145603656769,
+              "heading_change_rad": 0.009477823972702026,
+              "final_yaw_rate_rms_rad_s": 0.03402291238307953,
+              "final_component_drift_rms_m_s": 0.008257749490439892,
+              "final_planar_speed_rms_m_s": 0.011678219772875309,
+              "residual_planar_speed_m_s": 0.007399942260235548,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1355791836977005,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.09298419952392578,
+              "heading_change_rad": -0.002614677883684635,
+              "final_yaw_rate_rms_rad_s": 0.028558550402522087,
+              "final_component_drift_rms_m_s": 0.007328036706894636,
+              "final_planar_speed_rms_m_s": 0.010363409295678139,
+              "residual_planar_speed_m_s": 0.003728826530277729,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.13934731483459473,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.018039602786302567,
+            0.00820145383477211,
+            0.029448507353663445
+          ],
+          "max_tilt_rad": 0.022974196821451187,
+          "min_height_m": 0.41482171416282654,
+          "saturation_fraction": 0.0002884615384615385,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.1784999668598175,
+          "action_rate_rms_per_s": 1.631892204284668,
+          "leg_target_slew_rms_rad_s": 0.6499990224838257,
+          "wheel_target_slew_rms_rad_s2": 14.933623313903809,
+          "roll_pitch_rms_rad": [
+            0.0020824726670980453,
+            0.010304034687578678
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.04524591565132141,
+            0.03311016783118248
+          ],
+          "vertical_velocity_rms_m_s": 0.01177959144115448,
+          "velocity_source": "estimated"
+        },
+        "lateral_positive": {
+          "estimator_bias_m_s": [
+            -0.011147936806082726,
+            -0.00067343027330935,
+            -0.001231739530339837
+          ],
+          "estimator_rmse_m_s": [
+            0.021854761987924576,
+            0.01903453655540943,
+            0.023481709882616997
+          ],
+          "estimator_p95_abs_m_s": [
+            0.04484427720308304,
+            0.037157319486141205,
+            0.055247168987989426
+          ],
+          "estimator_max_abs_m_s": [
+            0.13251227140426636,
+            0.17414018511772156,
+            0.1754835993051529
+          ],
+          "estimator_lag_s": [
+            0.06,
+            0.04,
+            0.04
+          ],
+          "tracking_rmse": [
+            0.018764030188322067,
+            0.0170581191778183,
+            0.050755441188812256
+          ],
+          "stop_path_m": [
+            0.09279565513134003,
+            0.0494571328163147,
+            0.08439068496227264
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.007277776952832937,
+            0.007116968277841806,
+            0.008024483919143677
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.010292330756783485,
+            0.010064912959933281,
+            0.011348334141075611
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.09279565513134003,
+              "heading_change_rad": 0.05489793419837952,
+              "final_yaw_rate_rms_rad_s": 0.02965729683637619,
+              "final_component_drift_rms_m_s": 0.007277776952832937,
+              "final_planar_speed_rms_m_s": 0.010292330756783485,
+              "residual_planar_speed_m_s": 0.0077359843999147415,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1178371012210846,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.0494571328163147,
+              "heading_change_rad": 0.002856150269508362,
+              "final_yaw_rate_rms_rad_s": 0.02247832715511322,
+              "final_component_drift_rms_m_s": 0.007116968277841806,
+              "final_planar_speed_rms_m_s": 0.010064912959933281,
+              "residual_planar_speed_m_s": 0.0018671494908630848,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.15028241276741028,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.08439068496227264,
+              "heading_change_rad": 0.0070617422461509705,
+              "final_yaw_rate_rms_rad_s": 0.024146420881152153,
+              "final_component_drift_rms_m_s": 0.008024483919143677,
+              "final_planar_speed_rms_m_s": 0.011348334141075611,
+              "residual_planar_speed_m_s": 0.0029315755236893892,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.13488329946994781,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.018764030188322067,
+            0.010592619888484478,
+            0.050755441188812256
+          ],
+          "max_tilt_rad": 0.05851924791932106,
+          "min_height_m": 0.4047798812389374,
+          "saturation_fraction": 0.005673076923076923,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.2591819167137146,
+          "action_rate_rms_per_s": 3.16845703125,
+          "leg_target_slew_rms_rad_s": 1.2590365409851074,
+          "wheel_target_slew_rms_rad_s2": 26.302980422973633,
+          "roll_pitch_rms_rad": [
+            0.008502068929374218,
+            0.01843196339905262
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.10591240227222443,
+            0.09376776218414307
+          ],
+          "vertical_velocity_rms_m_s": 0.03898905590176582,
+          "velocity_source": "estimated"
+        },
+        "lateral_negative": {
+          "estimator_bias_m_s": [
+            -0.006324752699583769,
+            0.0009382331627421081,
+            -0.0021264825481921434
+          ],
+          "estimator_rmse_m_s": [
+            0.02259204164147377,
+            0.02019699104130268,
+            0.023264765739440918
+          ],
+          "estimator_p95_abs_m_s": [
+            0.04438233748078346,
+            0.03724754974246025,
+            0.0550466813147068
+          ],
+          "estimator_max_abs_m_s": [
+            0.1584634929895401,
+            0.24321934580802917,
+            0.17252060770988464
+          ],
+          "estimator_lag_s": [
+            0.08,
+            0.04,
+            0.04
+          ],
+          "tracking_rmse": [
+            0.020288798958063126,
+            0.017591195181012154,
+            0.054776184260845184
+          ],
+          "stop_path_m": [
+            0.09032104909420013,
+            0.055150337517261505,
+            0.10527990758419037
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0053837415762245655,
+            0.007345722988247871,
+            0.009381080977618694
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.00761376041918993,
+            0.010388420894742012,
+            0.013266852125525475
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.09032104909420013,
+              "heading_change_rad": 0.03402756527066231,
+              "final_yaw_rate_rms_rad_s": 0.026652943342924118,
+              "final_component_drift_rms_m_s": 0.0053837415762245655,
+              "final_planar_speed_rms_m_s": 0.00761376041918993,
+              "residual_planar_speed_m_s": 0.00217276718467474,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1572980135679245,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.055150337517261505,
+              "heading_change_rad": 0.024919889867305756,
+              "final_yaw_rate_rms_rad_s": 0.030393118038773537,
+              "final_component_drift_rms_m_s": 0.007345722988247871,
+              "final_planar_speed_rms_m_s": 0.010388420894742012,
+              "residual_planar_speed_m_s": 0.007785343565046787,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.11978381872177124,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.10527990758419037,
+              "heading_change_rad": -0.011292465031147003,
+              "final_yaw_rate_rms_rad_s": 0.03078116849064827,
+              "final_component_drift_rms_m_s": 0.009381080977618694,
+              "final_planar_speed_rms_m_s": 0.013266852125525475,
+              "residual_planar_speed_m_s": 0.00950991827994585,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1865580528974533,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.020288798958063126,
+            0.011422388255596161,
+            0.054776184260845184
+          ],
+          "max_tilt_rad": 0.05093216150999069,
+          "min_height_m": 0.40650200843811035,
+          "saturation_fraction": 0.005,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.27176952362060547,
+          "action_rate_rms_per_s": 3.209594964981079,
+          "leg_target_slew_rms_rad_s": 1.2794702053070068,
+          "wheel_target_slew_rms_rad_s2": 26.16530990600586,
+          "roll_pitch_rms_rad": [
+            0.008330699987709522,
+            0.011418250389397144
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.1047874167561531,
+            0.09510555863380432
+          ],
+          "vertical_velocity_rms_m_s": 0.036191798746585846,
+          "velocity_source": "estimated"
+        },
+        "yaw_positive": {
+          "estimator_bias_m_s": [
+            -0.008364095352590084,
+            -0.0011003478430211544,
+            -0.00018636781896930188
+          ],
+          "estimator_rmse_m_s": [
+            0.018199311569333076,
+            0.015243557281792164,
+            0.025172078981995583
+          ],
+          "estimator_p95_abs_m_s": [
+            0.036642640829086304,
+            0.031606465578079224,
+            0.05541524291038513
+          ],
+          "estimator_max_abs_m_s": [
+            0.0728110820055008,
+            0.14806602895259857,
+            0.16715194284915924
+          ],
+          "estimator_lag_s": [
+            0.04,
+            0.04,
+            0.04
+          ],
+          "tracking_rmse": [
+            0.01544607151299715,
+            0.014653409831225872,
+            0.054389890283346176
+          ],
+          "stop_path_m": [
+            0.07491555064916611,
+            0.0578361451625824,
+            0.08471018075942993
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.008466139435768127,
+            0.006364025641232729,
+            0.007190726697444916
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.011972928419709206,
+            0.009000089950859547,
+            0.010169222950935364
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.07491555064916611,
+              "heading_change_rad": -0.015622854232788086,
+              "final_yaw_rate_rms_rad_s": 0.029210053384304047,
+              "final_component_drift_rms_m_s": 0.008466139435768127,
+              "final_planar_speed_rms_m_s": 0.011972928419709206,
+              "residual_planar_speed_m_s": 0.007974743843078613,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.16045767068862915,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.0578361451625824,
+              "heading_change_rad": -0.02693915367126465,
+              "final_yaw_rate_rms_rad_s": 0.030299579724669456,
+              "final_component_drift_rms_m_s": 0.006364025641232729,
+              "final_planar_speed_rms_m_s": 0.009000089950859547,
+              "residual_planar_speed_m_s": 0.0009520701132714748,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1279100626707077,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.08471018075942993,
+              "heading_change_rad": 0.002398967742919922,
+              "final_yaw_rate_rms_rad_s": 0.027775783091783524,
+              "final_component_drift_rms_m_s": 0.007190726697444916,
+              "final_planar_speed_rms_m_s": 0.010169222950935364,
+              "residual_planar_speed_m_s": 0.0015050485963001847,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.14530032873153687,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.01544607151299715,
+            0.014653409831225872,
+            0.03177399933338165
+          ],
+          "max_tilt_rad": 0.04170690476894379,
+          "min_height_m": 0.4002794027328491,
+          "saturation_fraction": 0.0025,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.31001046299934387,
+          "action_rate_rms_per_s": 2.891650438308716,
+          "leg_target_slew_rms_rad_s": 1.1577972173690796,
+          "wheel_target_slew_rms_rad_s2": 26.446340560913086,
+          "roll_pitch_rms_rad": [
+            0.009306852705776691,
+            0.007990703918039799
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.09302821755409241,
+            0.07898732274770737
+          ],
+          "vertical_velocity_rms_m_s": 0.04324806109070778,
+          "velocity_source": "estimated"
+        },
+        "yaw_negative": {
+          "estimator_bias_m_s": [
+            -0.007796732243150473,
+            -0.00037412819801829755,
+            -0.0009137199376709759
+          ],
+          "estimator_rmse_m_s": [
+            0.022224009037017822,
+            0.011369191110134125,
+            0.02612653188407421
+          ],
+          "estimator_p95_abs_m_s": [
+            0.04077634587883949,
+            0.024572676047682762,
+            0.06126456707715988
+          ],
+          "estimator_max_abs_m_s": [
+            0.1782209426164627,
+            0.05908415466547012,
+            0.18281473219394684
+          ],
+          "estimator_lag_s": [
+            0.08,
+            0.04,
+            0.04
+          ],
+          "tracking_rmse": [
+            0.020895691588521004,
+            0.010410449467599392,
+            0.05657166242599487
+          ],
+          "stop_path_m": [
+            0.05993316322565079,
+            0.054685451090335846,
+            0.10528846830129623
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.005366502329707146,
+            0.008615720085799694,
+            0.006858006585389376
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.007589380256831646,
+            0.012184467166662216,
+            0.009698685258626938
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.05993316322565079,
+              "heading_change_rad": -0.008375406265258789,
+              "final_yaw_rate_rms_rad_s": 0.02563224360346794,
+              "final_component_drift_rms_m_s": 0.005366502329707146,
+              "final_planar_speed_rms_m_s": 0.007589380256831646,
+              "residual_planar_speed_m_s": 0.0019857350271195173,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.13045340776443481,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.054685451090335846,
+              "heading_change_rad": 0.048160552978515625,
+              "final_yaw_rate_rms_rad_s": 0.021366311237215996,
+              "final_component_drift_rms_m_s": 0.008615720085799694,
+              "final_planar_speed_rms_m_s": 0.012184467166662216,
+              "residual_planar_speed_m_s": 0.006501577328890562,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1282501071691513,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.10528846830129623,
+              "heading_change_rad": -0.0039055347442626953,
+              "final_yaw_rate_rms_rad_s": 0.028330976143479347,
+              "final_component_drift_rms_m_s": 0.006858006585389376,
+              "final_planar_speed_rms_m_s": 0.009698685258626938,
+              "residual_planar_speed_m_s": 0.0012070663506165147,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.12026283144950867,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.020895691588521004,
+            0.010410449467599392,
+            0.034588709473609924
+          ],
+          "max_tilt_rad": 0.04065883159637451,
+          "min_height_m": 0.40007588267326355,
+          "saturation_fraction": 0.0017307692307692308,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.2608063220977783,
+          "action_rate_rms_per_s": 2.911153554916382,
+          "leg_target_slew_rms_rad_s": 1.1599820852279663,
+          "wheel_target_slew_rms_rad_s2": 25.692861557006836,
+          "roll_pitch_rms_rad": [
+            0.009566712193191051,
+            0.009994713589549065
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.0847509354352951,
+            0.07522105425596237
+          ],
+          "vertical_velocity_rms_m_s": 0.045571234077215195,
+          "velocity_source": "estimated"
+        },
+        "mixed": {
+          "estimator_bias_m_s": [
+            -0.008215559646487236,
+            0.0006001760484650731,
+            -0.0002484294818714261
+          ],
+          "estimator_rmse_m_s": [
+            0.03053017519414425,
+            0.019317591562867165,
+            0.023707851767539978
+          ],
+          "estimator_p95_abs_m_s": [
+            0.06050176918506622,
+            0.045085545629262924,
+            0.056655555963516235
+          ],
+          "estimator_max_abs_m_s": [
+            0.2654755115509033,
+            0.10322586447000504,
+            0.18009278178215027
+          ],
+          "estimator_lag_s": [
+            0.06,
+            0.04,
+            0.04
+          ],
+          "tracking_rmse": [
+            0.02940281480550766,
+            0.019328419119119644,
+            0.04867211729288101
+          ],
+          "stop_path_m": [
+            0.09608125686645508,
+            0.06263978779315948,
+            0.0782126858830452
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.011026610620319843,
+            0.007556811906397343,
+            0.00968522671610117
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.015593983232975006,
+            0.010686946101486683,
+            0.01369697879999876
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.09608125686645508,
+              "heading_change_rad": -0.004645705223083496,
+              "final_yaw_rate_rms_rad_s": 0.02932199276983738,
+              "final_component_drift_rms_m_s": 0.011026610620319843,
+              "final_planar_speed_rms_m_s": 0.015593983232975006,
+              "residual_planar_speed_m_s": 0.012767411768436432,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.15715447068214417,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.06263978779315948,
+              "heading_change_rad": 0.05210983753204346,
+              "final_yaw_rate_rms_rad_s": 0.02432670257985592,
+              "final_component_drift_rms_m_s": 0.007556811906397343,
+              "final_planar_speed_rms_m_s": 0.010686946101486683,
+              "residual_planar_speed_m_s": 0.005518584977835417,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.13898785412311554,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.0782126858830452,
+              "heading_change_rad": 0.011625409126281738,
+              "final_yaw_rate_rms_rad_s": 0.0392107255756855,
+              "final_component_drift_rms_m_s": 0.00968522671610117,
+              "final_planar_speed_rms_m_s": 0.01369697879999876,
+              "residual_planar_speed_m_s": 0.008804015815258026,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1536632925271988,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.019594425335526466,
+            0.012355821207165718,
+            0.027935439720749855
+          ],
+          "max_tilt_rad": 0.07348945736885071,
+          "min_height_m": 0.40436995029449463,
+          "saturation_fraction": 0.002451923076923077,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.2929121255874634,
+          "action_rate_rms_per_s": 3.0353312492370605,
+          "leg_target_slew_rms_rad_s": 1.2033205032348633,
+          "wheel_target_slew_rms_rad_s2": 28.36417007446289,
+          "roll_pitch_rms_rad": [
+            0.015558420680463314,
+            0.010467528365552425
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.11302191019058228,
+            0.10043219476938248
+          ],
+          "vertical_velocity_rms_m_s": 0.0385986864566803,
+          "velocity_source": "estimated"
+        },
+        "precision_forward": {
+          "estimator_bias_m_s": [
+            -0.006650369148701429,
+            -0.00040505483048036695,
+            0.0008162531303241849
+          ],
+          "estimator_rmse_m_s": [
+            0.01844188943505287,
+            0.008148405700922012,
+            0.009963970631361008
+          ],
+          "estimator_p95_abs_m_s": [
+            0.029606467112898827,
+            0.01455674134194851,
+            0.01447702944278717
+          ],
+          "estimator_max_abs_m_s": [
+            0.15591976046562195,
+            0.05575774237513542,
+            0.169602632522583
+          ],
+          "estimator_lag_s": [
+            0.04,
+            0.04,
+            0.04
+          ],
+          "tracking_rmse": [
+            0.01757877506315708,
+            0.00801835861057043,
+            0.02959667704999447
+          ],
+          "stop_path_m": [
+            0.05819125473499298,
+            0.03708319365978241,
+            0.08585666120052338
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0075557054951786995,
+            0.006818946450948715,
+            0.008912871591746807
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.010685380548238754,
+            0.009643446654081345,
+            0.01260470412671566
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.05819125473499298,
+              "heading_change_rad": 0.00027636997401714325,
+              "final_yaw_rate_rms_rad_s": 0.03405796363949776,
+              "final_component_drift_rms_m_s": 0.0075557054951786995,
+              "final_planar_speed_rms_m_s": 0.010685380548238754,
+              "residual_planar_speed_m_s": 0.003924691118299961,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.13401824235916138,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.03708319365978241,
+              "heading_change_rad": 0.009275687858462334,
+              "final_yaw_rate_rms_rad_s": 0.026331013068556786,
+              "final_component_drift_rms_m_s": 0.006818946450948715,
+              "final_planar_speed_rms_m_s": 0.009643446654081345,
+              "residual_planar_speed_m_s": 0.005127972457557917,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.13515500724315643,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.08585666120052338,
+              "heading_change_rad": -0.02912990376353264,
+              "final_yaw_rate_rms_rad_s": 0.03151815012097359,
+              "final_component_drift_rms_m_s": 0.008912871591746807,
+              "final_planar_speed_rms_m_s": 0.01260470412671566,
+              "residual_planar_speed_m_s": 0.008116398006677628,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.15559172630310059,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.015378443524241447,
+            0.00801835861057043,
+            0.02959667704999447
+          ],
+          "max_tilt_rad": 0.020521508529782295,
+          "min_height_m": 0.41497451066970825,
+          "saturation_fraction": 0.0,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.17437638342380524,
+          "action_rate_rms_per_s": 1.384990930557251,
+          "leg_target_slew_rms_rad_s": 0.5573060512542725,
+          "wheel_target_slew_rms_rad_s2": 10.327885627746582,
+          "roll_pitch_rms_rad": [
+            0.0023255483247339725,
+            0.008627822622656822
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.04565072059631348,
+            0.029349390417337418
+          ],
+          "vertical_velocity_rms_m_s": 0.00964532420039177,
+          "velocity_source": "estimated"
+        },
+        "precision_lateral_positive": {
+          "estimator_bias_m_s": [
+            -0.008700613863766193,
+            0.0008431479800492525,
+            -0.00042890410986728966
+          ],
+          "estimator_rmse_m_s": [
+            0.016883932054042816,
+            0.01174281444400549,
+            0.013491052202880383
+          ],
+          "estimator_p95_abs_m_s": [
+            0.027396785095334053,
+            0.024359919130802155,
+            0.027895592153072357
+          ],
+          "estimator_max_abs_m_s": [
+            0.13709594309329987,
+            0.06871297955513,
+            0.17062509059906006
+          ],
+          "estimator_lag_s": [
+            0.04,
+            0.04,
+            0.04
+          ],
+          "tracking_rmse": [
+            0.01657962054014206,
+            0.012233570218086243,
+            0.0399072989821434
+          ],
+          "stop_path_m": [
+            0.06324714422225952,
+            0.049632564187049866,
+            0.0945344865322113
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.008894809521734715,
+            0.0061665307730436325,
+            0.008140923455357552
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.012579161673784256,
+            0.008720791898667812,
+            0.011513004079461098
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.06324714422225952,
+              "heading_change_rad": -0.0015310841845348477,
+              "final_yaw_rate_rms_rad_s": 0.03059505484998226,
+              "final_component_drift_rms_m_s": 0.008894809521734715,
+              "final_planar_speed_rms_m_s": 0.012579161673784256,
+              "residual_planar_speed_m_s": 0.004669199697673321,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.14702057838439941,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.049632564187049866,
+              "heading_change_rad": 0.00679410994052887,
+              "final_yaw_rate_rms_rad_s": 0.030843477696180344,
+              "final_component_drift_rms_m_s": 0.0061665307730436325,
+              "final_planar_speed_rms_m_s": 0.008720791898667812,
+              "residual_planar_speed_m_s": 0.004451559390872717,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1260203719139099,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.0945344865322113,
+              "heading_change_rad": -0.008268589153885841,
+              "final_yaw_rate_rms_rad_s": 0.0246417298913002,
+              "final_component_drift_rms_m_s": 0.008140923455357552,
+              "final_planar_speed_rms_m_s": 0.011513004079461098,
+              "residual_planar_speed_m_s": 0.0026221820153295994,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1356106549501419,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.01657962054014206,
+            0.008162498474121094,
+            0.0399072989821434
+          ],
+          "max_tilt_rad": 0.05101067200303078,
+          "min_height_m": 0.4098736345767975,
+          "saturation_fraction": 0.00014423076923076924,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.2133316546678543,
+          "action_rate_rms_per_s": 1.886583924293518,
+          "leg_target_slew_rms_rad_s": 0.7616397738456726,
+          "wheel_target_slew_rms_rad_s2": 14.45272159576416,
+          "roll_pitch_rms_rad": [
+            0.006180236116051674,
+            0.010507836937904358
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.06079402565956116,
+            0.05499112233519554
+          ],
+          "vertical_velocity_rms_m_s": 0.018201641738414764,
+          "velocity_source": "estimated"
+        },
+        "precision_lateral_negative": {
+          "estimator_bias_m_s": [
+            -0.00923671294003725,
+            0.0011098496615886688,
+            -0.00044223174336366355
+          ],
+          "estimator_rmse_m_s": [
+            0.01775549165904522,
+            0.011605416424572468,
+            0.014330757781863213
+          ],
+          "estimator_p95_abs_m_s": [
+            0.0289057195186615,
+            0.022218674421310425,
+            0.027862390503287315
+          ],
+          "estimator_max_abs_m_s": [
+            0.16821052134037018,
+            0.09083542972803116,
+            0.17198127508163452
+          ],
+          "estimator_lag_s": [
+            0.06,
+            0.04,
+            0.04
+          ],
+          "tracking_rmse": [
+            0.018175793811678886,
+            0.01191179733723402,
+            0.03539260849356651
+          ],
+          "stop_path_m": [
+            0.062196239829063416,
+            0.0569353848695755,
+            0.08527790755033493
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.00609661266207695,
+            0.008098949678242207,
+            0.006687466986477375
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.008621912449598312,
+            0.011453645303845406,
+            0.009457506239414215
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.062196239829063416,
+              "heading_change_rad": 0.0019938424229621887,
+              "final_yaw_rate_rms_rad_s": 0.02622395008802414,
+              "final_component_drift_rms_m_s": 0.00609661266207695,
+              "final_planar_speed_rms_m_s": 0.008621912449598312,
+              "residual_planar_speed_m_s": 0.00580794969573617,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.12875394523143768,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.0569353848695755,
+              "heading_change_rad": 0.00282885879278183,
+              "final_yaw_rate_rms_rad_s": 0.023254269734025,
+              "final_component_drift_rms_m_s": 0.008098949678242207,
+              "final_planar_speed_rms_m_s": 0.011453645303845406,
+              "residual_planar_speed_m_s": 0.004680186975747347,
+              "settled_after_s": 4.16,
+              "final_wheel_speed_rms_rad_s": 0.16460959613323212,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.08527790755033493,
+              "heading_change_rad": -0.010719787329435349,
+              "final_yaw_rate_rms_rad_s": 0.030932534486055374,
+              "final_component_drift_rms_m_s": 0.006687466986477375,
+              "final_planar_speed_rms_m_s": 0.009457506239414215,
+              "residual_planar_speed_m_s": 0.00308192428201437,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.12381701916456223,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.018175793811678886,
+            0.008211767300963402,
+            0.03539260849356651
+          ],
+          "max_tilt_rad": 0.03800128400325775,
+          "min_height_m": 0.4095447063446045,
+          "saturation_fraction": 0.0001923076923076923,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.22509662806987762,
+          "action_rate_rms_per_s": 1.823702335357666,
+          "leg_target_slew_rms_rad_s": 0.7353397607803345,
+          "wheel_target_slew_rms_rad_s2": 13.710092544555664,
+          "roll_pitch_rms_rad": [
+            0.005749200005084276,
+            0.008857903070747852
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.053570304065942764,
+            0.04637094959616661
+          ],
+          "vertical_velocity_rms_m_s": 0.019649546593427658,
+          "velocity_source": "estimated"
+        },
+        "precision_yaw": {
+          "estimator_bias_m_s": [
+            -0.00933561660349369,
+            0.00017534622747916728,
+            -0.0007394159911200404
+          ],
+          "estimator_rmse_m_s": [
+            0.018986374139785767,
+            0.009071831591427326,
+            0.010206086561083794
+          ],
+          "estimator_p95_abs_m_s": [
+            0.027957351878285408,
+            0.01823226548731327,
+            0.015157337300479412
+          ],
+          "estimator_max_abs_m_s": [
+            0.18379034101963043,
+            0.05108943209052086,
+            0.17250794172286987
+          ],
+          "estimator_lag_s": [
+            0.08,
+            0.04,
+            0.04
+          ],
+          "tracking_rmse": [
+            0.019803091883659363,
+            0.008024821057915688,
+            0.04577093571424484
+          ],
+          "stop_path_m": [
+            0.05465012043714523,
+            0.061621278524398804,
+            0.09347929805517197
+          ],
+          "final_stop_drift_rms_m_s": [
+            0.0077368393540382385,
+            0.006164428777992725,
+            0.006959710270166397
+          ],
+          "final_stop_planar_speed_rms_m_s": [
+            0.010941543616354465,
+            0.008717818185687065,
+            0.009842516854405403
+          ],
+          "stop_windows": {
+            "ordinary_stop": {
+              "censored": false,
+              "path_m": 0.05465012043714523,
+              "heading_change_rad": -0.04525931179523468,
+              "final_yaw_rate_rms_rad_s": 0.030984757468104362,
+              "final_component_drift_rms_m_s": 0.0077368393540382385,
+              "final_planar_speed_rms_m_s": 0.010941543616354465,
+              "residual_planar_speed_m_s": 0.008420429192483425,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.1471145749092102,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "pre_push_stop": {
+              "censored": false,
+              "path_m": 0.061621278524398804,
+              "heading_change_rad": -0.05430956184864044,
+              "final_yaw_rate_rms_rad_s": 0.02676406316459179,
+              "final_component_drift_rms_m_s": 0.006164428777992725,
+              "final_planar_speed_rms_m_s": 0.008717818185687065,
+              "residual_planar_speed_m_s": 0.004255050327628851,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.16249538958072662,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            },
+            "post_push_recovery": {
+              "censored": false,
+              "path_m": 0.09347929805517197,
+              "heading_change_rad": 0.009927958250045776,
+              "final_yaw_rate_rms_rad_s": 0.028992153704166412,
+              "final_component_drift_rms_m_s": 0.006959710270166397,
+              "final_planar_speed_rms_m_s": 0.009842516854405403,
+              "residual_planar_speed_m_s": 0.0026157505344599485,
+              "settled_after_s": null,
+              "final_wheel_speed_rms_rad_s": 0.13834302127361298,
+              "final_wheel_spin_fraction_gt_1rad_s": 0.0
+            }
+          },
+          "cross_axis_rms": [
+            0.019803091883659363,
+            0.008024821057915688,
+            0.029875745996832848
+          ],
+          "max_tilt_rad": 0.020184598863124847,
+          "min_height_m": 0.41457581520080566,
+          "saturation_fraction": 0.0,
+          "falls": 0,
+          "abnormal_contact_ticks": 0,
+          "zero_command_wheel_speed_rms_rad_s": 0.20714962482452393,
+          "action_rate_rms_per_s": 1.403855323791504,
+          "leg_target_slew_rms_rad_s": 0.5643851161003113,
+          "wheel_target_slew_rms_rad_s2": 10.270750999450684,
+          "roll_pitch_rms_rad": [
+            0.004144476260989904,
+            0.007513802498579025
+          ],
+          "roll_pitch_rate_rms_rad_s": [
+            0.04450535029172897,
+            0.03283272683620453
+          ],
+          "vertical_velocity_rms_m_s": 0.010525445453822613,
+          "velocity_source": "estimated"
+        }
+      }
+    }
+  },
+  "comparisons": {
+    "nominal": {
+      "passed": false,
+      "per_case": [
+        {
+          "tracking": true,
+          "stopping": false,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": false,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": true,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": true,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": true,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": false,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": true,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": true,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": false,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": true,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": false,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": false,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        }
+      ]
+    },
+    "sensor_stress": {
+      "passed": false,
+      "per_case": [
+        {
+          "tracking": true,
+          "stopping": true,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": true,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": true,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": true,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": false,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": false,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": false,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": true,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": true,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": true,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": true,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        },
+        {
+          "tracking": true,
+          "stopping": true,
+          "drift": true,
+          "tilt": true,
+          "height": true,
+          "saturation": true,
+          "falls": true,
+          "contacts": true
+        }
+      ]
+    }
+  },
+  "passed": false
+}

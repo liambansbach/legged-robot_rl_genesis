@@ -42,7 +42,7 @@ class SymmetryTests(unittest.TestCase):
     def test_urdf_nominal_and_actuator_conventions(self):
         path = (
             Path(__file__).resolve().parents[1]
-            / "ressources/robots/go2w/urdf/go2w_description.urdf"
+            / "ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf"
         )
         joints = [
             j

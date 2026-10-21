@@ -161,8 +161,20 @@ def export_policy(runner, env, path, onnx=False, parity_histories=None):
                         ('definition', 'comparisons', 'passed', 'qualification')}
                     contract['simulation_screen']['metrics_sha256'] = hashlib.sha256(screen.read_bytes()).hexdigest()
                     shutil.copyfile(screen, path / 'screen_metrics.json')
+            # Bind reference outputs to THIS model, not the rollout's outer run label.
+            expected = [[], []]
+            scripted = torch.jit.load(str(path / 'estimated_policy.pt')).eval()
+            with torch.no_grad():
+                for start in range(0, len(history), 256):
+                    inputs = torch.from_numpy(history[start:start+256]).float()
+                    eager = combined(inputs)
+                    for i, (a, b) in enumerate(zip(eager, scripted(inputs))):
+                        torch.testing.assert_close(a, b, atol=2e-5, rtol=2e-5)
+                        expected[i].append(a.numpy())
             np.savez_compressed(path / 'parity_samples.npz', histories=history, reset=recorded['reset'],
-                                reset_frames=recorded['reset_frames'])
+                                reset_frames=recorded['reset_frames'],
+                                expected_actions=np.concatenate(expected[0]),
+                                expected_velocity=np.concatenate(expected[1]))
             torch.onnx.export(combined, (torch.from_numpy(history[:1]).float(),), str(path / 'policy.onnx'),
                 input_names=['history'], output_names=['clipped_actions', 'velocity_m_s'],
                 dynamic_axes={'history': {0: 'batch'}, 'clipped_actions': {0: 'batch'}, 'velocity_m_s': {0: 'batch'}},

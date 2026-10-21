@@ -41,7 +41,7 @@ from robot_gym.scripts.diagnostic_bank import condition_bank
 from rsl_rl.modules.distribution import GaussianDistribution
 
 
-URDF = Path(ROBOT_GYM_ROOT_DIR) / "ressources/robots/go2w/urdf/go2w_description.urdf"
+URDF = Path(ROBOT_GYM_ROOT_DIR) / "ressources/robots/go2w/urdf/go2w_reference_original.urdf"
 
 
 class DiagnosticsTests(unittest.TestCase):

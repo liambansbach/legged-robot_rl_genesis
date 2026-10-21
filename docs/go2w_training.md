@@ -6,14 +6,20 @@ parameter source. Edit that file for the next experiment. Training resolves the
 registered task and writes the complete `config.yaml` into its run directory.
 No documentation YAML, historical profile, or fine-tune selector supplies parameters.
 
-**Current review, 2026-10-09:** the schema3 reward refinement completed its 1000
+**Current publication:** the [frozen estimator package](../ressources/pretrained/go2w/README.md)
+is the development baseline for diagnostic Sim2Sim. It contains the original actor,
+warmup estimator and measured assets; stopping remains unresolved. The dated
+reviews below retain their original measurements and decisions. Retired package
+and handoff files are available at fixed commit `7d1f87c87fe1b190b4278fe870c69d6c652a3ce5`.
+
+**Historical review, 2026-10-09:** the schema3 reward refinement completed its 1000
 additional updates from geometric CK1000 (2001 lineage updates, final native label1999).
 The [completed refinement review below](#completed-refinement-transfer-review-2026-10-09)
 records the nominal comparison and staged interface2 actor package. Default-package
 replacement is blocked on acceptance of measured lateral drift; it remains unchanged.
 The [preparation below](#objective-refinement-preparation-2026-10-08) is historical,
 not an unexecuted recommendation. Actor58/critic65 and yaw weight `.8` remain unchanged.
-The [one-time laptop handoff](../ressources/handoffs/go2w_2026-10-09/README.md)
+The [historical laptop handoff](https://github.com/liambansbach/legged-robot_rl_genesis/blob/7d1f87c87fe1b190b4278fe870c69d6c652a3ce5/ressources/handoffs/go2w_2026-10-09/README.md)
 distributes this experimental actor and both full learning checkpoints without
 replacing the pretrained default or changing the recorded qualification status.
 The original budget is now complete: the interrupted run resumed from CK1000
@@ -1942,7 +1948,7 @@ navigation, disturbances, PhysX agreement and hardware remain unestablished.
 ## One-time laptop handoff (2026-10-09)
 
 The user authorized a separate experimental distribution at
-[`ressources/handoffs/go2w_2026-10-09/`](../ressources/handoffs/go2w_2026-10-09/README.md),
+[`ressources/handoffs/go2w_2026-10-09/`](https://github.com/liambansbach/legged-robot_rl_genesis/blob/7d1f87c87fe1b190b4278fe870c69d6c652a3ce5/ressources/handoffs/go2w_2026-10-09/README.md),
 including the validated interface2 inference package and exact candidate1999 /
 fallback1000 full checkpoints with adjacent original configs. This authorization
 does not promote the candidate into `ressources/pretrained/go2w` or resolve the

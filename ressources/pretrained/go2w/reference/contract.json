@@ -1,0 +1,677 @@
+{
+  "observation_dim": 58,
+  "action_dim": 16,
+  "joint_order": [
+    "FL_hip_joint",
+    "FL_thigh_joint",
+    "FL_calf_joint",
+    "FL_foot_joint",
+    "FR_hip_joint",
+    "FR_thigh_joint",
+    "FR_calf_joint",
+    "FR_foot_joint",
+    "RL_hip_joint",
+    "RL_thigh_joint",
+    "RL_calf_joint",
+    "RL_foot_joint",
+    "RR_hip_joint",
+    "RR_thigh_joint",
+    "RR_calf_joint",
+    "RR_foot_joint"
+  ],
+  "control_type": {
+    "FL_hip_joint": "P",
+    "FL_thigh_joint": "P",
+    "FL_calf_joint": "P",
+    "FR_hip_joint": "P",
+    "FR_thigh_joint": "P",
+    "FR_calf_joint": "P",
+    "RL_hip_joint": "P",
+    "RL_thigh_joint": "P",
+    "RL_calf_joint": "P",
+    "RR_hip_joint": "P",
+    "RR_thigh_joint": "P",
+    "RR_calf_joint": "P",
+    "FL_foot_joint": "V",
+    "FR_foot_joint": "V",
+    "RL_foot_joint": "V",
+    "RR_foot_joint": "V"
+  },
+  "action_scale": [
+    0.30000001192092896,
+    0.3499999940395355,
+    0.4000000059604645,
+    18.0,
+    0.30000001192092896,
+    0.3499999940395355,
+    0.4000000059604645,
+    18.0,
+    0.30000001192092896,
+    0.3499999940395355,
+    0.4000000059604645,
+    18.0,
+    0.30000001192092896,
+    0.3499999940395355,
+    0.4000000059604645,
+    18.0
+  ],
+  "default_joint_angles": [
+    0.0,
+    0.699999988079071,
+    -1.399999976158142,
+    0.0,
+    0.0,
+    0.699999988079071,
+    -1.399999976158142,
+    0.0,
+    0.0,
+    0.699999988079071,
+    -1.399999976158142,
+    0.0,
+    0.0,
+    0.699999988079071,
+    -1.399999976158142,
+    0.0
+  ],
+  "nominal_kp": [
+    40.0,
+    40.0,
+    40.0,
+    0.0,
+    40.0,
+    40.0,
+    40.0,
+    0.0,
+    40.0,
+    40.0,
+    40.0,
+    0.0,
+    40.0,
+    40.0,
+    40.0,
+    0.0
+  ],
+  "nominal_kd": [
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "effort_limits": [
+    23.700000762939453,
+    23.700000762939453,
+    35.54999923706055,
+    23.700000762939453,
+    23.700000762939453,
+    23.700000762939453,
+    35.54999923706055,
+    23.700000762939453,
+    23.700000762939453,
+    23.700000762939453,
+    35.54999923706055,
+    23.700000762939453,
+    23.700000762939453,
+    23.700000762939453,
+    35.54999923706055,
+    23.700000762939453
+  ],
+  "joint_velocity_limits": [
+    30.100000381469727,
+    30.100000381469727,
+    20.06999969482422,
+    30.100000381469727,
+    30.100000381469727,
+    30.100000381469727,
+    20.06999969482422,
+    30.100000381469727,
+    30.100000381469727,
+    30.100000381469727,
+    20.06999969482422,
+    30.100000381469727,
+    30.100000381469727,
+    30.100000381469727,
+    20.06999969482422,
+    30.100000381469727
+  ],
+  "checkpoint": "model_1999.pt",
+  "action_bound": 1.0,
+  "wheel_velocity_target_limit": 20.0,
+  "policy_dt": 0.02,
+  "physics_dt": 0.005,
+  "observation_normalization": "embedded",
+  "quaternion_convention": "wxyz",
+  "observation_order": [
+    "body_linear_velocity",
+    "body_angular_velocity",
+    "projected_gravity",
+    "body_velocity_command",
+    "leg_position_error",
+    "joint_velocity",
+    "previous_clipped_action",
+    "phase_sin",
+    "phase_cos"
+  ],
+  "observation_scales": {
+    "lin_vel": 1.0,
+    "ang_vel": 1.0,
+    "dof_pos": 1.0,
+    "dof_vel": 1.0
+  },
+  "task": "go2w",
+  "asset": {
+    "file": "go2w_measured_ed8dc93.urdf",
+    "sha256": "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c",
+    "source_commit": "ed8dc93b3065a8e2a3a5919f032ed4690529117c",
+    "wheel_radius_m": 0.09167
+  },
+  "nominal_armature_kg_m2": {
+    "FL_hip_joint": 0.01,
+    "FL_thigh_joint": 0.01,
+    "FL_calf_joint": 0.01,
+    "FR_hip_joint": 0.01,
+    "FR_thigh_joint": 0.01,
+    "FR_calf_joint": 0.01,
+    "RL_hip_joint": 0.01,
+    "RL_thigh_joint": 0.01,
+    "RL_calf_joint": 0.01,
+    "RR_hip_joint": 0.01,
+    "RR_thigh_joint": 0.01,
+    "RR_calf_joint": 0.01,
+    "FL_foot_joint": 0.01,
+    "FR_foot_joint": 0.01,
+    "RL_foot_joint": 0.01,
+    "RR_foot_joint": 0.01
+  },
+  "nominal_passive_terms": {
+    "FL_hip_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "FL_thigh_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "FL_calf_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "FL_foot_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "FR_hip_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "FR_thigh_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "FR_calf_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "FR_foot_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "RL_hip_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "RL_thigh_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "RL_calf_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "RL_foot_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "RR_hip_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "RR_thigh_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "RR_calf_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    },
+    "RR_foot_joint": {
+      "stiffness_Nm_per_rad": 0.0,
+      "damping_Nm_s_per_rad": 0.0,
+      "frictionloss_Nm": 0.0
+    }
+  },
+  "training_randomization": {
+    "armature_kg_m2": [
+      0.005,
+      0.02
+    ],
+    "armature_sampling": "independent per environment leg/wheel groups; symmetric; constant across resets",
+    "action_delay_policy_steps": [
+      0,
+      2
+    ],
+    "action_delay_ms": [
+      0.0,
+      40.0
+    ]
+  },
+  "velocity": {
+    "source": "simulator-derived",
+    "frame": "body axes",
+    "reference_point": "authored base-link origin",
+    "sample_timing": "current policy boundary",
+    "genesis_getter": "RigidEntity.get_vel(relative=True), world axes then inverse base quaternion",
+    "transport": "getter already transports to authored origin; no second COM transport"
+  },
+  "physics_substeps": 1,
+  "decimation": 4,
+  "integrator": "approximate_implicitfast",
+  "solver": {
+    "constraint_solver": "1",
+    "iterations": 50,
+    "ls_iterations": 50
+  },
+  "assumptions": "Development armature preset/range and zero passive terms, not identified hardware; mass uncertainty scales base inertia proportionally; COM shift is separate uncertainty",
+  "config_version": 3,
+  "training_tracking_kernel": "absolute_exponential",
+  "actor_input_dim": 58,
+  "privileged_inputs_exported": false,
+  "height_reference_m": 0.4277416561558192,
+  "reset_spawn_clearance_m": 0.0030000000000000027,
+  "phase": {
+    "period_s": 0.8,
+    "stance_fraction": 0.65,
+    "apex_m": 0.04,
+    "offsets": {
+      "FL_foot": 0.0,
+      "FR_foot": 0.5,
+      "RL_foot": 0.5,
+      "RR_foot": 0.0
+    },
+    "randomize_reset": false,
+    "inference_reset_phase": 0.0,
+    "training_reset": "uniform [0,1)",
+    "timing": "Action at boundary phase p; reward scores p after four held-target physics steps; then advance p by policy_dt/period modulo 1. Episode reset replaces phase; getters and command changes never advance/reset it. Initial environment reset includes one zero-action policy tick.",
+    "observation": "slots 56:58 = demand(command) * [sin(2*pi*p), cos(2*pi*p)] before embedded normalizer; zero raw clock at zero demand, not necessarily normalized zero",
+    "reflection": "sagittal: p -> p+.5, both sin/cos negate",
+    "observation_mode": "command_demand",
+    "demand": {
+      "lateral_start_full_m_s": [
+        0.01,
+        0.05
+      ],
+      "yaw_start_full_rad_s": [
+        0.1,
+        0.25
+      ],
+      "combination": "max of clipped linear ramps, then smoothstep d*d*(3-2*d); invariant under sagittal reflection"
+    }
+  },
+  "wheel_thigh_dx_reference_m": [
+    0.008632517008985041,
+    0.008632517008985041,
+    0.008632517008985013,
+    0.008632517008985013
+  ],
+  "navigation_commands": {
+    "required_ranges": {
+      "ang_vel_yaw": [
+        -1.0,
+        1.0
+      ],
+      "lin_vel_x": [
+        -0.3,
+        1.0
+      ],
+      "lin_vel_y": [
+        -0.3,
+        0.3
+      ]
+    },
+    "training_sampling": {
+      "tier_probabilities": [
+        0.8,
+        0.1,
+        0.1
+      ],
+      "reserve_ranges": {
+        "lin_vel_x": [
+          -0.4,
+          1.2
+        ],
+        "lin_vel_y": [
+          -0.5,
+          0.5
+        ],
+        "ang_vel_yaw": [
+          -1.5,
+          1.5
+        ]
+      },
+      "precision_ranges": [
+        [
+          -0.063,
+          0.108
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          -0.16,
+          0.16
+        ]
+      ]
+    },
+    "units": [
+      "m/s",
+      "m/s",
+      "rad/s"
+    ],
+    "reserve_rule": "One selected active axis outside required; other axes inside required"
+  },
+  "body_push_events": {
+    "force_mixture": {
+      "probabilities": [
+        0.8,
+        0.15,
+        0.05
+      ],
+      "magnitude_ranges_n": [
+        [
+          20.0,
+          50.0
+        ],
+        [
+          50.0,
+          100.0
+        ],
+        [
+          100.0,
+          150.0
+        ]
+      ]
+    },
+    "interval_s": [
+      5.0,
+      10.0
+    ],
+    "duration_s": [
+      0.1,
+      0.2
+    ],
+    "application": "Fixed horizontal force per event at base-link COM; zero external torque",
+    "impulse": "Force norm times sampled physics ticks times physics dt; reset may truncate an event"
+  },
+  "actor_sha256": "639a443f3da3d9fa15d9e532b85959df55c7bd5618564797740adb66b1d2bfcb",
+  "checkpoint_sha256": "2f8f3a96ad7fdf83c2966b44d10fc76ac274d9d81130a470af881f81a5980bf6",
+  "interface_version": 2,
+  "publication_status": "Privileged truth reference only",
+  "completed_training_updates": 2001,
+  "native_checkpoint_label": 1999,
+  "config_sha256": "ba66e6cb6b156d6dfd1e08a0e9802314ceac3443934463ceb4331f89d885b72a",
+  "urdf_sha256": "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c",
+  "robot_asset": {
+    "path": "../robot/urdf/go2w_measured_ed8dc93.urdf",
+    "sha256": "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c"
+  },
+  "observation_limit": 100.0,
+  "input": {
+    "dtype": "float32",
+    "shape": [
+      "N",
+      58
+    ],
+    "N_min": 1,
+    "finite_required": true
+  },
+  "output": {
+    "dtype": "float32",
+    "shape": [
+      "N",
+      16
+    ],
+    "normalized_bounds": [
+      -1,
+      1
+    ],
+    "finite_required": true
+  },
+  "observation_blocks": [
+    {
+      "slice": [
+        0,
+        3
+      ],
+      "name": "body_linear_velocity",
+      "physical_units_before_scaling": "m/s"
+    },
+    {
+      "slice": [
+        3,
+        6
+      ],
+      "name": "body_angular_velocity",
+      "physical_units_before_scaling": "rad/s"
+    },
+    {
+      "slice": [
+        6,
+        9
+      ],
+      "name": "projected_gravity",
+      "physical_units_before_scaling": "unit vector"
+    },
+    {
+      "slice": [
+        9,
+        12
+      ],
+      "name": "body_velocity_command",
+      "physical_units_before_scaling": "m/s,m/s,rad/s"
+    },
+    {
+      "slice": [
+        12,
+        24
+      ],
+      "name": "leg_position_error",
+      "physical_units_before_scaling": "rad"
+    },
+    {
+      "slice": [
+        24,
+        40
+      ],
+      "name": "joint_velocity",
+      "physical_units_before_scaling": "rad/s"
+    },
+    {
+      "slice": [
+        40,
+        56
+      ],
+      "name": "previous_issued_clipped_action",
+      "physical_units_before_scaling": "normalized"
+    },
+    {
+      "slice": [
+        56,
+        58
+      ],
+      "name": "demand_conditioned_phase_sin_cos",
+      "physical_units_before_scaling": "dimensionless"
+    }
+  ],
+  "leg_action_indices": [
+    0,
+    1,
+    2,
+    4,
+    5,
+    6,
+    8,
+    9,
+    10,
+    12,
+    13,
+    14
+  ],
+  "wheel_action_indices": [
+    3,
+    7,
+    11,
+    15
+  ],
+  "hard_joint_position_limits_rad": [
+    [
+      -1.0472,
+      1.0472
+    ],
+    [
+      -1.5707963267948966,
+      3.4907
+    ],
+    [
+      -2.7227,
+      -0.83776
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      -1.0472,
+      1.0472
+    ],
+    [
+      -1.5707963267948966,
+      3.4907
+    ],
+    [
+      -2.7227,
+      -0.83776
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      -1.0472,
+      1.0472
+    ],
+    [
+      -0.5236,
+      4.5379
+    ],
+    [
+      -2.7227,
+      -0.83776
+    ],
+    [
+      null,
+      null
+    ],
+    [
+      -1.0472,
+      1.0472
+    ],
+    [
+      -0.5236,
+      4.5379
+    ],
+    [
+      -2.7227,
+      -0.83776
+    ],
+    [
+      null,
+      null
+    ]
+  ],
+  "physics_decimation": 4,
+  "nominal_actuator_delay_ticks": 0,
+  "policy_execution": {
+    "mode": "deterministic actor mean; no sampled Gaussian",
+    "input_order": "physical inputs -> listed scales -> clip -> embedded empirical normalization -> actor -> clip",
+    "normalizer_epsilon": 0.01,
+    "normalizer_updates": "disabled during inference",
+    "action_history": "previous issued clipped normalized actions, before optional actuator delay",
+    "delay_order": "At boundary t, actor sees a_issued[t-1]; clip new a_issued[t], enqueue it at history[0], apply a_issued[t-D] for all four physics ticks. D is an integer number of 20 ms policy ticks; reset clears the full delay buffer and issued history.",
+    "leg_target": "fixed reference + action_scale * clipped/delayed normalized action; P control",
+    "wheel_target": "action_scale * clipped/delayed normalized action; V control, explicit target cap retained",
+    "coordinates": "x forward, y left, z up; command and measured velocity use body axes",
+    "no_privileged_inputs": "No world position, absolute heading, straight-reference state, critic or estimator is exported",
+    "recurrent_network": false
+  },
+  "reset_protocol": {
+    "initial_phase": 0.0,
+    "initial_issued_action_history": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "explicit_environment_reset": "BaseTask.reset() resets physical state and phase/history, then executes one zero-action 20 ms tick. The first evaluated actor input uses the measured post-warmup physical state and phase .025. The bundled navigation fixture uses this initial-reset path.",
+    "automatic_episode_reset": "A per-environment reset_idx inside post_physics_step resets phase/history to zero and uses newly reset measured physical state for the next actor input. It adds no extra warmup physics tick; first actor phase is zero. Other environments retain their phase/history.",
+    "automatic_episode_first_actor_phase": 0.0,
+    "command_changes": "Update only requested command; keep latent phase and previous issued action history. No heading controller or action override.",
+    "phase_advance": "After holding each action for four 5 ms physics ticks, advance phase by .02/.8 modulo1.",
+    "bundled_sequence_initial_state": "parity_samples.npz: first navigation_mask row contains actual pre-action physical state, phase, command and issued history.",
+    "initial_capture_repository_provenance_only": "evaluation/go2w_refinement_review/native_export/initial_policy_state.npz",
+    "automatic_reset_validation": "Offline interface probe only; the captured navigation had no automatic reset."
+  },
+  "metadata_source": {
+    "historical_commit": "7d1f87c87fe1b190b4278fe870c69d6c652a3ce5",
+    "contract_sha256": "78837d243d1459da9772f671e11b745c9d94934853debf466c7de1fa09a22a45",
+    "extraction": "Original semantics retained; report appendices removed; paths made relative"
+  }
+}

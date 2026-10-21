@@ -6,10 +6,24 @@ import unittest
 import numpy as np
 import torch
 
-from robot_gym.envs.go2w.source_yaw import BUNDLE, metrics, reset_case
+from robot_gym.envs.go2w.source_yaw import BUNDLE, ACTOR_SHA, URDF_SHA, metrics, reset_case
 
 
 class SourceYawTests(unittest.TestCase):
+    def test_published_reference_and_measured_snapshot(self):
+        from robot_gym.utils.diagnostics import sha256
+        from robot_gym import ROBOT_GYM_ROOT_DIR
+        from pathlib import Path
+        self.assertEqual(sha256(BUNDLE / 'policy.pt'), ACTOR_SHA)
+        measured = BUNDLE.parent / 'robot/urdf/go2w_measured_ed8dc93.urdf'
+        self.assertEqual(sha256(measured), URDF_SHA)
+        self.assertEqual(measured.read_bytes(), (Path(ROBOT_GYM_ROOT_DIR) /
+            'ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf').read_bytes())
+        contract = json.loads((BUNDLE.parent / 'contract.json').read_text())
+        self.assertEqual(contract['external_input']['shape'], ['batch', 5, 55])
+        self.assertEqual(contract['checkpoint_sha256'],
+            'c35c5b3861a0f7d0de1975a96e80dc6d45831ecad225b5a82d8031e63e95d9bf')
+
     def setUp(self):
         self.contract = json.loads((BUNDLE / "contract.json").read_text())
         n = 400

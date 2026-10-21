@@ -1,5 +1,12 @@
 # Go2-W diagnostics and reproducibility
 
+The reports below are historical evidence. The current frozen estimator package
+and receiving-project instructions are in
+[pretrained/go2w](../ressources/pretrained/go2w/README.md). Older publication and
+handoff paths in these reports refer to
+[7d1f87c](https://github.com/liambansbach/legged-robot_rl_genesis/tree/7d1f87c87fe1b190b4278fe870c69d6c652a3ce5);
+their measurements and hashes have not been rewritten.
+
 ## Windows source-versus-PhysX yaw comparison — 11 October 2026
 
 Section W is complete on the Windows laptop using the frozen **NEW 58-input
@@ -1084,7 +1091,7 @@ The last command documents the completed offline export and now refuses the occu
 
 ## Published P inference snapshot — 29 September 2026
 
-Published the selected P/CK2498 at the stable [ressources/pretrained/go2w](../ressources/pretrained/go2w/README.md) path, starting from clean testing at 4df11998f7d9424090dab1bcfe50020297d67bbd. This is a mutable experimental simulation candidate, not a hardware release. The original policy_1.pt was copied unchanged as policy.pt: **800,038 bytes**, SHA-256 **cb8454470921a5a44e8a5914a0a2dd301886ff9b7e7b6ef1dffdf5c6b661a35c**. Source CK2498 remains **4de494271a999c33ca6a8a06913b1facb92eede58c92d7297762671b2b1080e8**, completed count 2500; the exact saved config remains **340a8998d3015b810c46e4d808cfb173837d20aa2a2e1028a6004e198b8ff25d**. Source ZIP identity/content and every bundled checksum passed before copying. No re-export, different policy or optimizer checkpoint was substituted.
+Published the selected P/CK2498 at the stable [ressources/pretrained/go2w](https://github.com/liambansbach/legged-robot_rl_genesis/blob/7d1f87c87fe1b190b4278fe870c69d6c652a3ce5/ressources/pretrained/go2w/README.md) path, starting from clean testing at 4df11998f7d9424090dab1bcfe50020297d67bbd. This is a mutable experimental simulation candidate, not a hardware release. The original policy_1.pt was copied unchanged as policy.pt: **800,038 bytes**, SHA-256 **cb8454470921a5a44e8a5914a0a2dd301886ff9b7e7b6ef1dffdf5c6b661a35c**. Source CK2498 remains **4de494271a999c33ca6a8a06913b1facb92eede58c92d7297762671b2b1080e8**, completed count 2500; the exact saved config remains **340a8998d3015b810c46e4d808cfb173837d20aa2a2e1028a6004e198b8ff25d**. Source ZIP identity/content and every bundled checksum passed before copying. No re-export, different policy or optimizer checkpoint was substituted.
 
 The seven files are policy.pt 800038 B, contract.json 18545 B, config.yaml 13247 B, provenance.json 13361 B, parity_samples.npz 30125 B, check_policy.py 12678 B and README.md 5715 B. The contract extends the existing schema with portable paths, explicit dtype/batch shape, origin transport, limit semantics and separate training/controller/test command coverage. Motor velocity metadata is not misrepresented as a hard leg-speed clamp. The 96 float32 inputs/native CPU bounded references are preserved exactly; recorded GPU raw outputs are separately named numeric arrays. The checker uses only standard Python, PyTorch and NumPy, checks hashes before model loading, and needs no training-package import.
 

@@ -1,16 +1,8 @@
-# Keep the selected Go2-W payload and saved training snapshot byte-exact.
-ressources/pretrained/go2w/policy.pt -text
-ressources/pretrained/go2w/config.yaml -text whitespace=cr-at-eol
-ressources/pretrained/go2w/parity_samples.npz -text
-ressources/pretrained/go2w/*.json text eol=lf
-ressources/pretrained/go2w/*.py text eol=lf
-ressources/pretrained/go2w/README.md text eol=lf
+# Portable publication: hashes describe exact bytes on Windows and Linux.
+ressources/pretrained/go2w/** -text whitespace=cr-at-eol
+ressources/pretrained/go2w/robot/** -diff
 # Immutable diagnostic snapshots and portable native reference evidence.
 ressources/robots/go2w/urdf/go2w_reference_original.urdf text eol=lf whitespace=-blank-at-eol
 ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf text eol=lf whitespace=-blank-at-eol
 docs/go2w_native_reference.json text eol=lf
 docs/go2w_native_reference_traces.npz -text
-# One-time handoff: keep payloads, original configs and hash manifests byte-exact.
-ressources/handoffs/go2w_2026-10-09/** -text whitespace=cr-at-eol
-# Asset snapshots retain authored whitespace and do not need generated mesh diffs.
-ressources/handoffs/go2w_2026-10-09/inference/go2w/assets/** -diff

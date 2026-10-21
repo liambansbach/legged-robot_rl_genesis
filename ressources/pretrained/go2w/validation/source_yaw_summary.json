@@ -1,0 +1,12 @@
+{
+  "source_sha256": "b808fee715f43117415aea80c917b827e78397c425a46924435997fd48f8e9be",
+  "source_url": "https://github.com/liambansbach/legged-robot_rl_genesis/blob/7d1f87c87fe1b190b4278fe870c69d6c652a3ce5/docs/go2w_source_yaw_2026-10-11.json",
+  "status": "Historical truth-input comparison, not a test of this estimator pair",
+  "findings": [
+    "Source yaw undershoot is not reproduced: fresh +/- .6/.8 late means differ from request by at most .00815rad/s. Matched PhysX50Hz late means undershoot by .26285..29624rad/s. Source full4s RMSE .03746..04761 versus target .27761..30220rad/s.",
+    "The NEW Actor/normalizer, phase, history, frames, nominal armature, SI gains, passive properties and action scales are consistent. Recorded source CPU/GPU export actions agree within3.58e-7 on90 shared inputs. A command scale or wrong-policy explanation is not supported.",
+    "PhysX wheel speeds are comparable to, sometimes higher than, Genesis although body yaw is much smaller. Both engines have leg compliance and some leg clipping; there is no wheel action clipping. Matching gain numbers does not prove equivalent actuator integration.",
+    "Effective wheel friction1->.7 changes source late yaw by -.00025/-.00508rad/s for+/- .8, whereas receiving paired changes are about+.09979/-.09998rad/s. Alongside different contact formulations, this favors cross-engine contact/actuation response over missing learned yaw tracking. It does not identify one unique solver parameter.",
+    "Genesis stopping is not perfect: +.8 reverses heading by .06972rad after release; +1 reverses by .07563rad and does not meet the stated .25s sustained settling criterion within2s. Source hold tracking success is not whole-envelope qualification."
+  ]
+}

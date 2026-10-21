@@ -1,0 +1,25 @@
+{
+  "recorded_frozen_gpu_parity": {
+    "samples": 7200,
+    "action_max_error": 7.152557373046875e-07,
+    "velocity_max_error": 3.5762786865234375e-07,
+    "atol": 2e-05,
+    "rtol": 2e-05
+  },
+  "composed": {
+    "samples": 7200,
+    "action_max_error": 7.152557373046875e-07,
+    "velocity_max_error": 3.5762786865234375e-07,
+    "history_max_error": 0.0,
+    "reset_samples": 24,
+    "clipped_history_samples": 451
+  },
+  "lifecycle": {
+    "samples": 300,
+    "action_max_error": 4.76837158203125e-07,
+    "velocity_max_error": 1.043081283569336e-07,
+    "history_max_error": 0.0,
+    "reset_samples": 3,
+    "clipped_history_samples": 0
+  }
+}

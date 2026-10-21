@@ -1,0 +1,51 @@
+{
+  "policy_ticks": 150,
+  "environments": 2,
+  "simulation_seconds": 3.0,
+  "source": "estimated",
+  "checkpoint_sha256": "c35c5b3861a0f7d0de1975a96e80dc6d45831ecad225b5a82d8031e63e95d9bf",
+  "urdf_sha256": "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c",
+  "same_tick_reset_tick": 75,
+  "unaffected_history_unchanged": true,
+  "privileged_input_isolation": "passed",
+  "learned_state_unchanged": true,
+  "optimizer_updates": 0,
+  "unexpected_resets": 0,
+  "wall_seconds_including_build_and_export": 103.51717720000124,
+  "isolated_package_check": {
+    "status": "passed",
+    "environment": "Temporary venv outside checkout with NumPy2.2.6 and ONNX Runtime1.31.0 only; Genesis/RSL-RL/robot_gym/PyTorch unavailable",
+    "command": "python -I check_policy.py"
+  },
+  "manual_gui": {
+    "status": "completed",
+    "policy_ticks": 50,
+    "velocity_source": "estimated",
+    "human_visual_approval": false
+  },
+  "source_yaw": {
+    "status": "completed",
+    "actor_ticks": 400,
+    "command_rad_s": 0.6,
+    "last_second_mean_yaw_rad_s": 0.6005067229270935,
+    "actor_unchanged": true,
+    "source_metrics_sha256": "ec2293ae15059070f5830b219a72d0f66597a4115adebdd50952671c2f5a658e",
+    "scope": "One relocated-reference smoke; no new cross-engine comparison"
+  },
+  "unit_tests": {
+    "total": 111,
+    "passed": 104,
+    "failures": 2,
+    "errors": 5,
+    "same_failures_as": "7d1f87c87fe1b190b4278fe870c69d6c652a3ce5",
+    "names": [
+      "ERROR: test_phase_boundary_reset_and_observation (test_go2w_phase.PhaseTests.test_phase_boundary_reset_and_observation)",
+      "ERROR: test_unique_vectors_joints_and_actions (test_go2w_symmetry.SymmetryTests.test_unique_vectors_joints_and_actions)",
+      "ERROR: test_closed_loop_hold_censoring_and_light_recording (test_inference.InferenceTests.test_closed_loop_hold_censoring_and_light_recording)",
+      "ERROR: test_precision_schedules_and_terminal_alignment (test_inference.InferenceTests.test_precision_schedules_and_terminal_alignment)",
+      "ERROR: test_sustained_schedule_and_censoring (test_inference.InferenceTests.test_sustained_schedule_and_censoring)",
+      "FAIL: test_resume_restores_complete_saved_config (test_go2w_rewards.ReferenceTracking.test_resume_restores_complete_saved_config)",
+      "FAIL: test_urdf_nominal_and_actuator_conventions (test_go2w_symmetry.SymmetryTests.test_urdf_nominal_and_actuator_conventions)"
+    ]
+  }
+}

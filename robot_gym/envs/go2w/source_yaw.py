@@ -24,7 +24,7 @@ from .diagnostics import PhysicsDiagnostics, ReferenceCapture, loaded_properties
 from .go2w_config import restore_saved_config
 
 
-BUNDLE = Path(ROBOT_GYM_ROOT_DIR) / "ressources/handoffs/go2w_2026-10-09/inference/go2w"
+BUNDLE = Path(ROBOT_GYM_ROOT_DIR) / "ressources/pretrained/go2w/reference"
 ACTOR_SHA = "639a443f3da3d9fa15d9e532b85959df55c7bd5618564797740adb66b1d2bfcb"
 URDF_SHA = "d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c"
 YAWS = (.3, -.3, .6, -.6, .8, -.8, 1., -1.)

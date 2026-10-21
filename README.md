@@ -127,10 +127,12 @@ Use the ordinary `--task go2w` command; each run saves its complete resolved
 `config.yaml`. See [current Go2-W training](docs/go2w_training.md) for the production
 command, saved-run compatibility and behavior-equivalence evidence.
 
-The historical [experimental Go2-W simulation policy](ressources/pretrained/go2w/README.md)
-retains its published weights, interface and portable CPU check. Its older interface
-is separate from the current task. Historical reports and artifacts remain available;
-source recipe selectors have been removed.
+The current [Go2-W package](ressources/pretrained/go2w/README.md) contains the frozen
+original actor plus trained warmup velocity estimator, complete ONNX/TorchScript,
+full checkpoints, measured robot assets and a portable checker. Copy that directory
+for diagnostic Sim2Sim. Stopping limitations remain unresolved; it is not
+hardware-qualified. The older 56-input publication and dated handoff are available
+with their matching assets at [7d1f87c](https://github.com/liambansbach/legged-robot_rl_genesis/tree/7d1f87c87fe1b190b4278fe870c69d6c652a3ce5).
 
 Training pipeline:
 
@@ -187,12 +189,11 @@ Manual replay starts at zero, defaults to one environment, and broadcasts to all
 environments if `--num_envs` is supplied. Esc or closing either window exits.
 It runs until exit unless `--steps` is explicit, retaining the policy timestep and
 episode resets. Remove fixed `--command_vx/vy/yaw` arguments and `--headless`.
-For the current handoff's selected refinement candidate (native CK1999, saved
-configuration and nominal replay dynamics; no historical profile required):
+For the packaged frozen estimator pair (saved configuration and nominal replay):
 
 ```powershell
-$run = (Resolve-Path 'ressources/handoffs/go2w_2026-10-09/runs/go2w_2026-10-08_23-45-24').Path
-python -m robot_gym.scripts.play --task go2w --experiment_name go2w --load_run "$run" --checkpoint 1999 --num_envs 1 --seed 1 --rl_device cuda:0 --no_export --manual_control
+$run = (Resolve-Path 'ressources/pretrained/go2w/checkpoint').Path
+python -m robot_gym.scripts.play --task go2w --load_run "$run" --checkpoint 2197 --num_envs 1 --velocity_source estimated --manual_control
 ```
 
 ### Export Policy
@@ -205,6 +206,10 @@ logs/<experiment>/<run>/exported/model_<checkpoint>/policy_1.pt
 ```
 
 `--no_export` remains accepted for compatibility; export is disabled by default.
+Estimator-enabled runs also export `estimated_policy.pt`; add `--onnx` and
+`--parity_histories` for the complete graph. Use a fresh `--export_dir`: existing
+exports are never overwritten. The [published package](ressources/pretrained/go2w/README.md)
+already includes the verified frozen graph and standalone validation commands.
 
 ### Observations
 

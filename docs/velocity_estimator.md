@@ -8,6 +8,12 @@ means disabled. Rewards, critic inputs and supervised labels keep simulator trut
 
 ## Current decision and preserved artifacts
 
+The selected frozen pair is now the self-contained
+[current package](../ressources/pretrained/go2w/README.md), including the full
+checkpoint/config, privileged parent reference, measured assets and portable
+history/ONNX checks. This is a publication milestone only: the failed stopping
+comparisons below remain. No new training was performed for publication.
+
 The October 21 integration merges `85045a4` with `testing@3fe238c` using a normal
 merge. It retains the existing `--manual_control` window and source-yaw comparison.
 There is no second keyboard controller. No new training or weight replacement was
@@ -28,16 +34,19 @@ All paths below are relative to this repository; generated evidence stays ignore
 
 | Artifact | Local path | SHA256 |
 | --- | --- | --- |
-| Parent full checkpoint | `ressources/handoffs/go2w_2026-10-09/runs/go2w_2026-10-08_23-45-24/model_1999.pt` | `2f8f3a96ad7fdf83c2966b44d10fc76ac274d9d81130a470af881f81a5980bf6` |
-| Frozen actor + estimator | `logs/go2w_velocity/warmup_2026-10-21_12-45-46/model_2197.pt` | `c35c5b3861a0f7d0de1975a96e80dc6d45831ecad225b5a82d8031e63e95d9bf` |
+| Parent full checkpoint | `ressources/pretrained/go2w/reference/model_1999.pt` | `2f8f3a96ad7fdf83c2966b44d10fc76ac274d9d81130a470af881f81a5980bf6` |
+| Frozen actor + estimator | `ressources/pretrained/go2w/checkpoint/model_2197.pt` | `c35c5b3861a0f7d0de1975a96e80dc6d45831ecad225b5a82d8031e63e95d9bf` |
+| Published frozen ONNX | `ressources/pretrained/go2w/policy.onnx` | `5117e7a57c39426a1da6d6ceedb2c242d6642e6598ca80663b669e1619fc9c60` |
 | Fine-tuned pair | `logs/go2w_velocity/finetune_2026-10-21_13-00-42/model_2296.pt` | `8c06103a914084bd99870e63f5496a2d9ab768e11d57fc6f56b5920f5403c639` |
-| Original complete ONNX | `logs/go2w_velocity/finetune_2026-10-21_13-00-42/exported/model_2296/policy.onnx` | `077575ccbafe456cdf6b89f688ca5d5fa6bf488cd7d2c99b7e8b81ad3e58d66c` |
+| Local fine-tuned ONNX (not the default) | `logs/go2w_velocity/finetune_2026-10-21_13-00-42/exported/model_2296/policy.onnx` | `077575ccbafe456cdf6b89f688ca5d5fa6bf488cd7d2c99b7e8b81ad3e58d66c` |
 
 The parent actor/critic/std/normalizers/native Adam state equals the frozen
 checkpoint bitwise. The fine-tuned actor and estimator differ as expected. Native
-labels 1999/2197/2296 are not estimator stage counters. The original handoff's
+labels 1999/2197/2296 are not estimator stage counters. The packaged reference's
 inference-only actor hash remains `639a443f3da3d9fa15d9e532b85959df55c7bd5618564797740adb66b1d2bfcb`;
-it is distinct from the older default pretrained Go2-W package.
+it is distinct from the retired 56-input pretrained package. The original local
+warmup and fine-tuning runs remain intact. Old publication/handoff assets can be
+retrieved with matching source at commit `7d1f87c87fe1b190b4278fe870c69d6c652a3ce5`.
 
 ## Architecture and contract
 
@@ -226,23 +235,22 @@ and reset treatment and a new trained contract; it must not be added blindly.
 
 ## Commands and portability
 
-PowerShell from the actual checkout, using the installed interpreter and cached
-optional ONNX Runtime/pygame dependencies (install `requirements-export.txt` and
-pygame normally if using another environment):
+PowerShell from the actual checkout. Install the optional export and manual-control
+dependencies normally; no private cache directory is part of the interface:
 
 ```powershell
 Set-Location 'C:/Users/Liamb/SynologyDrive/TUM/3_Semester/dodo_alive/legged-robot_rl_genesis'
 $py = 'C:/Users/Liamb/anaconda3/envs/genesis-gpu/python.exe'
 $env:PYTHONIOENCODING = 'utf-8'
-$env:PYTHONPATH = ((Join-Path $PWD '.cache/onnx-runtime'), (Join-Path $PWD '.cache/pygame-runtime')) -join [IO.Path]::PathSeparator
-$parent = (Resolve-Path 'ressources/handoffs/go2w_2026-10-09/runs/go2w_2026-10-08_23-45-24').Path
-$warm = (Resolve-Path 'logs/go2w_velocity/warmup_2026-10-21_12-45-46').Path
+& $py -m pip install -r requirements-export.txt pygame
+$parent = (Resolve-Path 'ressources/pretrained/go2w/reference').Path
+$warm = (Resolve-Path 'ressources/pretrained/go2w/checkpoint').Path
 $pair = (Resolve-Path 'logs/go2w_velocity/finetune_2026-10-21_13-00-42').Path
-& $py -m robot_gym.scripts.play --task go2w --load_run "$warm" --checkpoint 2197 --num_envs 1 --manual_control
+& $py -m robot_gym.scripts.play --task go2w --load_run "$warm" --checkpoint 2197 --num_envs 1 --velocity_source estimated --manual_control
 # To inspect the fine-tuned pair, use --load_run "$pair" --checkpoint 2296.
 $out = "evaluation/velocity_review_$(Get-Date -Format yyyyMMdd_HHmmss)"
 & $py -m robot_gym.scripts.evaluate --task go2w --load_run "$pair" --checkpoint 2296 --estimator_screen --comparison_checkpoint "$parent/model_1999.pt" --frozen_checkpoint "$warm/model_2197.pt" --headless --output "$out"
-& $py -m robot_gym.scripts.play --task go2w --load_run "$pair" --checkpoint 2296 --num_envs 1 --steps 1 --headless --export --onnx --export_dir "$out/export" --parity_histories "$out/nominal_estimated.npz"
+& $py -m robot_gym.scripts.play --task go2w --load_run "$warm" --checkpoint 2197 --num_envs 1 --velocity_source estimated --steps 1 --headless --export --onnx --export_dir "$out/export" --parity_histories "$out/nominal_frozen_estimated.npz"
 & $py "$out/export/deployment_history.py" "$out/export"
 ```
 

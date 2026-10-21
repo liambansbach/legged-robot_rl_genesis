@@ -45,25 +45,38 @@ def phase_features(phase, commands, axes, thresholds):
     return np.stack((np.sin(angle), np.cos(angle)), axis=-1) * demand[:, None]
 
 
-def check_package(directory):
-    """Replay the bundled real histories using only NumPy, PyTorch and ORT."""
+def check_package(directory, torchscript=True, samples_file='parity_samples.npz'):
+    """Check ORT against saved eager outputs; optionally also check TorchScript."""
     import json
     from pathlib import Path
-    import torch
     import onnxruntime as ort
     path = Path(directory)
     contract = json.loads((path / 'contract.json').read_text(encoding='utf-8'))
-    data = np.load(path / 'parity_samples.npz', allow_pickle=False)
+    data = np.load(path / samples_file, allow_pickle=False)
     history = data['histories']
-    model = torch.jit.load(str(path / 'estimated_policy.pt')).eval()
+    model = None
+    if torchscript:
+        import torch
+        model = torch.jit.load(str(path / 'estimated_policy.pt')).eval()
     session = ort.InferenceSession(str(path / 'policy.onnx'), providers=['CPUExecutionProvider'])
     maxima = [0., 0.]
-    with torch.no_grad():
-        for start in range(0, len(history), 256):
-            frame = history[start:start+256]
-            for i, (a, b) in enumerate(zip(model(torch.from_numpy(frame)), session.run(None, {'history': frame}))):
-                np.testing.assert_allclose(a.numpy(), b, atol=2e-5, rtol=2e-5)
-                maxima[i] = max(maxima[i], float(abs(a.numpy()-b).max()))
+    for start in range(0, len(history), 256):
+        frame = history[start:start+256]
+        actual = session.run(None, {'history': frame})
+        if 'expected_actions' in data:
+            expected = [data[k][start:start+256] for k in ('expected_actions', 'expected_velocity')]
+        elif model is not None:  # Earlier interface-3 exports did not save eager outputs.
+            with torch.no_grad():
+                expected = [x.numpy() for x in model(torch.from_numpy(frame))]
+        else:
+            raise ValueError('This older export needs PyTorch or a fresh export with reference outputs')
+        for i, (a, b) in enumerate(zip(expected, actual)):
+            np.testing.assert_allclose(a, b, atol=2e-5, rtol=2e-5)
+            maxima[i] = max(maxima[i], float(abs(a-b).max()))
+        if model is not None:
+            with torch.no_grad():
+                for a, b in zip(expected, model(torch.from_numpy(frame))):
+                    np.testing.assert_allclose(a, b.numpy(), atol=2e-5, rtol=2e-5)
     reset = data['reset']
     time, batch = reset.shape
     sequence = history.reshape(time, batch, *history.shape[1:])
@@ -91,4 +104,6 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('directory', help='Directory containing the interface-3 export')
-    check_package(parser.parse_args().directory)
+    parser.add_argument('--no-torch', action='store_true', help='Check ORT against saved eager outputs only')
+    args = parser.parse_args()
+    check_package(args.directory, torchscript=not args.no_torch)
