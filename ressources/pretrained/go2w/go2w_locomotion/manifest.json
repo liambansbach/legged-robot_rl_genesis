@@ -146,8 +146,8 @@
       "role": "Default composed frozen estimator and actor"
     },
     "README.md": {
-      "bytes": 15050,
-      "sha256": "c87831f731b661e27711fb80bd7df85228e19a42f78a7c084917e6b4d5150d03",
+      "bytes": 6825,
+      "sha256": "d81917d3c033ee6926b4289e4f5972170b5eed12319b1bdb05e713631ed89256",
       "role": "Receiving-project handoff"
     },
     "reference/config.yaml": {

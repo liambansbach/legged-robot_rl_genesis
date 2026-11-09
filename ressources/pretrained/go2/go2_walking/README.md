@@ -1,98 +1,16 @@
-# GO2 Walking Policy (Pretrained)
+# Go2 walking
 
-This folder contains a pretrained reinforcement learning policy for the Go2 quadruped robot trained in the Genesis simulator.
+`model_1499.pt` is the full native checkpoint. Replay loads it with the adjacent `config.yaml`. `policy_1.pt` is the separately exported TorchScript actor. This run uses `go2.urdf` and twelve position-controlled joints.
 
-It allows you to **run and test a working walking policy immediately** without retraining.
+From the repository root, set `run` to this directory's absolute path.
 
----
+| Shell | Command |
+| --- | --- |
+| Bash | `run="$(pwd)/ressources/pretrained/go2/go2_walking"` |
+| PowerShell | `$run = (Resolve-Path 'ressources/pretrained/go2/go2_walking').Path` |
 
-## 📦 Contents
-
-- **model_final.pt**  
-  Final training checkpoint (PyTorch).  
-  → Used by the training/play pipeline.
-
-- **policy_1.pt**  
-  Exported TorchScript (JIT) policy.  
-  → Used for sim2sim / sim2real deployment (e.g. C++ / ROS2).  
-  → Not required for `play`, but included for convenience.
-
-- **go2_config.txt**  
-  Snapshot of the configuration used during training.  
-  → For reference only (not loaded automatically).
-
-- **README.md**  
-  This file.
-
----
-
-## 🚀 How to Run (Play Mode)
-
-The `play` script expects models inside the `logs/` directory.  
-Therefore, you need to copy this folder into the correct location.
-
----
-
-### 1️⃣ Copy the pretrained model
-
-Copy this folder to:
-
-```text
-logs/<experiment_name>/<run_name>/
+```sh
+python -m robot_gym.scripts.play --task go2 --load_run "$run" --checkpoint 1499 --manual_control
 ```
 
-For example:
-
-```bash
- logs/go2_walking/pretrained/
-```
-
- The structure should then be:
-
-```bash
-logs/
-└── go2_walking/
-    └── pretrained/
-        ├── model_final.pt
-```
-
-### 2️⃣ Run play
-
-```bash
-python -m robot_gym.scripts.play \
-    --task go2 \
-    --experiment_name go2_walking \
-
-```
-
----
-
-## ⚠️ Important Notes
-
-- The play script loads:
-
-```bash
-logs/<experiment_name>/<run_name>/model_*.pt
-```
-
-- If multiple checkpoints exist, the latest one is used automatically.
-- The JIT file (policy_1.pt) is not used by play:
-  - It is meant for deployment (sim2sim / sim2real)
-  - It can be loaded independently via TorchScript
-
-You also have to make sure, that the "go2" task is registered in
-
-```text
-envs/__init__.py
-```
-
-```bash
-task_registry.register(
-    "go2",
-    Go2Env,
-    GO2Cfg(),
-    GO2CfgPPO(),
-)
-```
-
--> This should already be done initially but if not double check please.
+Remove `--manual_control` to sample commands or use `--command_vx 0.2` for a fixed forward command. Installation and keyboard shortcuts are in the [project README](../../../../README.md).

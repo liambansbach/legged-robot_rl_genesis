@@ -2,7 +2,7 @@
 
 `urdf/go2w_measured_ed8dc93.urdf` is the current model. Its exact bytes are
 SHA256 `d298cc7bf4894e869840bdab9ac60f09548d998444018e61854636cff46b1d8c`.
-The copy in `ressources/pretrained/go2w/robot/` is a portable snapshot, checked
+The copy in `ressources/pretrained/go2w/go2w_locomotion/robot/` is a portable snapshot, checked
 against this source; do not edit the snapshot independently.
 
 The other retained file, `go2w_reference_original.urdf`, is a historical thesis

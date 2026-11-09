@@ -1,6 +1,6 @@
 # Portable publication: hashes describe exact bytes on Windows and Linux.
-ressources/pretrained/go2w/** -text whitespace=cr-at-eol
-ressources/pretrained/go2w/robot/** -diff
+ressources/pretrained/go2w/go2w_locomotion/** -text whitespace=cr-at-eol
+ressources/pretrained/go2w/go2w_locomotion/robot/** -diff
 # Immutable diagnostic snapshots and portable native reference evidence.
 ressources/robots/go2w/urdf/go2w_reference_original.urdf text eol=lf whitespace=-blank-at-eol
 ressources/robots/go2w/urdf/go2w_measured_ed8dc93.urdf text eol=lf whitespace=-blank-at-eol

@@ -168,7 +168,7 @@ class ReplayTests(unittest.TestCase):
         from robot_gym.utils.diagnostics import sha256
         from robot_gym.utils.export import export_policy
         source = (Path(__file__).resolve().parents[1] / "ressources/pretrained/go2w"
-                  / "reference/config.yaml")
+                  / "go2w_locomotion/reference/config.yaml")
         with TemporaryDirectory() as tmp:
             folder = Path(tmp)
             (folder / "model_1.pt").touch()
