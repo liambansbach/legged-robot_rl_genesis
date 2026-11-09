@@ -76,25 +76,8 @@ def check_target_intervals(cfg, reader=None):
 _REFERENCE_HEIGHT, _REFERENCE_DX = reference_geometry()
 
 
-def _own_fields(config):
-    """Give each config instance its own mutable values before CLI or replay edits."""
-    for key in dir(config):
-        if key.startswith('_'):
-            continue
-        value = getattr(config, key)
-        if callable(value):
-            continue
-        if hasattr(value, '__dict__'):
-            _own_fields(value)
-        else:
-            setattr(config, key, copy.deepcopy(value))
-
-
 class GO2WCfg(BaseConfig):
     velocity_estimator = None
-    def __init__(self):
-        super().__init__()
-        _own_fields(self)
 
     class asset:
         contact_height = 0.09167
@@ -417,10 +400,6 @@ class GO2WCfg(BaseConfig):
 
 
 class GO2WCfgPPO(BaseConfig):
-    def __init__(self):
-        super().__init__()
-        _own_fields(self)
-
     class actor:
         activation = 'elu'
         class_name = 'MLPModel'
@@ -594,86 +573,74 @@ def configure(env_cfg, train_cfg, args):
         raise ValueError("Current rewards option requires training --resume")
     if current_definitions and (args.load_run in (None, '-1') or args.checkpoint is None or args.checkpoint < 0):
         raise ValueError("--resume_current_rewards requires explicit --load_run and --checkpoint")
-    if getattr(args, "_replay_restored", False) or not args.resume:
-        return
-    if not hasattr(args, "_go2w_resume_config"):
-        if args.load_run is None:
-            raise ValueError("Go2-W --resume requires an explicit --load_run saved directory")
-        from robot_gym.utils.helpers import class_to_dict
-        from robot_gym.utils.task_registry import task_registry
-        # Capture the one current source before saved-task restoration replaces defaults.
-        if current_rewards:
-            args._go2w_current_reward_scales = copy.deepcopy(class_to_dict(GO2WCfg().rewards.scales))
-        if current_definitions:
-            current_env, current_train = GO2WCfg(), GO2WCfgPPO()
-            args._go2w_current_rewards = copy.deepcopy(class_to_dict(current_env.rewards))
-            args._go2w_current_version = current_env.config_version
-        replay_args = copy.copy(args)
-        replay_args.resume = False
-        replay_args.resume_current_reward_scales = False
-        replay_args.resume_current_rewards = False
-        restored_env, restored_train, checkpoint = task_registry.resolve_replay(replay_args)
-        args.resolved_checkpoint = str(checkpoint)
-        restored_env.training_resume = {"checkpoint": str(checkpoint), "state": "full native learning state"}
-        if current_definitions:
-            import json
-            from pathlib import Path
-            import yaml
-            from robot_gym.utils.diagnostics import sha256
+    if args.resume and not getattr(args, "_replay_restored", False) and args.load_run is None:
+        raise ValueError("Go2-W --resume requires an explicit --load_run saved directory")
 
-            config_path = Path(args.reference_config or checkpoint.with_name("config.yaml")).resolve()
-            saved = yaml.safe_load(config_path.read_text(encoding='utf-8'))
-            # Normalize only the implicit schema2 formula; every saved number stays authoritative.
-            source_env, source_train = restore_saved_config(saved)
-            source = dict(env_cfg=class_to_dict(source_env), train_cfg=class_to_dict(source_train))
-            intended = dict(env_cfg=class_to_dict(current_env), train_cfg=class_to_dict(current_train))
-            diff = reward_continuation_diff(source, intended)
-            saved_scales = source['env_cfg']['rewards']['scales']
-            new_scales = args._go2w_current_rewards['scales']
-            if {k for k, v in saved_scales.items() if v} != {k for k, v in new_scales.items() if v}:
-                raise ValueError("Current rewards must retain the saved active reward names")
-            if not all(math.isfinite(v) for v in new_scales.values()):
-                raise ValueError("Current reward scales must be finite")
-            print("Current reward definition diff (unscaled): " + json.dumps(diff, sort_keys=True), flush=True)
-            restored_env.rewards = copy.deepcopy(current_env.rewards)
-            restored_env.config_version = current_env.config_version
-            restored_env.training_resume.update(
-                checkpoint_sha256=sha256(checkpoint), source_config=str(config_path),
-                source_config_sha256=sha256(config_path),
-                reward_override={'source': 'GO2WCfg.rewards', 'diff': diff,
-                                 'source_config_version': source_env.config_version,
-                                 'current_config_version': current_env.config_version},
-            )
-            # A second guard after CLI resolution prevents a hidden batch/seed/PPO change.
-            args._go2w_reward_contract = intended
-        if current_rewards:
-            import hashlib
-            import json
-            from pathlib import Path
-            saved_scales = class_to_dict(restored_env.rewards.scales)
-            current_scales = args._go2w_current_reward_scales
-            if {k for k, v in saved_scales.items() if v} != {k for k, v in current_scales.items() if v}:
-                raise ValueError("Current reward scales must retain the saved active reward names")
-            if not all(math.isfinite(v) for v in current_scales.values()):
-                raise ValueError("Current reward scales must be finite")
-            diff = {k: {"old": saved_scales.get(k, 0.), "new": v}
-                    for k, v in current_scales.items() if saved_scales.get(k, 0.) != v}
-            print("Current reward scale diff (unscaled): " + json.dumps(diff, sort_keys=True), flush=True)
-            config_path = Path(args.reference_config or checkpoint.with_name("config.yaml")).resolve()
-            restored_env.training_resume.update(
-                checkpoint_sha256=hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
-                source_config=str(config_path),
-                source_config_sha256=hashlib.sha256(config_path.read_bytes()).hexdigest(),
-                reward_scale_override={"source": "GO2WCfg.rewards.scales", "diff": diff},
-            )
-            # Before environment registration: its normal reward preparation applies dt once.
-            restored_env.rewards.scales = SimpleNamespace(**copy.deepcopy(current_scales))
-        restored_train.runner.checkpoint_load_cfg = dict.fromkeys(("actor", "critic", "optimizer", "iteration"), True)
-        args._go2w_resume_config = (restored_env, restored_train)
-    for current, restored in zip((env_cfg, train_cfg), args._go2w_resume_config):
-        if current is not None:
-            # Replace sections rather than overlaying the current numeric defaults.
-            current.__dict__.update(copy.deepcopy(vars(restored)))
+
+def prepare_resume(restored_env, restored_train, checkpoint, args):
+    """Apply the explicitly selected reward continuation to the saved run."""
+    from robot_gym.utils.helpers import class_to_dict
+
+    current_rewards = getattr(args, "resume_current_reward_scales", False)
+    current_definitions = getattr(args, "resume_current_rewards", False)
+    if current_rewards:
+        args._go2w_current_reward_scales = copy.deepcopy(class_to_dict(GO2WCfg().rewards.scales))
+    if current_definitions:
+        current_env, current_train = GO2WCfg(), GO2WCfgPPO()
+        args._go2w_current_rewards = copy.deepcopy(class_to_dict(current_env.rewards))
+        args._go2w_current_version = current_env.config_version
+    restored_env.training_resume = {"checkpoint": str(checkpoint), "state": "full native learning state"}
+    if current_definitions:
+        import json
+        from pathlib import Path
+        from robot_gym.utils.diagnostics import sha256
+
+        config_path = Path(args.reference_config or checkpoint.with_name("config.yaml")).resolve()
+        # Normalize only the implicit schema2 formula; every saved number stays authoritative.
+        source = dict(env_cfg=class_to_dict(restored_env), train_cfg=class_to_dict(restored_train))
+        intended = dict(env_cfg=class_to_dict(current_env), train_cfg=class_to_dict(current_train))
+        diff = reward_continuation_diff(source, intended)
+        saved_scales = source['env_cfg']['rewards']['scales']
+        new_scales = args._go2w_current_rewards['scales']
+        if {k for k, v in saved_scales.items() if v} != {k for k, v in new_scales.items() if v}:
+            raise ValueError("Current rewards must retain the saved active reward names")
+        if not all(math.isfinite(v) for v in new_scales.values()):
+            raise ValueError("Current reward scales must be finite")
+        print("Current reward definition diff (unscaled): " + json.dumps(diff, sort_keys=True), flush=True)
+        restored_env.rewards = copy.deepcopy(current_env.rewards)
+        restored_env.config_version = current_env.config_version
+        restored_env.training_resume.update(
+            checkpoint_sha256=sha256(checkpoint), source_config=str(config_path),
+            source_config_sha256=sha256(config_path),
+            reward_override={'source': 'GO2WCfg.rewards', 'diff': diff,
+                             'source_config_version': source['env_cfg']['config_version'],
+                             'current_config_version': current_env.config_version},
+        )
+        # A second guard after CLI resolution prevents a hidden batch/seed/PPO change.
+        args._go2w_reward_contract = intended
+    if current_rewards:
+        import hashlib
+        import json
+        from pathlib import Path
+        saved_scales = class_to_dict(restored_env.rewards.scales)
+        current_scales = args._go2w_current_reward_scales
+        if {k for k, v in saved_scales.items() if v} != {k for k, v in current_scales.items() if v}:
+            raise ValueError("Current reward scales must retain the saved active reward names")
+        if not all(math.isfinite(v) for v in current_scales.values()):
+            raise ValueError("Current reward scales must be finite")
+        diff = {k: {"old": saved_scales.get(k, 0.), "new": v}
+                for k, v in current_scales.items() if saved_scales.get(k, 0.) != v}
+        print("Current reward scale diff (unscaled): " + json.dumps(diff, sort_keys=True), flush=True)
+        config_path = Path(args.reference_config or checkpoint.with_name("config.yaml")).resolve()
+        restored_env.training_resume.update(
+            checkpoint_sha256=hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
+            source_config=str(config_path),
+            source_config_sha256=hashlib.sha256(config_path.read_bytes()).hexdigest(),
+            reward_scale_override={"source": "GO2WCfg.rewards.scales", "diff": diff},
+        )
+        # Before environment registration: its normal reward preparation applies dt once.
+        restored_env.rewards.scales = SimpleNamespace(**copy.deepcopy(current_scales))
+    restored_train.runner.checkpoint_load_cfg = dict.fromkeys(("actor", "critic", "optimizer", "iteration"), True)
 
 
 def validate_training(args, env_cfg, train_cfg):

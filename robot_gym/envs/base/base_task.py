@@ -18,6 +18,10 @@ class BaseTask:
         """Apply task-specific recipe options before common CLI overrides."""
 
     @staticmethod
+    def prepare_resume(env_cfg, train_cfg, checkpoint, args):
+        """Optional task-specific continuation of a restored training configuration."""
+
+    @staticmethod
     def configure_evaluation(cfg, args):
         """Task-owned inference sensitivity or controller options."""
 
@@ -70,7 +74,6 @@ class BaseTask:
         self.headless = headless
         self.sim_device = sim_device
 
-        # get device type -> robust to inputs like "cuda:0" or "cpu" (if multiple gpus are avvailable for example)
         device_type = sim_device.split(":")[0]
         backend = gs.cuda if device_type == "cuda" else gs.cpu
 
@@ -142,20 +145,3 @@ class BaseTask:
 
     def step(self, actions):
         raise NotImplementedError
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -1,15 +1,16 @@
+import copy
 import inspect
 
 
 class BaseConfig:
     def __init__(self) -> None:
-        """Initializes all member classes recursively."""
+        """Materialize sections and their values so separate runs own their settings."""
         self.init_member_classes(self)
 
     @staticmethod
     def init_member_classes(obj):
         for key in dir(obj):
-            if key == "__class__":
+            if key.startswith("_"):
                 continue
 
             var = getattr(obj, key)
@@ -18,6 +19,8 @@ class BaseConfig:
                 i_var = var()
                 setattr(obj, key, i_var)
                 BaseConfig.init_member_classes(i_var)
+            elif not callable(var):
+                setattr(obj, key, copy.deepcopy(var))
 
     def to_dict(self):
         return self._recursive_to_dict(self)

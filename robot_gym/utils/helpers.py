@@ -5,6 +5,7 @@ import torch
 import numpy as np
 import random
 import argparse
+import copy
 
 def class_to_dict(obj) -> dict:
     if not  hasattr(obj,"__dict__"):
@@ -58,9 +59,6 @@ def get_load_path(root, load_run=-1, checkpoint=-1):
     if str(checkpoint) == "-1":
         checkpoint = -1
 
-    # ------------------------------------------------------------------
-    # Select run directory
-    # ------------------------------------------------------------------
     if load_run == -1:
         runs = [
             os.path.join(root, run)
@@ -80,9 +78,6 @@ def get_load_path(root, load_run=-1, checkpoint=-1):
     if not os.path.isdir(load_run):
         raise ValueError(f"Run directory does not exist: {load_run}")
 
-    # ------------------------------------------------------------------
-    # Select checkpoint
-    # ------------------------------------------------------------------
     if checkpoint == -1:
         models = [
             file
@@ -120,14 +115,23 @@ def update_cfg_from_args(env_cfg, cfg_train, args):
     from robot_gym.utils.task_registry import task_registry
     if env_cfg is not None and env_cfg.asset.name != task_registry.env_cfgs[args.task].asset.name:
         raise ValueError(f"Configuration asset {env_cfg.asset.name!r} conflicts with task {args.task!r}")
-    task_registry.get_task_class(args.task).configure(env_cfg, cfg_train, args)
+    task = task_registry.get_task_class(args.task)
+    task.configure(env_cfg, cfg_train, args)
+    if args.resume and not getattr(args, "_replay_restored", False):
+        # The environment and runner can be constructed separately. Pin their inputs
+        # to one saved run even when --load_run or --checkpoint selects the latest.
+        if not hasattr(args, "_resume_config"):
+            saved_env, saved_train, checkpoint = task_registry.load_saved_run(args, replay=False)
+            task.prepare_resume(saved_env, saved_train, checkpoint, args)
+            args.resolved_checkpoint = str(checkpoint)
+            args._resume_config = saved_env, saved_train
+        for current, saved in zip((env_cfg, cfg_train), args._resume_config):
+            if current is not None:
+                vars(current).update(copy.deepcopy(vars(saved)))
     from robot_gym.utils.velocity_estimator import configure
     configure(env_cfg, args)
-    # seed
-    if env_cfg is not None:
-        # num envs
-        if args.num_envs is not None:
-            env_cfg.env.num_envs = args.num_envs
+    if env_cfg is not None and args.num_envs is not None:
+        env_cfg.env.num_envs = args.num_envs
     if cfg_train is not None:
         if args.seed is not None:
             cfg_train.seed = args.seed
@@ -183,7 +187,6 @@ def get_args():
         {"name": "--load_run", "type": str, "help": "Saved run directory for replay or explicit training resume; -1 selects the latest run"},
         {"name": "--checkpoint", "type": int, "help": "Saved model checkpoint number. If -1: will load the last checkpoint. Overrides config file if provided."},
         {"name": "--headless", "action": "store_true", "default": False, "help": "Force display off at all times"},
-        {"name": "--horovod", "action": "store_true", "default": False, "help": "Use horovod for multi-gpu training"},
         {"name": "--rl_device", "type": str, "default": "cuda:0", "help": "Device used by the RL algorithm, (cpu, cuda, cuda:0, cuda:1 etc..)"},
         {"name": "--num_envs", "type": int, "help": "Number of environments to create. Overrides config file if provided."},
         {"name": "--seed", "type": int, "help": "Random seed. Overrides config file if provided."},

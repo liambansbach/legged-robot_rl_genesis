@@ -4,6 +4,7 @@ import yaml
 import numpy as np
 import torch
 from datetime import datetime
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Tuple, Type
 
@@ -26,6 +27,27 @@ from robot_gym.utils.helpers import (
 )
 
 
+def restore_early_walking_config(cfg, saved):
+    """Translate the two walking packages written before stand sampling and body wrenches."""
+    dr = saved.get("domain_rand", {})
+    if (cfg.asset.name not in ("dodo", "go2") or cfg.control.control_type != "P"
+            or "stand_command_probability" in saved["commands"]
+            or "push_force_range" in dr or "randomize_action_delay" in dr
+            or not {"push_interval_s", "max_push_vel_xy"} <= dr.keys()):
+        return
+    cfg.commands.stand_command_probability = 0.0
+    cfg.commands.resampling_time_range = None
+    cfg.commands.linear_deadzone = cfg.commands.yaw_deadzone = cfg.commands.stand_threshold = 0.1
+    cfg.domain_rand.randomize_action_delay = False
+    cfg.domain_rand.action_delay_steps_range = [0, 0]
+    # The old "push" wrote a joint torque after stepping. P control replaced
+    # it before the next physics step, so these runs had no physical wrench.
+    cfg.domain_rand.push_robots = False
+    cfg.init_state.relative_joint_position_noise = 0.1
+    cfg.init_state.joint_position_noise = 0.0
+    cfg.rewards.legacy_walking = True
+
+
 class TaskRegistry:
     """
     Central registry for environments and training configs.
@@ -36,9 +58,6 @@ class TaskRegistry:
         self.env_cfgs: dict[str, LeggedRobotCfg] = {}
         self.train_cfgs: dict[str, LeggedRobotCfgPPO] = {}
 
-    # --------------------------------------------------------------------------
-    # Registration
-    # --------------------------------------------------------------------------
     def register(
         self,
         name: str,
@@ -50,9 +69,6 @@ class TaskRegistry:
         self.env_cfgs[name] = env_cfg
         self.train_cfgs[name] = train_cfg
 
-    # --------------------------------------------------------------------------
-    # Getters
-    # --------------------------------------------------------------------------
     def get_task_class(self, name: str) -> Type[BaseTask]:
         if name not in self.task_classes:
             raise ValueError(f"Task '{name}' is not registered.")
@@ -62,36 +78,27 @@ class TaskRegistry:
         if name not in self.env_cfgs or name not in self.train_cfgs:
             raise ValueError(f"Configs for task '{name}' not found.")
 
-        # IMPORTANT: deepcopy to avoid modifying registry defaults
         env_cfg = copy.deepcopy(self.env_cfgs[name])
         train_cfg = copy.deepcopy(self.train_cfgs[name])
 
-        # Sync seed
-        try:
+        if hasattr(train_cfg, "seed"):
             env_cfg.seed = train_cfg.seed
-        except Exception:
-            pass
 
         return env_cfg, train_cfg
 
-    def resolve_replay(self, args):
-        """Select once, restore saved class instances, then apply explicit runtime options."""
-        from pathlib import Path
-
+    def load_saved_run(self, args, *, replay):
+        """Read the selected checkpoint's configuration before applying runtime options."""
         defaults, training_defaults = self.get_cfgs(args.task)
-        env_cfg, train_cfg = self.get_cfgs(args.task)
-        # Apply explicit runtime selection before locating the saved run.
-        update_cfg_from_args(env_cfg, train_cfg, args)
         selected_run = args.load_run
-        if selected_run is None and args.run_name is not None:
+        if replay and selected_run is None and args.run_name is not None:
             selected_run = args.run_name
             print("Using --run_name as a replay selector; prefer --load_run.", flush=True)
         checkpoint = Path(get_load_path(
-            Path(ROBOT_GYM_ROOT_DIR) / "logs" / train_cfg.runner.experiment_name,
+            Path(ROBOT_GYM_ROOT_DIR) / "logs" / (args.experiment_name or training_defaults.runner.experiment_name),
             selected_run if selected_run is not None else -1,
             args.checkpoint if args.checkpoint is not None else -1,
         )).resolve()
-        config_path = Path(getattr(args, "reference_config", None) or checkpoint.with_name("config.yaml"))
+        config_path = Path(getattr(args, "reference_config", None) or checkpoint.with_name("config.yaml")).resolve()
         with config_path.open(encoding="utf-8") as stream:
             saved = yaml.safe_load(stream)
         if not isinstance(saved, dict) or not all(isinstance(saved.get(k), dict) for k in ("env_cfg", "train_cfg")):
@@ -101,10 +108,20 @@ class TaskRegistry:
         asset = saved["env_cfg"].get("asset", {})
         if asset.get("name") != defaults.asset.name:
             raise ValueError(f"Saved asset {asset.get('name')!r} conflicts with task {args.task!r}")
+        saved_estimator = saved["env_cfg"].get("velocity_estimator")
+        has_estimator = isinstance(saved_estimator, dict) and saved_estimator.get("enabled", False)
+        if has_estimator and saved["train_cfg"].get("runner", {}).get("obs_groups") != {
+            "actor": ["policy"], "critic": ["critic"]
+        }:
+            raise ValueError("Saved estimator requires separate policy and clean critic groups")
         for key in ("num_observations", "num_actions", "num_privileged_obs"):
             expected = getattr(defaults.env, key)
             if key == "num_observations":
                 expected = self.get_task_class(args.task).replay_observation_dim(saved["env_cfg"], expected)
+            if key == "num_privileged_obs" and has_estimator and expected is None:
+                expected = defaults.env.num_observations
+                if key not in saved["env_cfg"]["env"]:
+                    raise ValueError("Saved estimator is missing its clean critic dimension")
             if saved["env_cfg"].get("env", {}).get(key, expected) != expected:
                 raise ValueError(f"Saved {key} conflicts with the registered {args.task} interface")
         restore = getattr(self.get_task_class(args.task), "restore_saved_config", None)
@@ -115,6 +132,10 @@ class TaskRegistry:
             env_cfg, train_cfg = defaults, training_defaults
             update_class_from_dict(env_cfg, saved["env_cfg"])
             update_class_from_dict(train_cfg, saved["train_cfg"])
+            # The saved scale names define the reward function. Inheriting a newly
+            # added term here would change the objective on the first resumed step.
+            env_cfg.rewards.scales = SimpleNamespace(**saved["env_cfg"]["rewards"]["scales"])
+            restore_early_walking_config(env_cfg, saved["env_cfg"])
             # Early Dodo/Go2 saves lost this name when RSL-RL consumed the dict.
             # Restore only the identifiable native Gaussian; keep all saved values.
             distribution = train_cfg.actor.distribution_cfg
@@ -124,6 +145,13 @@ class TaskRegistry:
                 if [key for key in state if key.startswith("distribution.")] == ["distribution.std_param"]:
                     distribution["class_name"] = "GaussianDistribution"
                     print("Restored legacy GaussianDistribution name from saved std_param; other settings unchanged.", flush=True)
+        args.resolved_config_path = str(config_path)
+        return env_cfg, train_cfg, checkpoint
+
+    def resolve_replay(self, args):
+        if getattr(args, "estimator_init", False):
+            raise ValueError("--estimator_init is training-only; replay requires saved estimator weights")
+        env_cfg, train_cfg, checkpoint = self.load_saved_run(args, replay=True)
         args._replay_restored = True
         args.resolved_checkpoint = str(checkpoint)
         update_cfg_from_args(env_cfg, train_cfg, args)
@@ -134,22 +162,6 @@ class TaskRegistry:
         print(f"Resolved checkpoint: {checkpoint}", flush=True)
         return env_cfg, train_cfg, checkpoint
 
-    # --------------------------------------------------------------------------
-    # Simulation Params (Genesis-specific)
-    # --------------------------------------------------------------------------
-    def _build_sim_params(self, env_cfg: LeggedRobotCfg) -> SimpleNamespace:
-        """
-        Convert cfg.sim into an object with attribute access.
-
-        Required because BaseTask expects:
-            self.sim_params.dt
-        """
-        sim_dict = class_to_dict(env_cfg.sim)
-        return SimpleNamespace(**sim_dict)
-
-    # --------------------------------------------------------------------------
-    # Environment creation
-    # --------------------------------------------------------------------------
     def make_env(
         self,
         name: str,
@@ -157,21 +169,7 @@ class TaskRegistry:
         env_cfg: LeggedRobotCfg | None = None,
         initial_command=None,
     ) -> Tuple[BaseTask, LeggedRobotCfg]:
-        """ Creates an environment either from a registered name or from the provided config file.
-
-        Args:
-            name (string): Name of a registered env.
-            args (Args, optional): command line arguments. If None get_args() will be called. Defaults to None.
-            env_cfg (Dict, optional): Environment config file used to override the registered config. Defaults to None.
-            initial_command (tuple, optional): Pin vx/vy/yaw before the first reset.
-
-        Raises:
-            ValueError: Error if no registered env corresponds to 'name' 
-
-        Returns:
-            The created environment
-            Dict: the corresponding config file
-        """
+        """Build and seed the task, then pin an optional command before the first reset."""
 
         if args is None:
             args = get_args()
@@ -192,24 +190,12 @@ class TaskRegistry:
         if getattr(args, "seed", None) is not None:
             env_cfg.seed = args.seed
 
-        # Seed handling
-        seed = None
-        if getattr(args, "seed", None) is not None:
-            seed = args.seed
-        elif train_cfg is not None and hasattr(train_cfg, "seed"):
-            seed = train_cfg.seed
-        elif hasattr(env_cfg, "seed"):
-            seed = env_cfg.seed
-
-        if seed is not None:
-            set_seed(seed)
-
-        # Build Genesis-compatible sim params
-        sim_params = self._build_sim_params(env_cfg)
+        if getattr(env_cfg, "seed", None) is not None:
+            set_seed(env_cfg.seed)
 
         env = task_class(
             cfg=env_cfg,
-            sim_params=sim_params,
+            sim_params=env_cfg.sim,
             sim_device=args.sim_device,
             headless=args.headless,
         )
@@ -220,9 +206,6 @@ class TaskRegistry:
         env.reset()
         return env, env_cfg
 
-    # --------------------------------------------------------------------------
-    # Algorithm runner creation
-    # --------------------------------------------------------------------------
     def make_alg_runner(
         self,
         env: BaseTask,
@@ -232,24 +215,7 @@ class TaskRegistry:
         log_root: str | None = "default",
         save_config: bool = True,
     ) -> Tuple[OnPolicyRunner, LeggedRobotCfgPPO]:
-        """ Creates the training algorithm  either from a registered name or from the provided config file.
-
-        Args:
-            env (BaseTask): The environment to train on.
-            name (string, optional): Name of a registered env. If None, the config file will be used instead. Defaults to None.
-            args (Args, optional): command line arguments. If None get_args() will be called. Defaults to None.
-            train_cfg (Dict, optional): Training config file. If None 'name' will be used to get the config file. Defaults to None.
-            log_root (str, optional): Logging directory for wandb. Set to 'None' to avoid logging (at test time for example). 
-                                      Logs will be saved in <log_root>/<date_time>_<run_name>. Defaults to "default"=<path_to_LEGGED_GYM>/logs/<experiment_name>.
-
-        Raises:
-            ValueError: Error if neither 'name' or 'train_cfg' are provided
-            Warning: If both 'name' or 'train_cfg' are provided 'name' is ignored
-
-        Returns:
-            PPO: The created algorithm
-            Dict: the corresponding config file
-        """
+        """Construct native PPO and restore the selected learning state before any updates."""
 
         if args is None:
             args = get_args()
@@ -284,11 +250,7 @@ class TaskRegistry:
                 "logs",
                 train_cfg.runner.experiment_name,
             )
-        elif log_root is None:
-            log_dir = None
-
-        if log_root is not None:
-            log_dir = os.path.join(log_root, run_folder) 
+        log_dir = os.path.join(log_root, run_folder) if log_root is not None else None
 
         train_cfg_dict = class_to_dict(train_cfg)
 
@@ -331,6 +293,12 @@ class TaskRegistry:
                 checkpoint=train_cfg.runner.checkpoint,
             )
 
+        if enabled(env.cfg):
+            if save_config and (resume_path is None or not args.resume):
+                raise ValueError("Estimator training requires a full parent checkpoint with --resume")
+            if not save_config and (resume_path is None or getattr(args, "estimator_init", False)):
+                raise ValueError("Estimator inference requires a saved estimator checkpoint; --estimator_init is training-only")
+
         if not save_config:
             log_dir = None  # Inference uses the selected run without creating a new training log.
 
@@ -344,15 +312,12 @@ class TaskRegistry:
         runner.add_git_repo_to_log(__file__)
 
         runner.checkpoint_path = resume_path
+        runner.source_config_path = getattr(args, "resolved_config_path", None)
         if enabled(env.cfg):
             runner.alg.allow_estimator_init = getattr(args, "estimator_init", False)
             runner.alg.requested_stage = getattr(args, "estimator_stage", None)
-            if not save_config and runner.alg.allow_estimator_init:
-                raise ValueError("--estimator_init is training-only; replay requires trained estimator weights")
-            if save_config and (resume_path is None or not args.resume):
-                raise ValueError("Estimator training requires a full parent checkpoint with --resume")
         env.setup_runner(runner)
-        if resume_path is not None: 
+        if resume_path is not None:
             print(f"Loading model from: {resume_path}")
             runner.load(resume_path, load_cfg=train_cfg.runner.checkpoint_load_cfg if save_config else None)
             # Task-state loading may change commands/curriculum; never issue the first
@@ -386,7 +351,7 @@ class TaskRegistry:
 
             config_path = os.path.join(log_dir, "config.yaml")
 
-            with open(config_path, "w") as f:
+            with open(config_path, "w", encoding="utf-8") as f:
                 yaml.safe_dump(
                     full_cfg,
                     f,
@@ -396,7 +361,6 @@ class TaskRegistry:
                 )
 
             print(f"Saved config to: {config_path}")
-
 
         return runner, train_cfg
 
@@ -419,5 +383,4 @@ class TaskRegistry:
         return obj
 
 
-#global task registry
 task_registry = TaskRegistry()

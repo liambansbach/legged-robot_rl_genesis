@@ -12,6 +12,8 @@ def configure_nominal(cfg, args):
                  "randomize_kp", "randomize_kd", "randomize_action_delay",
                  "randomize_armature", "push_robots"):
         setattr(cfg.domain_rand, name, False)
+    if hasattr(cfg.init_state, "relative_joint_position_noise"):
+        cfg.init_state.relative_joint_position_noise = 0.0
     for name in ("joint_position_noise", "joint_velocity_noise", "linear_velocity_noise", "angular_velocity_noise"):
         setattr(cfg.init_state, name, 0.0)
     cfg.init_state.orientation_noise = (0.0, 0.0, 0.0)

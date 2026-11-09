@@ -99,16 +99,13 @@ class DodoEnv(LeggedRobot):
         return gait_gate * rew
 
     def _reward_flat_feet(self):
-        """
-        Reward feet staying parallel to the ground. 
-        Only applied to feet in contact with the ground.
-        Uses roll/pitch of both feet, ignores yaw.
-        """
-        # self.foot_euler: (N, num_feet, 3) 
+        """Score stance-foot roll and pitch while allowing free yaw."""
         roll_pitch = self.foot_euler[:, :, :2]
-        err_per_foot = torch.sum(torch.square(roll_pitch), dim=2)
-
         sigma = self.cfg.rewards.flat_foot_sigma
+        if getattr(self.cfg.rewards, "legacy_walking", False):
+            error = torch.square(roll_pitch).sum(dim=(1, 2))
+            return torch.exp(-error / (2.0 * sigma**2 + 1e-8))
+        err_per_foot = torch.sum(torch.square(roll_pitch), dim=2)
         rew_per_foot = torch.exp(-err_per_foot / (2.0 * sigma**2 + 1e-8))
 
         stance_mask = self.foot_contacts.float()

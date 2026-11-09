@@ -559,14 +559,16 @@ class LeggedRobot(BaseTask):
             env_ids = env_ids.to(device=self.device, dtype=torch.long)
 
 
-        # randomize initial positions a bit on spawn.
-        pos_noise = gs_rand_float(
-            -self.cfg.init_state.joint_position_noise,
-            self.cfg.init_state.joint_position_noise,
-            (len(env_ids), self.num_dof),
-            device=self.device,
-        )
-        reset_pos = self.default_dof_pos + pos_noise * self.position_control_mask
+        shape = (len(env_ids), self.num_dof)
+        relative = getattr(self.cfg.init_state, "relative_joint_position_noise", 0.0)
+        if relative:
+            # Early walking runs varied the reference angles proportionally.
+            scale = torch.empty(shape, device=self.device).uniform_(1.0 - relative, 1.0 + relative)
+            reset_pos = self.default_dof_pos * scale
+        else:
+            amplitude = self.cfg.init_state.joint_position_noise
+            pos_noise = gs_rand_float(-amplitude, amplitude, shape, device=self.device)
+            reset_pos = self.default_dof_pos + pos_noise * self.position_control_mask
 
         # Stay safely inside finite hard limits for position-controlled joints.
         lower = self.dof_pos_limits[:, 0].unsqueeze(0) + 0.02
@@ -1294,6 +1296,9 @@ class LeggedRobot(BaseTask):
         - 0 penalty inside 90% of the URDF joint range
         - linear penalty only in the last 10% before the hard lower/upper limit
         """
+        if getattr(self.cfg.rewards, "legacy_walking", False):
+            lower, upper = self.dof_pos_limits.unbind(1)
+            return ((lower - self.dof_pos).clamp(min=0) + (self.dof_pos - upper).clamp(min=0)).sum(dim=1)
         controlled = self.position_control_mask.bool()
         lower = torch.where(
             controlled.squeeze(0),
@@ -1380,6 +1385,10 @@ class LeggedRobot(BaseTask):
         - both feet in contact
         """
         stand_mask = self._stand_mask()
+        if getattr(self.cfg.rewards, "legacy_walking", False):
+            # The saved negative scale multiplies a cost for displacement and speed.
+            pos_err = (self.dof_pos - self.default_dof_pos).abs().sum(dim=1)
+            return (pos_err + 0.1 * self.dof_vel.abs().sum(dim=1)) * stand_mask
 
         pos_mask = self.position_control_mask
         num_pos_dof = pos_mask.sum(dim=1).clamp(min=1.0)

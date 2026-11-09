@@ -152,6 +152,11 @@ class Go2WEnv(Go2Env):
         configure(env_cfg, train_cfg, args)
 
     @staticmethod
+    def prepare_resume(env_cfg, train_cfg, checkpoint, args):
+        from .go2w_config import prepare_resume
+        prepare_resume(env_cfg, train_cfg, checkpoint, args)
+
+    @staticmethod
     def configure_evaluation(cfg, args):
         from .deployment import select_transfer_dynamics
         select_transfer_dynamics(cfg, args)
