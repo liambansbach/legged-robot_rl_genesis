@@ -25,13 +25,17 @@ Dodo balances on two legs, Unitree Go2 walks on four, and Go2-W has a wheel at t
 
 https://github.com/user-attachments/assets/8276639f-ffef-4358-a578-7138b7d5190d
 
+https://github.com/user-attachments/assets/765ad1f3-c007-4130-8f2c-b92aab3ce22f
+
 **Go2 in simulation**
 
 https://github.com/user-attachments/assets/afaef573-847f-4afc-a96d-eb92982bcb41
 
+https://github.com/user-attachments/assets/c59d69cd-e617-4aad-8bf4-92024ff59d88
+
 **Go2-W in simulation**
 
-<!-- Go2-W video -->
+https://github.com/user-attachments/assets/44d97ef7-f679-4b17-906f-78b17df7704e
 
 <details>
 <summary>See the training figures</summary>
@@ -45,10 +49,6 @@ https://github.com/user-attachments/assets/afaef573-847f-4afc-a96d-eb92982bcb41
 
 <img width="1657" height="677" alt="Go2 training results, first figure" src="https://github.com/user-attachments/assets/d4dcaaed-5765-42fa-9461-c76f04ecce89" />
 <img width="2469" height="1258" alt="Go2 training results, second figure" src="https://github.com/user-attachments/assets/2ecb48ee-5110-4de5-927c-b43a35b0307a" />
-
-**Go2-W training**
-
-<!-- Go2-W training figures -->
 
 </details>
 
