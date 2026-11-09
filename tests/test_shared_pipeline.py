@@ -151,6 +151,46 @@ class ReplayTests(unittest.TestCase):
                                  dict(class_name='GaussianDistribution', init_std=.23, std_type='scalar'))
 
 
+    def test_inference_runner_requires_trained_estimator(self):
+        from robot_gym.utils.velocity_estimator import default_config
+        cfg, train = task_registry.get_cfgs("dodo")
+        cfg.velocity_estimator = default_config()
+        train.runner.obs_groups = {"actor": ["policy"], "critic": ["critic"]}
+        env = Mock(cfg=cfg)
+        args = arguments("dodo", "unused")
+        with patch("robot_gym.utils.task_registry.OnPolicyRunner") as build_runner:
+            with self.assertRaisesRegex(ValueError, "saved estimator checkpoint"):
+                task_registry.make_alg_runner(env, train_cfg=train, args=args, save_config=False)
+            build_runner.assert_not_called()
+
+    def test_export_copies_explicit_reference_config(self):
+        import json
+        from robot_gym.utils.diagnostics import sha256
+        from robot_gym.utils.export import export_policy
+        source = (Path(__file__).resolve().parents[1] / "ressources/pretrained/go2w"
+                  / "reference/config.yaml")
+        with TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            (folder / "model_1.pt").touch()
+            (folder / "config.yaml").write_text("unrelated: true")
+            args = arguments("go2w", folder, "--checkpoint", "1", "--reference_config", str(source))
+            cfg, train, _ = task_registry.resolve_replay(args)
+            n = cfg.env.num_actions
+            env = Mock(cfg=cfg, num_obs=cfg.env.num_observations, num_actions=n,
+                       joint_names=cfg.asset.joint_names, obs_scales=cfg.normalization.obs_scales,
+                       dt=.02, action_scale=torch.ones(1, n), default_dof_pos=torch.zeros(1, n))
+            env.base_p_gains = env.base_d_gains = env.torque_limits = env.dof_vel_limits = torch.ones(n)
+            env.export_metadata.return_value = {}
+            with patch("robot_gym.utils.task_registry.OnPolicyRunner"):
+                runner, _ = task_registry.make_alg_runner(env, train_cfg=train, args=args, save_config=False)
+            self.assertEqual(Path(runner.source_config_path), source)
+            runner.alg.get_policy.return_value.as_jit.return_value = torch.nn.Linear(env.num_obs, n)
+            with patch("robot_gym.utils.diagnostics.joint_dynamics", return_value={}):
+                export_policy(runner, env, folder / "export")
+            self.assertEqual((folder / "export/training_config.yaml").read_bytes(), source.read_bytes())
+            contract = json.loads((folder / "export/contract.json").read_text())
+            self.assertEqual(contract["source_config_sha256"], sha256(source))
+
     def test_export_default_and_explicit_selection(self):
         from robot_gym.scripts.play import should_export_policy
         self.assertFalse(should_export_policy(arguments("dodo", "unused")))

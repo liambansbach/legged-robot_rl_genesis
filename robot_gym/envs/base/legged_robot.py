@@ -252,9 +252,20 @@ class LeggedRobot(BaseTask):
             self.rew_buf += rew
             self.episode_sums["termination"] += rew
     
+    def velocity_estimator_spec(self):
+        """Canonical actor layout; position offsets include the masked V-joint slots."""
+        from robot_gym.utils.velocity_estimator import feature_spec
+        n = self.num_actions
+        return feature_spec(self, [
+            ("body_gyro", 3, "rad/s", self.obs_scales.ang_vel),
+            ("projected_gravity", 3, "unit vector", 1.),
+            ("command", 3, "m/s, m/s, rad/s", self.commands_scale.tolist()),
+            ("joint_position_offset", n, "rad", self.obs_scales.dof_pos),
+            ("joint_velocity", n, "rad/s", self.obs_scales.dof_vel),
+            ("previous_issued_clipped_action", n, "dimensionless", 1.),
+        ], {"command", "previous_issued_clipped_action"})
+
     def compute_observations(self):
-        """ Computes observations
-        """
         dof_pos_err = torch.where(
             self.dof_pos_obs_mask.bool(),
             self.dof_pos - self.default_dof_pos,
@@ -270,11 +281,11 @@ class LeggedRobot(BaseTask):
                                     ),dim=-1)
         measured = self.measured_observations(self.obs_buf)
         if measured is not None:
+            self.privileged_obs_buf = self.obs_buf
             self.obs_buf = measured
         elif self.add_noise:
             self.obs_buf += (2 * torch.rand_like(self.obs_buf) - 1) * self.noise_scale_vec
 
-        # print velocities every 50 steps for debugging during play mode
         if self.common_step_counter % 5 == 0 and not self.headless and self.cfg.viewer.print_debug_velocities:
             print("---- Step: ", self.common_step_counter, " ----")
             print("commands", self.commands[:, :3])

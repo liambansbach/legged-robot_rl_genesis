@@ -127,6 +127,8 @@ class EstimatorPPO(PPO):
         return data
 
     def load(self, data, load_cfg=None, strict=True):
+        if load_cfg is not None and not all(load_cfg.get(k) for k in ("actor", "critic", "optimizer", "iteration")):
+            raise ValueError("Estimator initialization and resume require the full parent learning state")
         iteration = super().load(data, load_cfg, strict)
         saved = data.get("velocity_estimator")
         if saved is None:

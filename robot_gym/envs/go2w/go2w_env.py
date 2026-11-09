@@ -243,6 +243,7 @@ class Go2WEnv(Go2Env):
                     "joint_velocity", "previous_clipped_action"]}
         if self.cfg.control.armature is not None:
             metadata.update(transfer_contract(self))
+        metadata["wheel_velocity_target_limit"] = self.cfg.control.wheel_velocity_target_limit
         metadata["observation_order"] += ["phase_sin", "phase_cos"]
         metadata.update(
             config_version=self.cfg.config_version,
@@ -301,18 +302,8 @@ class Go2WEnv(Go2Env):
                   ("joint_velocity", joints, "rad/s", self.obs_scales.dof_vel),
                   ("previous_issued_clipped_action", joints, "dimensionless", 1.),
                   ("demand_phase", 2, "dimensionless", 1.)]
-        fields, start = [], 0
-        for name, count, units, scale in blocks:
-            fields.append(dict(name=name, start=start, stop=start+count, units=units, scale=scale))
-            start += count
-        if start + 3 != self.num_obs:
-            raise ValueError("Go2-W estimator requires the saved demand-phase actor contract")
-        live = [i for b in fields if b['name'] in ('command', 'previous_issued_clipped_action', 'demand_phase')
-                for i in range(b['start'], b['stop'])]
-        return dict(feature_indices=list(range(3, self.num_obs)), velocity_indices=[0, 1, 2],
-                    live_feature_indices=live, fields=fields, velocity_scale=float(self.obs_scales.lin_vel),
-                    target="body-frame linear velocity at authored base-link origin, m/s",
-                    policy_dt=self.dt, feature_joint_order=list(self.joint_names))
+        from robot_gym.utils.velocity_estimator import feature_spec
+        return feature_spec(self, blocks, {"command", "previous_issued_clipped_action", "demand_phase"})
 
     def update_task_state(self):
         self.straight_reference.advance(self.base_pos, self.base_quat, self.dt)

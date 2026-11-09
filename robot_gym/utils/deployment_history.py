@@ -92,10 +92,12 @@ def check_package(directory, torchscript=True, samples_file='parity_samples.npz'
             state.refresh(sequence[t, :, -1])
         np.testing.assert_allclose(rebuilt, sequence[t], atol=1e-6, rtol=0.)
         history_error = max(history_error, float(abs(rebuilt-sequence[t]).max()))
-    field = next(f for f in contract['estimator']['features']['fields'] if f['name'] == 'previous_issued_clipped_action')
     result = dict(samples=len(history), action_max_error=maxima[0], velocity_max_error=maxima[1],
-                  history_max_error=history_error, reset_samples=int(reset.sum()),
-                  clipped_history_samples=int((abs(history[:, -1, field['start']:field['stop']]) >= contract['action_bound']-1e-6).any(1).sum()))
+                  history_max_error=history_error, reset_samples=int(reset.sum()))
+    for field in contract['estimator']['features']['fields']:
+        if field['name'] == 'previous_issued_clipped_action':
+            actions = history[:, -1, field['start']:field['stop']]
+            result['clipped_history_samples'] = int((abs(actions) >= contract['action_bound']-1e-6).any(1).sum())
     print(json.dumps(result, indent=2))
     return result
 

@@ -129,7 +129,7 @@ def update_cfg_from_args(env_cfg, cfg_train, args):
             if current is not None:
                 vars(current).update(copy.deepcopy(vars(saved)))
     from robot_gym.utils.velocity_estimator import configure
-    configure(env_cfg, args)
+    configure(env_cfg, args, cfg_train)
     if env_cfg is not None and args.num_envs is not None:
         env_cfg.env.num_envs = args.num_envs
     if cfg_train is not None:

@@ -58,6 +58,91 @@ class VelocityEstimatorTests(unittest.TestCase):
         cfg, _ = restore_saved_config(saved)
         self.assertFalse(enabled(cfg))
 
+    def test_canonical_layout_keeps_clean_critic_and_issued_action_history(self):
+        from robot_gym.envs import task_registry
+        for task, joints in (("dodo", 8), ("go2", 12)):
+            with self.subTest(task=task):
+                env = object.__new__(task_registry.get_task_class(task))
+                env.cfg, _ = task_registry.get_cfgs(task)
+                env.num_envs, env.num_actions, env.num_obs = 2, joints, 12 + 3*joints
+                env.obs_scales = env.cfg.normalization.obs_scales
+                env.commands_scale = torch.tensor([2., 2., .25])
+                env.device, env.headless, env.dt = torch.device("cpu"), True, .02
+                env.joint_names = [str(i) for i in range(joints)]
+                spec = env.velocity_estimator_spec()
+                env.sensor_history = SensorHistory(2, spec, default_config(), env.device)
+                env.common_step_counter, env.add_noise = 1, True
+                env.noise_scale_vec = torch.ones(env.num_obs)
+                env.base_lin_vel = torch.tensor([[.2, -.4, .1], [-.6, .3, -.2]])
+                env.base_ang_vel = env.base_lin_vel + 1
+                env.projected_gravity = env.base_lin_vel + 2
+                env.commands = env.base_lin_vel + 3
+                env.dof_pos = torch.arange(2*joints).view(2, joints).float()
+                env.default_dof_pos = torch.ones(1, joints)
+                env.dof_pos_obs_mask = torch.arange(joints) % 2 == 0
+                env.dof_vel, env.actions = env.dof_pos + 4, env.dof_pos / 4
+                env.applied_actions = torch.full_like(env.actions, -19.)
+                env.compute_observations()
+                obs = env.get_observations()
+                clean = torch.cat((env.base_lin_vel * env.obs_scales.lin_vel,
+                    env.base_ang_vel * env.obs_scales.ang_vel, env.projected_gravity,
+                    env.commands * env.commands_scale,
+                    (env.dof_pos - 1) * env.dof_pos_obs_mask * env.obs_scales.dof_pos,
+                    env.dof_vel * env.obs_scales.dof_vel, env.actions), dim=1)
+                torch.testing.assert_close(obs["critic"], clean, rtol=0., atol=0.)
+                torch.testing.assert_close(obs["velocity_target"], env.base_lin_vel)
+                self.assertFalse(torch.equal(obs["critic"][:, 3:6], obs["policy"][:, 3:6]))
+                history = obs["estimator_history"]
+                torch.testing.assert_close(history[:, -1], obs["policy"][:, 3:])
+                torch.testing.assert_close(history[:, -1, -joints:], env.actions)
+                self.assertEqual(spec["live_feature_indices"], [6, 7, 8, *range(env.num_obs-3-joints, env.num_obs-3)])
+                self.assertEqual(spec["feature_indices"], list(range(3, env.num_obs)))
+                self.assertEqual(history.shape, (2, 5, env.num_obs-3))
+
+    def test_generic_evaluation_uses_signed_task_ranges(self):
+        from robot_gym.utils.estimator_evaluation import command_sequence
+        ranges = SimpleNamespace(lin_vel_x=(-.2, 1.), lin_vel_y=(0., .04), ang_vel_yaw=(-1., .6))
+        self.assertEqual(command_sequence(ranges), [(0., 0., 0.), (-.1, 0., 0.), (.5, 0., 0.),
+                         (0., .02, 0.), (0., 0., -.5), (0., 0., .3), (0., 0., 0.)])
+
+    def test_estimator_init_restores_parent_then_persists_critic_width(self):
+        from unittest.mock import patch
+        from robot_gym.envs import task_registry
+        from robot_gym.utils.helpers import get_args, update_cfg_from_args
+        import yaml
+        root = Path(__file__).resolve().parents[1] / "ressources" / "pretrained"
+        for task in ("dodo", "go2"):
+            run = root / task / f"{task}_walking"
+            with self.subTest(task=task), patch("sys.argv", ["train", "--task", task, "--resume",
+                    "--load_run", str(run), "--checkpoint", "1499", "--estimator_init"]):
+                args = get_args()
+                cfg, training = task_registry.get_cfgs(task)
+                update_cfg_from_args(cfg, training, args)
+                update_cfg_from_args(cfg, None, args)  # Environment construction repeats CLI overrides.
+                self.assertEqual(cfg.env.num_privileged_obs, cfg.env.num_observations)
+                self.assertEqual(training.runner.obs_groups, {"actor": ["policy"], "critic": ["critic"]})
+                self.assertTrue(enabled(cfg))
+                with self.assertRaisesRegex(ValueError, "training-only"):
+                    task_registry.resolve_replay(args)
+                with TemporaryDirectory() as directory:
+                    saved = dict(task=task, env_cfg=class_to_dict(cfg), train_cfg=class_to_dict(training))
+                    source = Path(directory) / "config.yaml"
+                    (Path(directory) / "model_1499.pt").touch()
+                    args.load_run, args.estimator_init, args.resume = directory, False, False
+                    def save():
+                        source.write_text(yaml.safe_dump(task_registry._make_yaml_safe(saved)))
+                    save()
+                    loaded, _, _ = task_registry.resolve_replay(args)
+                    self.assertEqual(loaded.env.num_privileged_obs, cfg.env.num_observations)
+                    saved["train_cfg"]["runner"]["obs_groups"]["critic"] = ["policy"]
+                    save()
+                    with self.assertRaisesRegex(ValueError, "clean critic groups"):
+                        task_registry.resolve_replay(args)
+                    saved["env_cfg"]["velocity_estimator"] = None
+                    save()
+                    with self.assertRaisesRegex(ValueError, "num_privileged_obs"):
+                        task_registry.resolve_replay(args)
+
     def test_history_getter_reset_delay_and_controller_refresh(self):
         env = fake_env()
         cfg = default_config()
@@ -119,7 +204,7 @@ class VelocityEstimatorTests(unittest.TestCase):
             validate_velocity_mode(env.cfg, SimpleNamespace(eval_mode='sensor_sustained'))
 
     def test_stop_metric_definitions_and_reset_censoring(self):
-        from robot_gym.utils.estimator_evaluation import stop_metrics
+        from robot_gym.envs.go2w.evaluation.estimator import stop_metrics
         data = dict(velocity=np.ones((100, 1, 3)), angular=np.zeros((100, 1, 3)),
             rpy=np.zeros((100, 1, 3)), position=np.zeros((100, 1, 3)), valid=np.ones((100, 1), dtype=bool))
         data['rpy'][:, 0, 2] = (np.arange(100)*.1 + np.pi) % (2*np.pi) - np.pi
@@ -157,6 +242,8 @@ class VelocityEstimatorTests(unittest.TestCase):
         self.assertEqual(changed_stage.learning_rate, 3e-5)
         self.assertEqual(changed_stage.stage_counts['warmup_collections'], 1)
         actor_only = {k: v for k, v in before.items() if k != 'velocity_estimator'}
+        with self.assertRaisesRegex(ValueError, 'full parent learning state'):
+            reloaded.load(actor_only, {"actor": True})
         with self.assertRaisesRegex(ValueError, 'Actor-only checkpoint'):
             reloaded.load(actor_only)
 

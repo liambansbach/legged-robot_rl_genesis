@@ -80,9 +80,6 @@ def export_policy(runner, env, path, onnx=False, parity_histories=None):
         "joint_velocity_limits": env.dof_vel_limits.tolist(),
         "checkpoint": str(getattr(runner, "checkpoint_path", None)),
         "action_bound": env.cfg.normalization.clip_actions,
-        "wheel_velocity_target_limit": getattr(
-            env.cfg.control, "wheel_velocity_target_limit", None
-        ),
         "policy_dt": env.dt,
         "physics_dt": env.cfg.sim.dt,
         "observation_normalization": "embedded",
@@ -103,9 +100,11 @@ def export_policy(runner, env, path, onnx=False, parity_histories=None):
             "dof_vel": env.obs_scales.dof_vel,
         },
     }
-    contract.update(env.export_metadata())
-    source_config = Path(runner.checkpoint_path).with_name('config.yaml') if runner.checkpoint_path else None
-    if source_config is not None and source_config.exists():
+    task_metadata = env.export_metadata()
+    contract.update(task_metadata)
+    source_path = getattr(runner, 'source_config_path', None)
+    if source_path is not None:
+        source_config = Path(source_path)
         contract['source_config_sha256'] = hashlib.sha256(source_config.read_bytes()).hexdigest()
         shutil.copyfile(source_config, path / 'training_config.yaml')
     from robot_gym.utils.velocity_estimator import enabled, deployment_policy
@@ -113,6 +112,22 @@ def export_policy(runner, env, path, onnx=False, parity_histories=None):
         from robot_gym.utils.helpers import class_to_dict
         import numpy as np
         combined = deployment_policy(runner, env)
+        spec = env.velocity_estimator_spec()
+        live = set(spec["live_feature_indices"])
+        sensors, controller = [], []
+        slots = [""] * env.num_obs
+        for slot, axis in zip(spec["velocity_indices"], "xyz"):
+            slots[slot] = f"body_linear_velocity_{axis}"
+        for field in spec["fields"]:
+            indices = set(range(field["start"], field["stop"]))
+            if indices - live:
+                sensors.append(field["name"])
+            if indices & live:
+                controller.append(field["name"])
+            for i in indices:
+                slots[spec["feature_indices"][i]] = f"{field['name']}[{i - field['start']}]"
+        if "observation_order" not in task_metadata:
+            contract["observation_order"] = slots
         shutil.copyfile(Path(__file__).with_name('deployment_history.py'), path / 'deployment_history.py')
         torch.jit.script(combined).save(str(path / "estimated_policy.pt"))
         contract['combined_torchscript_sha256'] = hashlib.sha256((path / 'estimated_policy.pt').read_bytes()).hexdigest()
@@ -124,18 +139,17 @@ def export_policy(runner, env, path, onnx=False, parity_histories=None):
         contract['source_python_tree_sha256'] = digest.hexdigest()
         contract.update(interface_version=3, inference_path="estimated velocity from startup",
             external_input={"name": "history", "shape": ["batch", env.cfg.velocity_estimator['history_length'],
-                            len(env.velocity_estimator_spec()['feature_indices'])], "dtype": "float32"},
+                            len(spec['feature_indices'])], "dtype": "float32"},
             outputs=["clipped_actions", "velocity_m_s"],
-            estimator={"configuration": env.cfg.velocity_estimator, "features": env.velocity_estimator_spec(),
-                "normalization": "fixed feature_mean/std initialized from parent actor statistics; embedded once before MLP",
-                "history": "oldest to newest; repeat first measured frame on reset; append once per policy boundary; refresh only newest command/phase/issued-action slots on manual changes",
+            estimator={"configuration": env.cfg.velocity_estimator, "features": spec,
+                "normalization": "fixed feature_mean/std embedded before MLP; initialized from parent actor statistics when available",
+                "history": "Oldest to newest. Pad with the first measured frame on reset. Append once per policy boundary. Refresh only the newest live_feature_indices on controller changes.",
                 "span_s": (env.cfg.velocity_estimator['history_length'] - 1) * env.dt,
                 "target_timestamp": "current policy boundary even if sensor channels are delayed/held",
                 "startup": "no simulator-velocity bootstrap; estimator used at first action",
                 "sensor_timing_status": "simulation assumptions; hardware timestamps, bias, delay and filtering are unmeasured",
-                "required_sensors": ["body gyro", "orientation/projected gravity", "leg position", "all joint speeds"],
-                "controller_state": ["commands", "previous issued clipped actions (not delayed applied actions)", "phase"],
-                "acceleration": "not used; current features are a simulation hypothesis"},
+                "required_sensors": sensors,
+                "controller_state": controller},
             actor_tensor_sha256=tensor_hash(runner.alg.actor.state_dict()),
             estimator_tensor_sha256=tensor_hash(runner.alg.estimator.state_dict()),
             stage_counters=runner.alg.stage_counts,
@@ -145,7 +159,9 @@ def export_policy(runner, env, path, onnx=False, parity_histories=None):
             source_dirty=bool(subprocess.run(['git', 'status', '--porcelain'], text=True, capture_output=True,
                                             stdin=subprocess.DEVNULL, check=True).stdout.strip()),
             validation_status="simulation/export screen only; no demonstrated sim2real")
-        contract['velocity']['source'] = 'learned from measured history'
+        velocity = contract.setdefault('velocity', {})
+        velocity.update(source='learned from measured history', target=spec['target'],
+                        actor_indices=spec['velocity_indices'], scale=spec['velocity_scale'])
         (path / 'runtime_config.json').write_text(json.dumps(class_to_dict(env.cfg), indent=2), encoding='utf-8')
         if onnx:
             if parity_histories is None:
@@ -158,7 +174,7 @@ def export_policy(runner, env, path, onnx=False, parity_histories=None):
                 checkpoint_hash = hashlib.sha256(Path(runner.checkpoint_path).read_bytes()).hexdigest()
                 if summary.get('definition', {}).get('checkpoint_sha256') == checkpoint_hash:
                     contract['simulation_screen'] = {key: summary[key] for key in
-                        ('definition', 'comparisons', 'passed', 'qualification')}
+                        ('definition', 'comparisons', 'passed', 'qualification') if key in summary}
                     contract['simulation_screen']['metrics_sha256'] = hashlib.sha256(screen.read_bytes()).hexdigest()
                     shutil.copyfile(screen, path / 'screen_metrics.json')
             # Bind reference outputs to THIS model, not the rollout's outer run label.
@@ -183,7 +199,7 @@ def export_policy(runner, env, path, onnx=False, parity_histories=None):
             contract['onnx_parity']['recording_sha256'] = hashlib.sha256(Path(parity_histories).read_bytes()).hexdigest()
             contract['onnx_sha256'] = hashlib.sha256((path / 'policy.onnx').read_bytes()).hexdigest()
     elif onnx:
-        torch.onnx.export(policy, (torch.zeros(1, env.num_obs),), str(path / 'policy.onnx'),
+        torch.onnx.export(policy, (torch.zeros(1, env.num_obs, device='cpu'),), str(path / 'policy.onnx'),
             input_names=['observations'], output_names=['clipped_actions'],
             dynamic_axes={'observations': {0: 'batch'}, 'clipped_actions': {0: 'batch'}}, opset_version=17, dynamo=False)
     if env.cfg.control.armature is not None:

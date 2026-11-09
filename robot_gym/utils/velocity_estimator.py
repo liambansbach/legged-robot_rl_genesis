@@ -21,12 +21,21 @@ def enabled(cfg):
     return isinstance(value, dict) and value.get("enabled", False)
 
 
-def configure(env_cfg, args):
+def configure(env_cfg, args, train_cfg=None):
     """Explicit initialization differs from restoring an already trained pair."""
+    initialize = getattr(args, "estimator_init", False)
+    if initialize and train_cfg is not None:
+        groups = train_cfg.runner.obs_groups
+        if groups == {"actor": ["policy"], "critic": ["policy"]}:
+            # Same parent critic width, but the critic keeps simulator truth during estimation.
+            train_cfg.runner.obs_groups = {"actor": ["policy"], "critic": ["critic"]}
     if env_cfg is None:
         return
-    if getattr(args, "estimator_init", False) and not enabled(env_cfg):
-        env_cfg.velocity_estimator = default_config()
+    if initialize:
+        if not enabled(env_cfg):
+            env_cfg.velocity_estimator = default_config()
+        if env_cfg.env.num_privileged_obs is None:
+            env_cfg.env.num_privileged_obs = env_cfg.env.num_observations
     if enabled(env_cfg):
         cfg = env_cfg.velocity_estimator
         missing = default_config().keys() - cfg.keys()
@@ -41,10 +50,26 @@ def configure(env_cfg, args):
             raise ValueError("Invalid estimator history or sensor timing")
         if cfg['stage'] not in ('warmup', 'finetune') or not cfg['hidden_dims'] or min(cfg['hidden_dims']) < 1:
             raise ValueError("Invalid estimator stage or MLP widths")
-    elif getattr(args, "estimator_stage", None) or getattr(args, "velocity_source", None) == "estimated":
-        # During run selection the saved configuration has not yet been restored.
-        if getattr(args, "_replay_restored", False):
-            raise ValueError("Estimated inputs require a full estimator checkpoint")
+    elif (getattr(args, "velocity_source", None) == "estimated" or
+          any(getattr(args, name, None) is not None
+              for name in ("estimator_stage", "sensor_delay_steps", "sensor_hold_steps"))):
+        raise ValueError("Estimator options require a saved estimator or explicit training --estimator_init")
+
+
+def feature_spec(env, blocks, live_fields):
+    """Describe scaled non-velocity blocks in actor order, after the three velocity slots."""
+    fields, live, start = [], [], 0
+    for name, width, units, scale in blocks:
+        fields.append(dict(name=name, start=start, stop=start + width, units=units, scale=scale))
+        if name in live_fields:
+            live.extend(range(start, start + width))
+        start += width
+    if start + 3 != env.num_obs:
+        raise ValueError("Estimator feature widths do not match the actor observation")
+    return dict(feature_indices=list(range(3, env.num_obs)), velocity_indices=[0, 1, 2],
+                live_feature_indices=live, fields=fields, velocity_scale=float(env.obs_scales.lin_vel),
+                target="body-frame linear velocity at authored base-link origin, m/s",
+                policy_dt=env.dt, feature_joint_order=list(env.joint_names))
 
 
 class SensorHistory:
