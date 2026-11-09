@@ -123,6 +123,10 @@ Click the small keyboard window to give it focus. You can combine movement keys.
 
 Release the keys, hold **Space** or switch away from the input window to request zero velocity.
 
+> **A small RL challenge**
+>
+> Dodo and Go2 sometimes keep dancing even when the keyboard sends an exact zero-velocity command, a known limitation of the published policies. Can you teach them to stand still by sampling explicit standing commands more often and tuning the existing `stand_still` reward?
+
 Omit the command and keyboard flags to let the task randomly sample velocities. Add `--headless` for replay without a viewer.
 
 ## How a command becomes motion
