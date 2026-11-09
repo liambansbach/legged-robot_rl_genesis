@@ -110,7 +110,6 @@ class FixedCommandTests(unittest.TestCase):
             e.wheel_normal_force = torch.zeros(3, 4)
             e.wheel_center_lateral_speed = torch.zeros(3, 4)
             e.loaded_wheels = torch.zeros(3, 4, dtype=torch.bool)
-            e.wheel_reposition_velocity_body = torch.zeros(3, 4, 3)
             e.command_hold_kind = torch.zeros(3, dtype=torch.long)
             e.command_sampling_tier = torch.zeros(3, dtype=torch.long)
             e.update_task_state = Mock()

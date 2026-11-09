@@ -69,9 +69,6 @@ class LeggedRobot(BaseTask):
             diagnostics.begin_step(actions)
         clip_actions = self.cfg.normalization.clip_actions
         self.actions = torch.clip(actions, -clip_actions, clip_actions).to(self.device)
-        brake = getattr(self, "zero_command_brake", None)
-        if brake is not None:
-            self.actions = brake.apply(self.actions, self.commands)
 
         # newest policy action at index 0, older actions shifted back
         self.action_history = torch.roll(self.action_history, shifts=1, dims=1)
@@ -163,15 +160,7 @@ class LeggedRobot(BaseTask):
 
 
     def reset_idx(self, env_ids):
-        """ Reset some environments.
-            Calls self._reset_dofs(env_ids), self._reset_root_states(env_ids), and self._resample_commands(env_ids)
-            Optionally updates the command curriculum before clearing episode rewards.
-            Logs episode info
-            Resets some buffers
-
-        Args:
-            env_ids (list[int]): List of environment ids which must be reset
-        """
+        """Reset selected rows and clear their action, sensor and disturbance histories."""
         if not torch.is_tensor(env_ids):
             env_ids = torch.tensor(env_ids, device=self.device, dtype=torch.long)
         else:
@@ -358,8 +347,7 @@ class LeggedRobot(BaseTask):
         contact_forces = torch.cat([force_a, force_b], dim=1)        # (N, 2K, 3)
         contact_valid = torch.cat([valid_mask, valid_mask], dim=1)   # (N, 2K)
 
-        # Use normal force if you want more stable "ground contact" detection.
-        # For a flat ground with z-up world, this is often more stable than full norm.
+        # Ground-contact thresholds use the world vertical force component.
         normal_force = torch.abs(contact_forces[..., 2])
 
         force_threshold = self.cfg.rewards.contact_force_threshold
@@ -429,20 +417,11 @@ class LeggedRobot(BaseTask):
         ) 
     
     def _compute_fallen_mask(self) -> torch.Tensor:
-        """
-        Robust fallen detection for bipeds:
-
-        An environment is considered fallen if:
-        - The base height is below a certain threshold OR   
-        - The roll OR pitch exceeds their respective thresholds.
-
-        Returns:
-            A boolean tensor of shape (num_envs,), where True indicates the robot has fallen.
-        """
+        """Per-environment fall flag from configured base height, roll and pitch limits."""
 
         # Height check
         height = self.base_pos[:, 2]
-        too_low = height < self.cfg.termination.base_height_threshold  # z.B. 0.33
+        too_low = height < self.cfg.termination.base_height_threshold
 
         # Orientation check (Roll & Pitch)
         roll = self.rpy[:, 0]
@@ -451,9 +430,7 @@ class LeggedRobot(BaseTask):
         pitch_thresh = self.cfg.termination.pitch_threshold
         bad_orientation = (roll.abs() > roll_thresh) | (pitch.abs() > pitch_thresh)
 
-        # fallen if either condition is met
-        fallen = too_low | bad_orientation
-        return fallen
+        return too_low | bad_orientation
     
     def _post_physics_step_callback(self):
         """Resample commands at policy boundaries, after scoring the completed transition."""
@@ -905,14 +882,7 @@ class LeggedRobot(BaseTask):
         )
 
     def _create_envs(self):
-        """ Creates environments:
-             1. loads the robot URDF/MJCF asset,
-             2. For each environment
-                2.1 creates the environment, 
-                2.2 calls DOF and Rigid shape properties callbacks,
-                2.3 create actor with these properties and add them to the env
-             3. Store indices of different bodies of the robot
-        """
+        """Load the selected robot, preserving configured fixed contact links."""
         
         asset_path = self.urdf_reader.robot_file_path_absolute
         asset_file = self.urdf_reader.robot_file_name
@@ -1055,7 +1025,7 @@ class LeggedRobot(BaseTask):
         logging.info(f"force limits: upper: {force_upper_lim}")
         self.torque_limits = force_upper_lim
 
-        # velocity limits from config - Genesis has no direct getter for that :(
+        # Velocity limits follow the configured joint order.
         self.dof_vel_limits = torch.tensor(
             [self.cfg.control.dof_vel_limits[name] for name in self.joint_names],
             dtype=torch.float,
@@ -1276,7 +1246,6 @@ class LeggedRobot(BaseTask):
     def _reward_base_height(self):
         # Penalize base height away from target
         base_height = self.base_pos[:, 2]
-        #print("base_height:", base_height) 
         return torch.square(base_height - self.cfg.rewards.base_height_target)
     
     def _reward_torques(self): 
@@ -1415,7 +1384,6 @@ class LeggedRobot(BaseTask):
         base_xy_err = torch.sum(torch.square(self.base_lin_vel[:, :2]), dim=1)
         yaw_err = torch.square(self.base_ang_vel[:, 2])
 
-        #print("foot contacts:", self.foot_contacts)
 
         both_feet_contact = torch.all(self.foot_contacts, dim=1).float()
 
@@ -1440,3 +1408,23 @@ class LeggedRobot(BaseTask):
         """
         foot_xy_vel = torch.norm(self.foot_lin_vel[:, :, :2], dim=2)
         return torch.sum(foot_xy_vel * self.foot_contacts.float(), dim=1)
+
+    def _reward_survive(self):
+        return (~self._compute_fallen_mask()).float()
+
+    def _gait_gate(self):
+        """Activate clearance gradually above the command dead zone."""
+        def ramp(magnitude, full):
+            return ((magnitude - 0.03) / (full - 0.03 + 1e-8)).clamp(0.0, 1.0)
+
+        vx, vy, yaw = self.commands[:, :3].abs().unbind(dim=1)
+        return torch.maximum(torch.maximum(ramp(vx, 0.25), ramp(vy, 0.10)), ramp(yaw, 0.10))
+
+    def _reward_foot_swing_clearance(self):
+        swing = (~self.foot_contacts).float()
+        clearance = (self.current_ankle_heights - self.cfg.asset.contact_height).clamp(min=0.0)
+        error = clearance - self.cfg.rewards.clearance_target
+        per_foot = torch.exp(-error.square() / (2.0 * self.cfg.rewards.clearance_sigma**2 + 1e-8))
+        count = swing.sum(dim=1)
+        reward = (per_foot * swing).sum(dim=1) / count.clamp(min=1.0)
+        return self._gait_gate() * (reward * (count > 0.0).float())

@@ -111,7 +111,7 @@ class RewardScaleContinuation(unittest.TestCase):
                                  alg=SimpleNamespace(actor=SimpleNamespace(obs_normalizer=norm),
                                                      critic=SimpleNamespace(obs_normalizer=norm)))
         before = copy.deepcopy(env.reward_scales)
-        with patch('robot_gym.envs.go2w.training_diagnostics.verify_resume_state',
+        with patch('robot_gym.envs.go2w.evaluation.training_diagnostics.verify_resume_state',
                    return_value={'exact_state_match': True}) as verify:
             env.finalize_runner_loading(runner, train, args)
             verify.assert_called_once_with(runner, runner.checkpoint_path)

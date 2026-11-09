@@ -10,5 +10,5 @@ if __name__ == "__main__":
         from robot_gym.utils.estimator_evaluation import evaluate_estimator
         evaluate_estimator(args)
     else:
-        from robot_gym.envs.go2w.evaluate import evaluate
+        from robot_gym.envs.go2w.evaluation.evaluate import evaluate
         evaluate(args)

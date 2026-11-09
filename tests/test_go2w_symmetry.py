@@ -62,7 +62,7 @@ class SymmetryTests(unittest.TestCase):
             )
             self.assertEqual(self.cfg.control.control_type[name], "V" if wheel else "P")
             self.assertEqual(
-                self.cfg.control.action_scale[name], 18.0 if wheel else 0.2
+                self.cfg.control.action_scale[name], {"foot": 18.0, "hip": .30, "thigh": .35, "calf": .40}[name.split("_")[1]]
             )
         nominal = torch.tensor(
             [
@@ -88,6 +88,13 @@ class SymmetryTests(unittest.TestCase):
         env.dof_pos = torch.arange(1.0, 17.0).reshape(1, 16)
         env.dof_vel = env.dof_pos + 20
         env.actions = env.dof_pos / 16  # unique valid bounded policy actions
+        from robot_gym.envs.go2w.straight_motion import StraightMotionReference
+        env.cfg, env.dt = self.cfg, .02
+        env.num_obs = self.cfg.env.num_observations
+        env.phase = torch.tensor([.125])
+        env.command_steps_left = torch.tensor([17])
+        env.command_resampling_enabled = True
+        env.straight_reference = StraightMotionReference(1, "cpu", self.cfg.straight_motion)
         env.add_noise = False
         env.compute_observations()
         obs = TensorDict({"policy": env.obs_buf}, batch_size=[1])
@@ -105,6 +112,7 @@ class SymmetryTests(unittest.TestCase):
         torch.testing.assert_close(
             mirrored[:, 24:40], env.dof_vel[:, ACTION_PERM] * torch.tensor(ACTION_SIGN)
         )
+        torch.testing.assert_close(mirrored[:, 56:58], -env.obs_buf[:, 56:58])
         expected_actions = env.actions[:, ACTION_PERM] * torch.tensor(ACTION_SIGN)
         torch.testing.assert_close(mirrored[:, 40:56], expected_actions)
         torch.testing.assert_close(mirror_actions(env, env.actions), expected_actions)

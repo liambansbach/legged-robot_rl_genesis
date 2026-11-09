@@ -6,7 +6,7 @@ import unittest
 import numpy as np
 import torch
 
-from robot_gym.envs.go2w.source_yaw import BUNDLE, ACTOR_SHA, URDF_SHA, metrics, reset_case
+from robot_gym.envs.go2w.evaluation.source_yaw import BUNDLE, ACTOR_SHA, URDF_SHA, metrics, reset_case
 
 
 class SourceYawTests(unittest.TestCase):

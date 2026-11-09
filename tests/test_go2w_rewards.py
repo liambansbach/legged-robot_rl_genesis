@@ -159,7 +159,7 @@ class ReferenceTracking(unittest.TestCase):
                 args=get_args()
             resumed,training=task_registry.get_cfgs('go2w')
             update_cfg_from_args(resumed,training,args);validate_training(args,resumed,training)
-            self.assertEqual(resumed.config_version, 1)
+            self.assertEqual(resumed.config_version, cfg.config_version)
             self.assertEqual(training.runner.checkpoint_load_cfg,dict(actor=True,critic=True,optimizer=True,iteration=True))
             self.assertEqual(class_to_dict(resumed.rewards),class_to_dict(cfg.rewards))
 

@@ -209,7 +209,3 @@ def export_policy(runner, env, path, onnx=False, parity_histories=None):
         write_json(path / "runtime_dynamics.json", joint_dynamics(env.robot, env.joint_names))
     (path / "contract.json").write_text(json.dumps(contract, indent=2), encoding='utf-8')
     return policy
-
-
-# Historical diagnostic imports; normal exporter dispatches through the task.
-from robot_gym.envs.go2w.deployment import select_transfer_dynamics, transfer_contract  # noqa: F401,E402

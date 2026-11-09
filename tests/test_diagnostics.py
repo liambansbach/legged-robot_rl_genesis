@@ -20,24 +20,22 @@ from robot_gym import ROBOT_GYM_ROOT_DIR
 from robot_gym.envs.go2w.go2w_config import GO2WCfg, GO2WCfgPPO
 from robot_gym.utils import task_registry
 from robot_gym.utils.helpers import class_to_dict, get_args, update_cfg_from_args
+from robot_gym.envs.go2w.evaluation.diagnostics import PhysicsDiagnostics, check_reference_contract
 from robot_gym.utils.diagnostics import (
     summed_normal_force,
     cylinder_clearance,
     wheel_cylinders,
     heading_wxyz,
-    check_reference_contract,
-    check_continuation_output,
     manifest,
-    PhysicsDiagnostics,
     write_json,
     nominal_support_heights,
 )
-from robot_gym.utils.training_diagnostics import (
+from robot_gym.envs.go2w.evaluation.training_diagnostics import (
     std_parameters,
     TrainingDiagnostics,
     verify_resume_state,
 )
-from robot_gym.scripts.diagnostic_bank import condition_bank
+from robot_gym.envs.go2w.evaluation.diagnostic_bank import condition_bank
 from rsl_rl.modules.distribution import GaussianDistribution
 
 

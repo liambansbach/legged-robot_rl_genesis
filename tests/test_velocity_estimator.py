@@ -197,7 +197,7 @@ class VelocityEstimatorTests(unittest.TestCase):
         torch.testing.assert_close(a, b)
         torch.testing.assert_close(v, w)
         self.assertLessEqual(float(a.detach().abs().max()), 1.)
-        from robot_gym.envs.go2w.evaluate import validate_velocity_mode
+        from robot_gym.envs.go2w.evaluation.evaluate import validate_velocity_mode
         for mode in ('bank', 'equilibrium', 'precision_dr', 'transfer_screen'):
             self.assertEqual(validate_velocity_mode(env.cfg, SimpleNamespace(eval_mode=mode)), 'estimated')
         with self.assertRaisesRegex(ValueError, 'phase counterfactuals'):

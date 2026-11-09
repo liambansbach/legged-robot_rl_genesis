@@ -272,12 +272,3 @@ def joint_dynamics(robot, names):
             "units": {"armature": "kg m^2 (joint-reflected)", "kp": "N m/rad", "kv": "N m s/rad (active)",
                       "stiffness": "N m/rad (passive)", "damping": "N m s/rad (passive)",
                       "frictionloss": "N m", "force_range": "N m", "position_limit": "rad"}}
-
-
-def __getattr__(name):
-    # Preserve historical diagnostic imports without a second implementation.
-    if name in {"check_reference_contract",
-                "check_continuation_output", "PhysicsDiagnostics", "loaded_properties"}:
-        from robot_gym.envs.go2w import diagnostics
-        return getattr(diagnostics, name)
-    raise AttributeError(name)

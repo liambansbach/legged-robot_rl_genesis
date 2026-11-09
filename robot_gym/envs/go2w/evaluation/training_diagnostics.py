@@ -236,7 +236,7 @@ class TrainingDiagnostics:
         samples = torch.where(mask[..., None], angles[:, None], 0)
         value = torch.cat((mask.sum(0)[:, None], samples.sum(0), samples.square().sum(0)), dim=1)
         self.posture = value if self.posture is None else self.posture + value
-        from .phase import step_demand
+        from ..phase import step_demand
         gate = step_demand(commands)
         moving = valid & (gate > 0)
         speed2 = self.env.wheel_center_lateral_speed.square() * self.env.loaded_wheels

@@ -5,32 +5,30 @@ from tensordict import TensorDict
 from rsl_rl.models import MLPModel
 from robot_gym.envs import *  # noqa: F401,F403 -> register tasks before utils imports
 from robot_gym.utils.export import BoundedPolicy
-from robot_gym.scripts.evaluate import (
-    response_metrics,
-    diagnostic_metrics,
-    lateral_metrics,
-    mirror_pair_summary,
-    pose_recovery_metrics,
-    cases,
-    MIRROR_PAIRS,
-    POSE_RECOVERY_CASES,
+from robot_gym.envs.go2w.evaluation.evaluate import (
+    response_metrics, diagnostic_metrics, lateral_metrics, mirror_pair_summary,
+    pose_recovery_metrics, cases, MIRROR_PAIRS, POSE_RECOVERY_CASES,
+    use_physics_diagnostics, swing_events, velocity_window_metrics,
 )
-import numpy as np
-from types import SimpleNamespace
-from robot_gym.scripts.diagnostic_bank import sustained_schedule, rollout_sequence
-from robot_gym.scripts.diagnostic_bank import (
-    closed_loop_reference, closed_loop_request, rollout_closed_loop, closed_loop_metrics,
-    CLOSED_LOOP_CASES,
+from robot_gym.envs.go2w.evaluation.diagnostic_bank import (
+    sustained_schedule, rollout_sequence, closed_loop_reference, closed_loop_request,
+    rollout_closed_loop, closed_loop_metrics, CLOSED_LOOP_CASES,
 )
-from robot_gym.scripts.evaluate import use_physics_diagnostics
-from robot_gym.scripts.evaluate import swing_events, velocity_window_metrics
 from robot_gym.utils.diagnostics import rotate_wxyz, wheel_axles_body
 from scipy.spatial.transform import Rotation
+from types import SimpleNamespace
+import numpy as np
+
+
+class RolloutEnv(SimpleNamespace):
+    """Capture the current command as the rollout's simulated transition input."""
+    def set_commands(self, command):
+        self.commands[:] = torch.as_tensor(command, dtype=self.commands.dtype)
 
 
 class InferenceTests(unittest.TestCase):
     def test_precision_schedules_and_terminal_alignment(self):
-        from robot_gym.scripts.diagnostic_bank import precision_schedule, precision_conditions, rollout_precision
+        from robot_gym.envs.go2w.evaluation.diagnostic_bank import precision_schedule, precision_conditions, rollout_precision
         schedules = precision_schedule()
         self.assertEqual([sum(t for t,c in v) for v in schedules.values()], [15,19,19,13,13])
         self.assertEqual(sum(t for t,c in precision_schedule(True)["dynamics"]), 26)
@@ -40,7 +38,7 @@ class InferenceTests(unittest.TestCase):
                 self.assertEqual(ta, tb); np.testing.assert_array_equal(a, -np.asarray(b))
         conditions = precision_conditions()
         self.assertEqual([c["delay"] for c in conditions], [0,0,0,0,0,0,1,2])
-        env = SimpleNamespace(dt=.02, device="cpu", num_envs=2, commands=torch.zeros(2,3),
+        env = RolloutEnv(dt=.02, device="cpu", num_envs=2, commands=torch.zeros(2,3),
                               episode_length_buf=torch.zeros(2, dtype=torch.long))
         env.compute_observations = lambda: None
         env.get_observations = lambda: torch.zeros(2,56)
@@ -70,7 +68,7 @@ class InferenceTests(unittest.TestCase):
         np.testing.assert_allclose(data["raw_actions"], 1.2)
         np.testing.assert_allclose(data["actions"], 1.)
         np.testing.assert_allclose(data["commands"][:3,:,0], .1)
-        from robot_gym.scripts.diagnostic_bank import precision_metrics
+        from robot_gym.envs.go2w.evaluation.diagnostic_bank import precision_metrics
         names = [f"{side}_{joint}_joint" for side in ("FL", "FR", "RL", "RR")
                  for joint in ("hip", "thigh", "calf", "foot")]
         data["foot_pos"] = data["foot_pos"].reshape(5,2,4,3)
@@ -137,10 +135,10 @@ class InferenceTests(unittest.TestCase):
         from pathlib import Path
         from tempfile import TemporaryDirectory
         from unittest.mock import Mock, patch
-        from robot_gym.scripts.diagnostic_bank import evaluate_closed_loop
+        from robot_gym.envs.go2w.evaluation.diagnostic_bank import evaluate_closed_loop
 
         for failure in (None, 'fall', 'timeout', 'reset', 'nonfinite_state'):
-            env = SimpleNamespace(dt=.02, device='cpu', num_envs=1, commands=torch.zeros(1, 3),
+            env = RolloutEnv(dt=.02, device='cpu', num_envs=1, commands=torch.zeros(1, 3),
                                   base_pos=torch.tensor([[0., 0., .4]]), base_quat=torch.tensor([[1., 0., 0., 0.]]),
                                   episode_length_buf=torch.zeros(1, dtype=torch.long),
                                   cfg=SimpleNamespace(control=SimpleNamespace(decimation=4), sim=SimpleNamespace(dt=.005)))
@@ -197,7 +195,7 @@ class InferenceTests(unittest.TestCase):
         env.torque_limits = torch.ones(16)
         env.reset = Mock()
         with TemporaryDirectory() as out, patch(
-                'robot_gym.envs.go2w.diagnostic_bank.rollout_closed_loop', return_value=(data, reason)) as rollout:
+                'robot_gym.envs.go2w.evaluation.diagnostic_bank.rollout_closed_loop', return_value=(data, reason)) as rollout:
             result = evaluate_closed_loop(env, None, Path(out))
             self.assertEqual(list(result['tests']), ['straight'])
             self.assertEqual(result['position_limits'], [[None, None]] * 16)
@@ -223,7 +221,7 @@ class InferenceTests(unittest.TestCase):
                                    ("lateral_p020", "lateral_n020"), ("diagonal_p010", "diagonal_n010")):
             np.testing.assert_allclose(np.asarray(schedule[positive][1][0]) * [1, -1, -1], schedule[negative][1][0])
         for terminal_at, timeout in ((None, False), (175, False), (175, True)):
-            env = SimpleNamespace(dt=.02, device="cpu", commands=torch.zeros(1, 3), steps=0)
+            env = RolloutEnv(dt=.02, device="cpu", commands=torch.zeros(1, 3), steps=0)
             env.compute_observations = lambda: None
             env.get_observations = lambda: torch.zeros(1, 56)
 

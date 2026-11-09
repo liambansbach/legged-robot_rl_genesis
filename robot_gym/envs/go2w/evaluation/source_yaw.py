@@ -21,7 +21,7 @@ from robot_gym.utils.diagnostics import (
 from robot_gym.utils.helpers import class_to_dict
 from robot_gym.utils.replay import configure_nominal
 from .diagnostics import PhysicsDiagnostics, ReferenceCapture, loaded_properties
-from .go2w_config import restore_saved_config
+from ..go2w_config import restore_saved_config
 
 
 BUNDLE = Path(ROBOT_GYM_ROOT_DIR) / "ressources/pretrained/go2w/reference"

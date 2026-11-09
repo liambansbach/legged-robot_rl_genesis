@@ -8,7 +8,7 @@ import torch
 import robot_gym.envs  # Register tasks before shared diagnostic imports.
 from genesis.utils.geom import quat_to_xyz
 from robot_gym.envs.go2w.phase import step_demand
-from robot_gym.envs.go2w.training_diagnostics import TrainingDiagnostics
+from robot_gym.envs.go2w.evaluation.training_diagnostics import TrainingDiagnostics
 
 
 class DiagnosticsReductionsTest(unittest.TestCase):

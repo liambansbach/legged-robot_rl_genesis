@@ -3,7 +3,7 @@
 import torch
 from genesis.utils.geom import inv_quat, transform_by_quat
 
-from robot_gym.envs.go2.go2_env import Go2Env
+from robot_gym.envs.base.legged_robot import LeggedRobot
 
 
 def lateral_wheel_center_velocity(link_quat, link_vel, link_ang, geometry):
@@ -126,7 +126,7 @@ def horizontal_push_force(draws, mixture):
     return force, tier
 
 
-class Go2WEnv(Go2Env):
+class Go2WEnv(LeggedRobot):
     phase_guided = True  # Capability exposed to shared diagnostics.
     wheel_geometry_enabled = True  # Shared ground-contact callback.
 
@@ -168,7 +168,7 @@ class Go2WEnv(Go2Env):
 
     def setup_runner(self, runner):
         if getattr(self.cfg, "training_resume", None) and runner.logger.log_dir is not None:
-            from .diagnostics import check_continuation_output
+            from .evaluation.diagnostics import check_continuation_output
             check_continuation_output(runner.checkpoint_path, runner.logger.log_dir)
         from .phase import project_log_std
         runner.std_projection_hook = project_log_std(runner.alg.optimizer, runner.alg.actor.distribution)
@@ -179,7 +179,7 @@ class Go2WEnv(Go2Env):
             return
         import math
         from robot_gym.utils.helpers import class_to_dict
-        from .training_diagnostics import verify_resume_state
+        from .evaluation.training_diagnostics import verify_resume_state
         state = verify_resume_state(runner, runner.checkpoint_path)
         scales = class_to_dict(self.cfg.rewards.scales)
         if getattr(args, "resume_current_reward_scales", False):
@@ -207,7 +207,7 @@ class Go2WEnv(Go2Env):
 
     def install_training_diagnostics(self, runner, log_dir):
         from pathlib import Path
-        from .training_diagnostics import TrainingDiagnostics
+        from .evaluation.training_diagnostics import TrainingDiagnostics
         TrainingDiagnostics(runner, self, Path(log_dir) / "diagnostics.jsonl")
 
     def training_metadata(self):
@@ -365,7 +365,6 @@ class Go2WEnv(Go2Env):
         self.wheel_clearance[env_ids] = 0
         self.wheel_normal_force[env_ids] = 0
         self.loaded_wheels[env_ids] = False
-        self.wheel_reposition_velocity_body[env_ids] = 0
         self.wheel_center_lateral_speed[env_ids] = 0
 
     def _build_control_tensors(self):
@@ -440,7 +439,6 @@ class Go2WEnv(Go2Env):
         self.wheel_clearance = torch.zeros_like(self.current_ankle_heights)
         self.wheel_normal_force = torch.zeros_like(self.wheel_clearance)
         self.loaded_wheels = torch.zeros_like(self.foot_contacts)
-        self.wheel_reposition_velocity_body = torch.zeros_like(self.foot_pos)
         self.wheel_center_lateral_speed = torch.zeros_like(self.wheel_clearance)
         self.phase = torch.zeros(self.num_envs, device=self.device)
         self.phase_offsets = torch.tensor([self.cfg.phase_guidance["offsets"][n]
@@ -507,22 +505,10 @@ class Go2WEnv(Go2Env):
         )
 
         wheel_quat = self.robot.get_links_quat(self.foot_link_indices_local)
-        if self.cfg.env.capture_precision:
-            self.wheel_link_quat = wheel_quat
         self.wheel_clearance[:] = cylinder_clearance(
             self.foot_pos,
             wheel_quat,
             *self.wheel_geometry,
-        )
-        # Genesis 1.4.1 defaults to authored link origins (not COM), in world axes.
-        # Both get_vel and get_links_vel already include COM/origin transport.
-        self.wheel_reposition_velocity_body[:] = link_reposition_velocity(
-            self.foot_pos,
-            self.foot_lin_vel,
-            self.base_pos,
-            self.base_quat,
-            self.base_lin_vel,
-            self.base_ang_vel,
         )
         self.wheel_center_lateral_speed[:] = lateral_wheel_center_velocity(
             wheel_quat, self.foot_lin_vel, self.robot.get_links_ang(self.foot_link_indices_local),
@@ -532,7 +518,14 @@ class Go2WEnv(Go2Env):
         center = self.foot_pos + rotate_wxyz(wheel_quat, self.wheel_geometry[0])
         thigh = self.robot.get_links_pos(self.thigh_link_indices_local, relative=True)
         self.wheel_thigh_dx[:] = rotate_wxyz(inv_quat(self.base_quat)[:, None], center - thigh)[..., 0]
-        self.wheel_center_body = rotate_wxyz(inv_quat(self.base_quat)[:, None], center - self.base_pos[:, None])
+        if self.cfg.env.capture_precision:
+            # Capture at the same boundary as the reward, before selective reset.
+            self.wheel_link_quat = wheel_quat
+            self.wheel_center_body = rotate_wxyz(inv_quat(self.base_quat)[:, None], center - self.base_pos[:, None])
+            self.wheel_reposition_velocity_body = link_reposition_velocity(
+                self.foot_pos, self.foot_lin_vel, self.base_pos, self.base_quat,
+                self.base_lin_vel, self.base_ang_vel,
+            )
 
     def _reset_command_timer(self, env_ids):
         n = len(env_ids)

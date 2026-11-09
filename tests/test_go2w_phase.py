@@ -78,6 +78,12 @@ class PhaseTests(unittest.TestCase):
         env.leg_action_indices = [i for i in range(16) if i % 4 != 3]
         env.obs_scales = SimpleNamespace(lin_vel=2., ang_vel=.25, dof_pos=1., dof_vel=.05)
         env.commands_scale = torch.ones(3)
+        from robot_gym.envs.go2w.straight_motion import StraightMotionReference
+        env.straight_reference = StraightMotionReference(2, "cpu", cfg.straight_motion)
+        env.command_steps_left = torch.tensor([5, 10])
+        env.command_resampling_enabled = True
+        env.robot = SimpleNamespace(get_pos=lambda: torch.zeros(2, 3),
+                                    get_quat=lambda: torch.tensor([[1., 0., 0., 0.]]).expand(2, -1))
         env.add_noise = False
         env.compute_observations()
         before = env.obs_buf.clone()
@@ -91,7 +97,6 @@ class PhaseTests(unittest.TestCase):
         torch.testing.assert_close(env.phase, torch.tensor([.225, .725]))
         env.wheel_clearance = env.wheel_normal_force = torch.zeros(2, 4)
         env.loaded_wheels = torch.zeros(2, 4, dtype=torch.bool)
-        env.wheel_reposition_velocity_body = torch.zeros(2, 4, 3)
         env.wheel_center_lateral_speed = torch.zeros(2, 4)
         cfg.phase_guidance["randomize_reset"] = False
         with patch.object(LeggedRobot, "reset_idx"):
@@ -138,8 +143,9 @@ class PhaseTests(unittest.TestCase):
         env.sensor_offsets = torch.zeros(2, 3)
         env.sensor_vz_squared = torch.zeros(1)
         env.foot_link_indices_local, env.thigh_link_indices_local = [0, 1, 2, 3], [4, 5, 6, 7]
-        env.wheel_clearance = env.wheel_center_lateral_speed = env.wheel_thigh_dx = torch.zeros(1, 4)
-        env.wheel_reposition_velocity_body = torch.zeros(1, 4, 3)
+        env.wheel_clearance = torch.zeros(1, 4)
+        env.wheel_center_lateral_speed = torch.zeros(1, 4)
+        env.wheel_thigh_dx = torch.zeros(1, 4)
         env.foot_lin_vel = torch.zeros(1, 4, 3)
         env.base_lin_vel = env.base_ang_vel = torch.zeros(1, 3)
         env.base_pos = torch.tensor([[2., -1., .8]])
@@ -148,7 +154,8 @@ class PhaseTests(unittest.TestCase):
         env.wheel_geometry = (offset, axis, torch.full((4,), .09167), torch.full((4,), .025))
         center_body = torch.tensor([[[.3, .2, -.3], [.3, -.2, -.3], [-.1, .2, -.3], [-.1, -.2, -.3]]])
         thigh_body = center_body - torch.tensor([.1, .04, -.2])
-        for quat in ([1., 0., 0., 0.], [.5, .5, .5, .5]):
+        for capture, quat in ((False, [1., 0., 0., 0.]), (True, [.5, .5, .5, .5])):
+            cfg.env.capture_precision = capture
             env.base_quat = torch.tensor([quat])
             wheel_quat = env.base_quat[:, None].expand(-1, 4, -1)
             env.foot_pos = env.base_pos[:, None] + rotate_wxyz(wheel_quat, center_body - offset)
@@ -158,6 +165,11 @@ class PhaseTests(unittest.TestCase):
                                         get_links_pos=lambda *a, **kw: thigh)
             with patch.object(LeggedRobot, "_update_robot_state"):
                 env._update_robot_state()
+            self.assertEqual(hasattr(env, "wheel_reposition_velocity_body"), capture)
+            self.assertEqual(hasattr(env, "wheel_center_body"), capture)
+            if capture:
+                torch.testing.assert_close(env.wheel_center_body, center_body)
+                torch.testing.assert_close(env.wheel_reposition_velocity_body, torch.zeros_like(env.foot_pos))
             torch.testing.assert_close(env.wheel_thigh_dx, torch.full((1, 4), .1), atol=3e-7, rtol=1e-5)
 
 

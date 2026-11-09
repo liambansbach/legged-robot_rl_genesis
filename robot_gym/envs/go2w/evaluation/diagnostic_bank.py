@@ -1,4 +1,4 @@
-"""Small explicit reset/DR bank and standing probe; called by evaluate --eval_mode."""
+"""Go2-W command schedules, condition banks, transition recording and metrics."""
 
 import json
 from time import perf_counter
@@ -6,8 +6,8 @@ import numpy as np
 import torch
 from scipy.spatial.transform import Rotation
 
+from .diagnostics import loaded_properties
 from robot_gym.utils.diagnostics import (
-    loaded_properties,
     write_json,
     nominal_support_heights,
     sha256,
@@ -593,7 +593,7 @@ def evaluate_restarts(env, policy, out, prefix="brake"):
     return report
 
 
-def evaluate_bank(env, runner, args, out):
+def evaluate_bank(env, policy, args, out):
     conditions = condition_bank(args.bank_seed)
     if args.eval_mode == "equilibrium":
         conditions = conditions[:3]
@@ -613,8 +613,6 @@ def evaluate_bank(env, runner, args, out):
     write_json(out / "manifest.json", metadata)
     write_json(out / "condition_properties.json", loaded_properties(env))
     verify_selective_reset(env, out)
-    from robot_gym.utils.velocity_estimator import inference_policy
-    policy = inference_policy(runner, env, getattr(args, "velocity_source", None))
     hold = max(
         300, args.steps
     )  # >=6 s per phase, regardless of short nominal smoke steps.
@@ -743,7 +741,7 @@ def precision_conditions():
 
 def rolling_phase_observation(observation, commands):
     """Inference diagnostic only: constant raw clock at zero demand, physical slots intact."""
-    from .phase import demand
+    from ..phase import demand
     observation = observation.clone()
     observation["policy"][:, 56:58] *= (demand(commands) > 0)[:, None]
     return observation
@@ -813,7 +811,7 @@ def rollout_precision(env, policy, schedule, sensor=False, rolling_phase_zero=Fa
 
 
 def precision_metrics(data, schedule, dt, metadata, initial):
-    from robot_gym.envs.go2w.evaluate import swing_events, velocity_window_metrics
+    from .evaluate import swing_events, velocity_window_metrics
     from robot_gym.utils.diagnostics import wheel_axles_body
     from robot_gym.envs.go2w.go2w_symmetry import joint_reflection
 
@@ -968,7 +966,7 @@ def sensor_schedule():
 
 def sensor_metrics(data, schedule, dt, metadata):
     """Raw rigid-body motion: world-up is not the sensor optical axis. No derivatives."""
-    from .go2w_env import rigid_sensor_state
+    from ..go2w_env import rigid_sensor_state
     from .evaluate import swing_events
     d = {k: v[:, 0] for k, v in data.items()}
     names = ("base", "front_realsense", "radar", "front_realsense_body")
@@ -1084,7 +1082,7 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
             (4, (.2, 0., 0.)), (8, (0., 0., 0.))]}
         print("Phase transition schedule: " + json.dumps(schedules), flush=True)
     if sensor:
-        from .go2w_env import fixed_sensor_frames
+        from ..go2w_env import fixed_sensor_frames
         metadata["sensor_frames"] = fixed_sensor_frames(env.urdf_reader.robot_file_path_absolute)
     if case_names:
         if not transfer:
@@ -1099,7 +1097,7 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
         report["diagnostic_phase_observation"] = "Diagnostic override: raw slots 56:58 zero at zero demand, unconditional clock at positive demand. Latent clock and reward targets unchanged."
     nominal = loaded_properties(env) if dr else None
     if transfer:
-        from robot_gym.utils.export import transfer_contract
+        from ..deployment import transfer_contract
         report["transfer_dynamics"] = transfer_contract(env)
         report["physics_recording"] = {
             "enabled": report["heavy_recorder"], "dt_s": env.cfg.sim.dt,
@@ -1151,7 +1149,7 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
             report["tests"][name][0]["sensor_windows"] = sensor_metrics(data, schedule, env.dt, metadata)
             report["tests"][name][0]["recording_hz"] = {"policy": 1/env.dt, "physics": 1/env.cfg.sim.dt if physics else None}
             if physics:
-                from .go2w_env import rigid_sensor_state
+                from ..go2w_env import rigid_sensor_state
                 offsets = torch.tensor([[0., 0., 0.]] + [metadata["sensor_frames"][n]["translation_m"]
                                        for n in ("front_realsense", "radar", "front_realsense_body")], device="cpu")
                 _, velocity = rigid_sensor_state(*[torch.from_numpy(physics[k]) for k in
@@ -1180,7 +1178,7 @@ def evaluate_precision(env, policy, out, dr=False, transfer=False, case_names=No
                     "raw_action_rms_difference": ((other-original).square().mean(0).sqrt()).cpu().tolist(),
                     "clipped_action_rms_difference": ((other.clamp(-1,1)-original.clamp(-1,1)).square().mean(0).sqrt()).cpu().tolist()}
         if transfer:
-            from robot_gym.envs.go2w.diagnostics import spectrum
+            from .diagnostics import spectrum
             for index, result in enumerate(report["tests"][name]):
                 for phase in result["phases"]:
                     if not phase["samples"]:

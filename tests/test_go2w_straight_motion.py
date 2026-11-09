@@ -12,7 +12,6 @@ from rsl_rl.models import MLPModel
 from rsl_rl.algorithms import PPO
 
 from robot_gym.envs.base.legged_robot import LeggedRobot
-from robot_gym.envs.go2.go2_env import Go2Env
 from robot_gym.envs.go2w.go2w_config import GO2WCfg, GO2WCfgPPO, restore_saved_config
 from robot_gym.envs.go2w.go2w_env import Go2WEnv
 from robot_gym.envs.go2w.go2w_symmetry import mirror_observations
@@ -138,12 +137,12 @@ class StraightMotionTests(unittest.TestCase):
         env.straight_reference.advance(env.base_pos, env.base_quat, 2.)
         env.phase = torch.zeros(2)
         for name in ('wheel_clearance', 'wheel_normal_force', 'loaded_wheels',
-                     'wheel_reposition_velocity_body', 'wheel_center_lateral_speed'):
+                     'wheel_center_lateral_speed'):
             setattr(env, name, torch.zeros(2, 4))
         env.robot = Mock()
         env.robot.get_pos.return_value = torch.tensor([[7., 4., .43], [0., .2, .43]])
         env.robot.get_quat.return_value = env.base_quat.clone()
-        with patch.object(Go2Env, 'reset_idx'):
+        with patch.object(LeggedRobot, 'reset_idx'):
             env.reset_idx(torch.tensor([0]))
         torch.testing.assert_close(env.straight_reference.origin, torch.tensor([[7., 4.], [0., 0.]]))
         torch.testing.assert_close(env.straight_reference.age, torch.tensor([0., 2.]))

@@ -1,27 +1,4 @@
-"""Replay a selected run's saved task configuration and checkpoint.
-
-From the repository root in the installed Genesis environment::
-
-    python -m robot_gym.scripts.play --task dodo --experiment_name dodo_walking --load_run RUN_DIRECTORY --checkpoint -1
-
-Replace RUN_DIRECTORY with a directory under logs/<experiment_name>. Latest (-1)
-is resolved and printed once; explicit numbers work too. --load_run selects replay
-input; --run_name is a compatibility alias when --load_run is absent (and labels
-training output in train.py). No historical profile is needed.
-
-No command flags retains task sampling. Any --command_vx (m/s), --command_vy
-(m/s), or --command_yaw (rad/s) fixes the body command, with omitted axes zero.
---command_vx 0 requests exact stand. --steps counts policy ticks: 900 at .02 s is
-18 simulated seconds, excluding reset settling/startup. Ticks span episode resets;
---episode_length_s changes the episode timeout. Falls still reset.
-
---manual_control opens a focused keyboard input window and starts at zero command.
-It defaults to one environment and runs until Esc/window closure unless --steps is
-explicit. Hold W/S, A/D, Q/E; Shift slows to 30%, Space requests a policy stop.
-
---export opts into export under the selected run. --no_export remains compatible
-with the default. See --help for the full CLI and Go2-W docs for concrete examples.
-"""
+"""Replay a saved policy with sampled, fixed or keyboard commands."""
 
 import torch
 import genesis as gs
@@ -32,7 +9,7 @@ from robot_gym.utils.replay import configure_fixed_command, configure_nominal
 
 
 def should_export_policy(args):
-    return args.export and not args.no_export and not getattr(args, "zero_command_brake", False)
+    return args.export and not args.no_export
 
 
 def play(args):
@@ -65,8 +42,6 @@ def play(args):
         if manual:
             env.sim.viewer.realtime_factor = 1.0  # Reuse Genesis's physics-step pacing.
         configure_fixed_command(env, args)
-        if getattr(args, "zero_command_brake", False):
-            env.enable_zero_command_brake()
         env.reset()
         runner, _ = task_registry.make_alg_runner(env, args=args, train_cfg=train_cfg, save_config=False)
         from robot_gym.utils.velocity_estimator import inference_policy

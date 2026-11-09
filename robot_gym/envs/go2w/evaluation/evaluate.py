@@ -1,4 +1,4 @@
-"""Go2-W command/step/push evaluation; shared CLI remains scripts.evaluate."""
+"""Go2-W command tracking, recovery and disturbance evaluation."""
 
 import json
 from pathlib import Path
@@ -10,18 +10,14 @@ import numpy as np
 import torch
 import genesis as gs
 from genesis.utils.geom import inv_quat, transform_by_quat
-from robot_gym.envs import *  # noqa: F401,F403
-from robot_gym.utils import task_registry
-from robot_gym.utils.helpers import get_args
-from robot_gym.utils.helpers import class_to_dict, get_load_path, update_cfg_from_args
+from robot_gym.envs import task_registry
+from robot_gym.utils.helpers import class_to_dict
 from robot_gym import ROBOT_GYM_ROOT_DIR
-from robot_gym.utils.urdf_reader import URDFReader
+from .diagnostics import PhysicsDiagnostics, loaded_properties
 from robot_gym.utils.diagnostics import (
-    PhysicsDiagnostics,
-    check_reference_contract,
     config_differences,
     manifest,
-    loaded_properties,
+    sha256,
     write_json,
 )
 
@@ -348,13 +344,13 @@ def validate_velocity_mode(cfg, args):
 
 
 def evaluate(args):
+    if args.task != "go2w":
+        raise ValueError("The Go2-W command suite requires --task go2w. For another task use --estimator_screen.")
     if args.eval_mode == "source_yaw":
         from .source_yaw import evaluate_source_yaw
         return evaluate_source_yaw(args)
     if args.steps < 2:
         raise ValueError("--steps must be at least 2")
-    if args.task != "go2w":
-        raise ValueError("This command suite is specific to go2w")
     phase_offset = getattr(args, "eval_phase_offset", 0.)
     if not np.isfinite(phase_offset) or not 0 <= phase_offset < 1 or (phase_offset and args.eval_mode != "sensor_sustained"):
         raise ValueError("Phase offset must be in [0,1) and is only supported by sensor_sustained")
@@ -369,7 +365,7 @@ def evaluate(args):
     if trace_cases and (args.eval_mode != "sensor_sustained" or not args.diagnostic_trace):
         raise ValueError("Case-specific substep capture requires sensor_sustained --diagnostic_trace")
     if trace_cases:
-        from robot_gym.envs.go2w.diagnostic_bank import sensor_schedule
+        from .diagnostic_bank import sensor_schedule
         if not set(trace_cases) <= set(args.transfer_cases or sensor_schedule()):
             raise ValueError("Substep capture cases must belong to the selected panel")
     if noise_pushes and args.eval_mode != "precision_dr":
@@ -380,7 +376,7 @@ def evaluate(args):
     if out.exists() and any(out.iterdir()):
         raise ValueError(f"Refusing to overwrite evaluation evidence: {out}")
     original_cfg = class_to_dict(cfg)
-    reference = {"saved_config": str(checkpoint.with_name("config.yaml"))}
+    reference = {"saved_config": args.resolved_config_path, "sha256": sha256(args.resolved_config_path)}
     cfg.env.num_envs = (
         args.num_envs or {"nominal": 1, "sustained": 1, "sensor_sustained": 1, "closed_loop": 1, "precision_screen": 1, "precision_dr": 8, "transfer_screen": 1, "bank": 32, "equilibrium": 3}[args.eval_mode]
     )
@@ -388,6 +384,9 @@ def evaluate(args):
         20.0, 4 * args.steps * cfg.sim.dt * cfg.control.decimation
     )
     cfg.env.capture_transitions = True
+    if args.eval_mode == "nominal":
+        # The nominal trace includes loaded_wheels and wheel_reposition_velocity_body.
+        cfg.env.capture_closed_loop = cfg.env.capture_precision = True
     from robot_gym.utils.replay import configure_nominal
     configure_nominal(cfg, args)
     if noise_pushes:
@@ -404,9 +403,7 @@ def evaluate(args):
         if args.eval_mode == "precision_dr":
             cfg.domain_rand.action_delay_steps_range = [0, 2]
             cfg.sim.batch_links_info = cfg.sim.batch_dofs_info = True
-        from robot_gym.envs.go2w.diagnostic_bank import precision_schedule
-        from robot_gym.envs.go2w.diagnostic_bank import transfer_schedule
-        from robot_gym.envs.go2w.diagnostic_bank import sensor_schedule
+        from .diagnostic_bank import precision_schedule, sensor_schedule, transfer_schedule
         schedule = (sensor_schedule() if args.eval_mode == "sensor_sustained" else transfer_schedule() if args.eval_mode == "transfer_screen"
                     else precision_schedule(args.eval_mode == "precision_dr"))
         print("Isolated rolling phase diagnostic; bounded schedule will be recorded in metrics.json"
@@ -423,7 +420,7 @@ def evaluate(args):
         if cfg.env.num_envs != 1:
             raise ValueError("Sustained evaluation requires one environment")
         cfg.env.episode_length_s = 40.0
-        from robot_gym.envs.go2w.diagnostic_bank import sustained_schedule
+        from .diagnostic_bank import sustained_schedule
         print("Sustained schedule (seconds): " + json.dumps(sustained_schedule()), flush=True)
     elif args.eval_mode != "nominal":
         cfg.sim.batch_links_info = cfg.sim.batch_dofs_info = True
@@ -440,7 +437,7 @@ def evaluate(args):
     if use_physics_diagnostics(args):
         env.physics_diagnostics = PhysicsDiagnostics(env)
         if args.eval_mode == "transfer_screen":
-            from robot_gym.envs.go2w.diagnostics import ReferenceCapture
+            from .diagnostics import ReferenceCapture
             env.physics_diagnostics = ReferenceCapture(env)
     cfg = env.cfg
     write_json(
@@ -461,7 +458,7 @@ def evaluate(args):
     )
     write_json(out / "loaded_properties.json", loaded_properties(env))
     if args.eval_mode in ("closed_loop", "precision_screen", "precision_dr", "transfer_screen", "sensor_sustained"):
-        from robot_gym.envs.go2w.diagnostic_bank import evaluate_closed_loop, evaluate_precision
+        from .diagnostic_bank import evaluate_closed_loop, evaluate_precision
 
         startup = perf_counter() - PROCESS_STARTED
         report = (evaluate_closed_loop(env, policy, out) if args.eval_mode == "closed_loop"
@@ -486,15 +483,15 @@ def evaluate(args):
         print(args.eval_mode + " complete: " + json.dumps(report["wall_clock_s"]), flush=True)
         return
     if args.eval_mode == "sustained":
-        from robot_gym.envs.go2w.diagnostic_bank import evaluate_sustained
+        from .diagnostic_bank import evaluate_sustained
 
         evaluate_sustained(env, policy, out)
         gs.destroy()
         return
     if args.eval_mode != "nominal":
-        from robot_gym.envs.go2w.diagnostic_bank import evaluate_bank
+        from .diagnostic_bank import evaluate_bank
 
-        evaluate_bank(env, runner, args, out)
+        evaluate_bank(env, policy, args, out)
         gs.destroy()
         return
     report = {
@@ -691,7 +688,7 @@ def evaluate(args):
                 cfg.rewards.base_height_target,
                 hip_indices,
             )
-            from robot_gym.envs.go2w.diagnostic_bank import summarize
+            from .diagnostic_bank import summarize
 
             metrics["physics_diagnostics_per_environment"] = summarize(
                 detail,
@@ -778,13 +775,9 @@ def evaluate(args):
         "world_y",
         "wheel_action_saturation",
     ]
-    from robot_gym.envs.go2w.diagnostic_bank import evaluate_restarts
+    from .diagnostic_bank import evaluate_restarts
 
     prefix = "hold"
     report[f"{prefix}_restarts"] = evaluate_restarts(env, policy, out, prefix)
     (out / "metrics.json").write_text(json.dumps(report, indent=2, allow_nan=False))
     gs.destroy()
-
-
-if __name__ == "__main__":
-    evaluate(get_args())

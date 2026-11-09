@@ -26,7 +26,7 @@ class SensorTests(unittest.TestCase):
 
     def test_fixed_lr_kl_uses_original_distribution_without_forward(self):
         from tensordict import TensorDict
-        from robot_gym.envs.go2w.training_diagnostics import TrainingDiagnostics
+        from robot_gym.envs.go2w.evaluation.training_diagnostics import TrainingDiagnostics
 
         old_mean = torch.zeros(2, 16)
         old_std = torch.ones(2, 16)
